@@ -1,0 +1,11 @@
+@url_dev=http://localhost:3055/v1/api/
+
+POST {{url_dev}}shop/signup
+Content-Type: application/json
+x-api-key: 7844449eea9d8d30aae75028230e35922130d65fb31ee79787e7863b05215d88942efdc684a096ad2eb1ba0e242f6f8ada080a843415d46f5a0392658f9b3198
+
+{
+  "name": "TuanDT",
+  "email": "chuhoi008.dt@gmail.com",
+  "password": "tuan123456"
+}

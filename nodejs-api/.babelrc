@@ -1,0 +1,18 @@
+{
+  "presets": ["@babel/preset-env"],
+  "plugins": [
+    ["@babel/plugin-transform-runtime"],
+    ["module-resolver", {
+      "root": ["./src"],
+      "alias": {
+        "~": "./src",
+        "~/controllers": "./src/controllers",
+        "~/services": "./src/services",
+        "~/models": "./src/models",
+        "~/utils": "./src/utils",
+        "~/auth": "./src/auth",
+        "~/configs": "./src/configs"
+      }
+    }]
+  ]
+}
