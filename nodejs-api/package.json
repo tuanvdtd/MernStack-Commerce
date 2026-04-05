@@ -9,7 +9,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env BUILD_MODE=dev nodemon --exec babel-node server.js",
     "dev:node": "cross-env BUILD_MODE=dev nodemon server.js",
-    "clean": "rimraf build && mkdir build",
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('build',{recursive:true,force:true}); fs.mkdirSync('build',{recursive:true});\"",
     "build-babel": "babel ./src -d ./build/src",
     "start": "cross-env BUILD_MODE=production babel-node server.js",
     "build": "npm run clean && npm run build-babel",
@@ -53,6 +53,7 @@
     "winston": "^3.18.3"
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.3",
     "@babel/core": "^7.28.5",
     "@babel/node": "^7.28.0",
     "@babel/plugin-transform-runtime": "^7.28.5",
