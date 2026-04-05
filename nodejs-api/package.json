@@ -7,10 +7,14 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --exec babel-node server.js",
-    "dev:node": "nodemon server.js",
-    "start": "babel-node server.js",
-    "start:node": "node server.js"
+    "dev": "cross-env BUILD_MODE=dev nodemon --exec babel-node server.js",
+    "dev:node": "cross-env BUILD_MODE=dev nodemon server.js",
+    "clean": "rimraf build && mkdir build",
+    "build-babel": "babel ./src -d ./build/src",
+    "start": "cross-env BUILD_MODE=production babel-node server.js",
+    "build": "npm run clean && npm run build-babel",
+    "production": "npm run build && cross-env BUILD_MODE=production node ./build/src/server.js",
+    "start:node": "cross-env BUILD_MODE=production node server.js"
   },
   "repository": {
     "type": "git",
@@ -55,6 +59,7 @@
     "@babel/preset-env": "^7.28.5",
     "babel-plugin-module-resolver": "^5.0.2",
     "compression": "^1.8.1",
+    "cross-env": "^10.1.0",
     "helmet": "^8.1.0",
     "morgan": "^1.10.1"
   }
