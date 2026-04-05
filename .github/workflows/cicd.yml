@@ -30,7 +30,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/MernStack-Commerce-fe:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-fe:latest
           # Thêm Cache để build nhanh hơn
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -58,6 +58,6 @@ jobs:
           context: ./backend 
           file: ./backend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/MernStack-Commerce-be:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-be:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
