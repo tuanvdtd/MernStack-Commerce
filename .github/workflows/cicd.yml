@@ -28,7 +28,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./front-end
-          file: Dockerfile
+          file: ./front-end/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-fe:latest
           # Thêm Cache để build nhanh hơn
@@ -56,7 +56,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./nodejs-api
-          file: Dockerfile
+          file: ./nodejs-api/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-be:latest
           cache-from: type=gha
