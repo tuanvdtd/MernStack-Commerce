@@ -2,24 +2,24 @@
 FROM node:20-alpine as build-step
 WORKDIR /app
 
-# Copy cả package.json và yarn.lock
-COPY package.json yarn.lock ./
+# Copy package.json và package-lock.json
+COPY package.json package-lock.json ./
 
-# Cài đặt thư viện bằng Yarn (tương đương với npm ci)
-RUN yarn install --frozen-lockfile
+# Cài đặt dependencies từ lockfile (tương đương --frozen-lockfile)
+RUN npm ci
 
 COPY . .
-RUN yarn build
+RUN npm run build
 
 #  Production
 FROM node:20-alpine as production-step
 WORKDIR /app
 
 COPY --from=build-step /app/build ./build
-COPY --from=build-step /app/package.json /app/yarn.lock ./
+COPY --from=build-step /app/package.json /app/package-lock.json ./
 
-# Chỉ cài dependencies thực tế bằng Yarn
-RUN yarn install --production --frozen-lockfile && yarn cache clean
+# Chỉ cài dependencies production từ lockfile
+RUN npm ci --omit=dev && npm cache clean --force
 
 EXPOSE 3000
 CMD ["node", "build/src/server.js"]
