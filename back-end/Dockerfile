@@ -22,4 +22,4 @@ COPY --from=build-step /app/package.json /app/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 EXPOSE 3000
-CMD ["node", "build/src/app.js"]
+CMD ["node", "build/src/server.js"]

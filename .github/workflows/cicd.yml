@@ -55,8 +55,8 @@ jobs:
       - name: Build and push BE
         uses: docker/build-push-action@v5
         with:
-          context: ./nodejs-api
-          file: ./nodejs-api/Dockerfile
+          context: ./back-end
+          file: ./back-end/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-be:latest
           cache-from: type=gha

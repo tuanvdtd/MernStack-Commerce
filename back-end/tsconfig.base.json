@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    // Relative imports: Giúp TypeScript hiểu alias ~/* khi compile.
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"]
+    },
+  },
+  // Cầu nối giữa tsconfig và Node runtime. Để Node hiểu được alias ~/*
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+}
