@@ -1,49 +1,79 @@
-import { useState, FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import svgPaths from "~/imports/svg-login";
 import imgGoogleIcon from "~/imports/google-icon.svg";
 import { Footer } from "~/components/Footer";
+import { useEffect, useState } from 'react';
+import { userStore } from "~/stores/userStore";
+import { googleLoginUrl } from "~/apis/authApi";
+import { Eye, EyeOff, CheckCircle, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+
 
 export function Login() {
   const navigate = useNavigate();
-  const [emailOrUsername, setEmailOrUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<{
-    emailOrUsername?: string;
-    password?: string;
-  }>({});
+  const { logIn, error, setError, loading } = userStore();
+  let [searchParams] = useSearchParams()
+  const registeredEmail = searchParams.get('registeredEmail')
+  const verifiedEmail = searchParams.get('verifiedEmail')
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
 
-  const validateForm = (): boolean => {
-    const newErrors: typeof errors = {};
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
-    // Validate email/username
-    if (!emailOrUsername) {
-      newErrors.emailOrUsername = "Vui lòng nhập email hoặc tên đăng nhập";
-    } else if (emailOrUsername.length < 3) {
-      newErrors.emailOrUsername = "Email/Tên đăng nhập phải có ít nhất 3 ký tự";
-    }
+  useEffect(() => {
+    setError(null)
+  }, []);
 
-    // Validate password
-    if (!password) {
-      newErrors.password = "Vui lòng nhập mật khẩu";
-    } else if (password.length < 6) {
-      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleInputChange = (id: string, value: string) => {
+    setFormData({
+      ...formData,
+      [id]: value
+    });
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const togglePasswordVisibility = () => {
+    setPasswordVisible(!passwordVisible);
+  };
 
-    if (validateForm()) {
-      // In a real app, this would call an API
-      alert(`Đăng nhập thành công!\nEmail/Username: ${emailOrUsername}`);
-      navigate("/");
+  const handleSignupClick = () => {
+    navigate("/register");
+  };
+
+  const handleForgetPasswordClick = () => {
+    navigate("/forgetpassword");
+  };
+
+  const handleSignIn = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Vui lòng nhập đúng định dạng email');
+      return;
+    }
+
+    if (!formData.password) {
+      setError('Vui lòng nhập mật khẩu');
+      return;
+    }
+
+    const userData = {
+      email: formData.email,
+      password: formData.password,
+    };
+    const user = await logIn(userData);
+    if (user != null) {
+      if (user.isAdmin == true) {
+        navigate('/admin/products');
+      }
+      else
+        navigate('/');
     }
   };
+
+  const handleGoogleSignIn = () => {
+    window.location.href = googleLoginUrl();
+  }
 
   return (
     <div
@@ -71,148 +101,111 @@ export function Login() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-6 py-16">
-        <div className="w-full max-w-[448px]">
-          {/* Login Card */}
-          <div className="bg-white rounded-2xl shadow-[0px_8px_30px_0px_rgba(0,0,0,0.04)] border border-[#f1f5f9] p-10 mb-12">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-[30px] text-[#2b2f32] tracking-[-0.75px] leading-[36px] mb-2">
-                Đăng nhập
-              </h1>
-              <p className="text-[#585c5f] text-sm leading-5">
-                Chào mừng bạn trở lại với FlashBuy.
-              </p>
-            </div>
+      <div className="flex h-[700px] items-center justify-center bg-gray-100">
+      <div className="bg-white w-[400px] p-8 rounded-lg shadow-md">
+        {/* Tiêu đề */}
+        <h1 className="text-2xl font-bold mb-6 text-center">Đăng nhập vào tài khoản</h1>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email/Username */}
-              <div>
-                <label className="block text-[#585c5f] text-xs uppercase tracking-[0.6px] mb-1.5">
-                  Email / Tên đăng nhập
-                </label>
-                <input
-                  type="text"
-                  value={emailOrUsername}
-                  onChange={(e) => {
-                    setEmailOrUsername(e.target.value);
-                    if (errors.emailOrUsername) {
-                      setErrors({ ...errors, emailOrUsername: undefined });
-                    }
-                  }}
-                  placeholder="Nhập thông tin của bạn"
-                  className={`w-full bg-[#f8fafc] border rounded-lg px-4 py-[17px] text-base focus:outline-none focus:ring-2 ${
-                    errors.emailOrUsername
-                      ? "border-red-500 ring-2 ring-red-500 focus:ring-red-500"
-                      : "border-[#e2e8f0] focus:ring-[#0ACDFF] focus:border-[#0ACDFF]"
-                  }`}
-                />
-                {errors.emailOrUsername && (
-                  <p className="text-red-500 text-xs mt-1.5">{errors.emailOrUsername}</p>
-                )}
-              </div>
+        {/* Verified Email Alert */}
+        {verifiedEmail && (
+          <Alert variant="success" className="mb-4">
+            <CheckCircle className="size-4" />
+            <AlertDescription>
+              Your email <strong>{verifiedEmail}</strong> has been verified!
+            </AlertDescription>
+          </Alert>
+        )}
 
-              {/* Password */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5 px-1">
-                  <label className="text-[#585c5f] text-xs uppercase tracking-[0.6px]">
-                    Mật khẩu
-                  </label>
-                  <Link to="/forgot-password" className="text-[#00647e] text-xs hover:underline">
-                    Quên mật khẩu?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (errors.password) {
-                        setErrors({ ...errors, password: undefined });
-                      }
-                    }}
-                    placeholder="Nhập mật khẩu"
-                    className={`w-full bg-[#f8fafc] border rounded-lg px-4 py-[17px] pr-12 text-base focus:outline-none focus:ring-2 ${
-                      errors.password
-                        ? "border-red-500 ring-2 ring-red-500 focus:ring-red-500"
-                        : "border-[#e2e8f0] focus:ring-[#0ACDFF] focus:border-[#0ACDFF]"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#73777a] hover:text-[#585c5f]"
-                  >
-                    <svg className="w-[18px] h-[16.5px]" fill="none" viewBox="0 0 18.3333 16.5">
-                      <path d={svgPaths.pf0742c0} fill="currentColor" />
-                    </svg>
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-red-500 text-xs mt-1.5">{errors.password}</p>
-                )}
-              </div>
+        {/* Registered Email Alert */}
+        {registeredEmail && (
+          <Alert variant="info" className="mb-4">
+            <Info className="size-4" />
+            <AlertDescription>
+              Please check <strong>{registeredEmail}</strong> to verify your account!
+            </AlertDescription>
+          </Alert>
+        )}
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-[#00647e] to-[#00576e] hover:from-[#00576e] hover:to-[#004a5e] text-white py-4 rounded-lg shadow-[0px_10px_15px_-3px_rgba(0,100,126,0.1),0px_4px_6px_-4px_rgba(0,100,126,0.1)] transition-all text-sm uppercase tracking-[1.4px] font-normal"
-              >
-                ĐĂNG NHẬP
-              </button>
-            </form>
-
-            {/* Divider */}
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#f1f5f9]" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white px-4 text-[#94a3b8] text-xs uppercase tracking-[1.2px]">
-                  HOẶC
-                </span>
-              </div>
-            </div>
-
-            {/* Social Logins */}
-            <div className="grid grid-cols-2 gap-4 mb-7">
-              <button className="bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] rounded-lg py-3 flex items-center justify-center gap-3 transition-colors">
-                <img src={imgGoogleIcon} alt="Google" className="w-5 h-5" />
-                <span className="text-[#334155] text-sm">Google</span>
-              </button>
-              <button className="bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] rounded-lg py-3 flex items-center justify-center gap-3 transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 20 20">
-                  <path d={svgPaths.p9653980} fill="#1877F2" />
-                </svg>
-                <span className="text-[#334155] text-sm">Facebook</span>
-              </button>
-            </div>
-
-            {/* Footer Link */}
-            <div className="text-center text-sm pt-2">
-              <span className="text-[#585c5f]">Bạn mới biết đến FlashBuy? </span>
-              <Link to="/register" className="text-[#00647e] hover:underline">
-                Đăng ký ngay
-              </Link>
-            </div>
+        {/* Error */}
+        {error && (
+          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm">
+            {error}
           </div>
+        )}
 
-          {/* Branding */}
-          <div className="flex items-center justify-center gap-8 opacity-30">
-            <svg className="w-[30px] h-6" fill="none" viewBox="0 0 30.0025 24">
-              <path d={svgPaths.p36052100} fill="#2B2F32" />
-            </svg>
-            <svg className="w-6 h-[30px]" fill="none" viewBox="0 0 24 30">
-              <path d={svgPaths.p150a3c80} fill="#2B2F32" />
-            </svg>
-            <svg className="w-6 h-[30px]" fill="none" viewBox="0 0 24 30">
-              <path d={svgPaths.p3d5d680} fill="#2B2F32" />
-            </svg>
-          </div>
+        {/* Email Field */}
+        <div className="mb-4">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Email
+          </label>
+          <input
+            type="email"
+            id="email"
+            placeholder="youremail@gmail.com"
+            className="w-full border rounded-md px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.email}
+            onChange={(e) => handleInputChange('email', e.target.value)}
+            required
+          />
         </div>
+
+        {/* Password Field */}
+        <div className="mb-4">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            Mật khẩu
+          </label>
+          <div className="flex items-center border rounded-md px-4 py-2 mt-1">
+            <input
+              type={passwordVisible ? 'text' : 'password'}
+              id="password"
+              placeholder="Nhập mật khẩu"
+              className="w-full focus:outline-none"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              required
+            />
+            <button
+              className="text-gray-500 hover:text-gray-700 ml-2"
+              onClick={togglePasswordVisibility}
+              aria-label={passwordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            >
+              {passwordVisible ? <Eye /> : <EyeOff />}
+            </button>
+          </div>
+          <button className="text-sm text-blue-500 hover:underline mt-1 block text-right"
+            onClick={handleForgetPasswordClick}>
+            Quên mật khẩu?
+          </button>
+        </div>
+
+        {/* Create Account Button */}
+        <button
+          className="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition mb-4"
+          disabled={loading}
+          onClick={handleSignIn}
+        >
+          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        </button>
+
+        {/* Continue with Google */}
+        <button className="w-full bg-gray-100 flex items-center justify-center py-2 rounded-md font-medium hover:bg-gray-200 transition mb-4"
+          onClick={handleGoogleSignIn}>
+          <img src={imgGoogleIcon} alt="Google Logo" className="w-5 h-5 mr-2" />
+          Đăng nhập với Google
+        </button>
+
+        {/* Footer */}
+        <p className="text-sm text-center text-gray-500">
+          Bạn chưa có tài khoản?{' '}
+          <button
+            onClick={handleSignupClick}
+            className="text-blue-500 hover:underline"
+          >
+            Đăng ký
+          </button>
+        </p>
       </div>
+    </div>
 
       {/* Footer */}
       <Footer />

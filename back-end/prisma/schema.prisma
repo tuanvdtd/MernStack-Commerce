@@ -5,7 +5,7 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -15,14 +15,28 @@ datasource db {
 model User { 
   id    Int     @id @default(autoincrement()) 
   email String  @unique
-  name  String?
-  posts Post[]
-} 
-model Post { 
-  id        Int     @id @default(autoincrement()) 
-  title     String
-  content   String? @db.Text
-  published Boolean @default(false) 
-  author    User    @relation(fields: [authorId], references: [id]) 
-  authorId  Int
-} 
+  name  String
+  password String
+  googleId String? @unique
+  role  Role[]
+  isActive Boolean @default(true)
+  avatarUrl String?
+  phone String?
+  address Address[]
+  joinAt DateTime @default(now())
+}
+
+model Address {
+  id Int @id @default(autoincrement())
+  userId Int
+  street String
+  city String
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Role {
+  id Int @id @default(autoincrement())
+  name String @unique
+  users User[]
+}
+

@@ -11,6 +11,17 @@ const schema = z.object({
   LOG_LEVEL: z.string().default('info'),
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   FRONTEND_BASE_URL: z.url().default('http://localhost:5173'),
+  DATABASE_URL: z.string(),
+  DATABASE_HOST: z.string(),
+  DATABASE_USER: z.string(),
+  DATABASE_PASSWORD: z.string(),
+  DATABASE_NAME: z.string(),
+  DATABASE_PORT: z.coerce.number(),
+  ACCESS_TOKEN_SECRET: z.string(),
+  REFRESH_TOKEN_SECRET: z.string(),
+  BREVO_API_KEY: z.string(),
+  ADMIN_EMAIL_ADDRESS: z.string(),
+  ADMIN_EMAIL_NAME: z.string(),
 })
 
 export const env = schema.parse(process.env)

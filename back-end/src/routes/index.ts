@@ -4,6 +4,6 @@ import userRoutes from '~/modules/users/user.routes'
 
 const router = Router()
 
-router.use('/users', userRoutes) // /api/users
+router.use('/user', userRoutes) // /api/user
 
 export default router

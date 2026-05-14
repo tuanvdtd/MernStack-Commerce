@@ -14,6 +14,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
   // Custom Api Error
   if (err instanceof ApiError) {
+    console.log(err.message);
     return res.status(err.statusCode).json({ message: err.message, details: err.details })
   }
   // Trả lỗi chung nếu chưa handle

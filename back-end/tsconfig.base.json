@@ -10,7 +10,7 @@
     // Relative imports: Giúp TypeScript hiểu alias ~/* khi compile.
     "baseUrl": ".",
     "paths": {
-      "~/*": ["src/*"]
+      "~/*": ["./src/*"]
     },
   },
   // Cầu nối giữa tsconfig và Node runtime. Để Node hiểu được alias ~/*

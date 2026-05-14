@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Outlet, Navigate } from "react-router";
 import { RootLayout } from "~/layouts/RootLayout";
 import { HomeLoggedIn } from "~/pages/HomeLoggedIn";
 import { HomeGuest } from "~/pages/HomeGuest";
@@ -19,31 +19,58 @@ import { ProductForm } from "~/pages/admin/ProductForm";
 import { Inventory } from "~/pages/admin/Inventory";
 import { OrdersList } from "~/pages/admin/OrdersList";
 import { OrderDetail } from "~/pages/admin/OrderDetail";
+import { userStore } from "~/stores/userStore";
+
+const ProtectedRoute = () => {
+  const user = userStore.getState().user;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return <Outlet />; // nếu có user trong storage thì chuyển xuống các route con trong route cha
+};
+
+const LoginedRedirect = () => {
+  const user = userStore.getState().user;
+  if (user && user.isAdmin) {
+    return <Navigate to="/admin/products" replace />;
+  } else if (user) {
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />; // chưa đăng nhập thì cho vào login/register
+};
 
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: RootLayout,
     children: [
+      // Public routes - ai cũng truy cập được
       { index: true, Component: HomeLoggedIn },
       { path: "guest", Component: HomeGuest },
       { path: "product/:id", Component: ProductDetail },
-      { path: "cart", Component: Cart },
-      { path: "checkout", Component: Checkout },
       { path: "category/:slug", Component: Category },
       { path: "flash-sale", Component: FlashSale },
-      { path: "track-order", Component: TrackOrder },
-      { path: "account", Component: Account },
       { path: "*", Component: NotFound },
+
+      // Protected routes - phải đăng nhập mới truy cập được
+      {
+        Component: ProtectedRoute,
+        children: [
+          { path: "cart", Component: Cart },
+          { path: "checkout", Component: Checkout },
+          { path: "track-order", Component: TrackOrder },
+          { path: "account", Component: Account },
+        ],
+      },
     ],
   },
+  // Đã đăng nhập rồi thì redirect đi, không cho vào login/register
   {
-    path: "/login",
-    Component: Login,
-  },
-  {
-    path: "/register",
-    Component: Register,
+    Component: LoginedRedirect,
+    children: [
+      { path: "/login", Component: Login },
+      { path: "/register", Component: Register },
+    ],
   },
   {
     path: "/admin",

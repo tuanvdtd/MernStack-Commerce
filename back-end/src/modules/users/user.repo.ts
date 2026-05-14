@@ -1,26 +1,42 @@
-import { ObjectId } from 'mongodb'
-
-import { col } from '~/config/db'
-import { User } from '~/modules/users/user.types'
-import { objectIdToString } from '~/utils/objectIdToString'
+import { prisma } from '~/lib/prisma'
+import { RegisterUserDto } from '~/modules/users/user.types'
 
 export const UserRepo = {
   async findByEmail(email: string) {
-    return col.users().findOne({ email })
+    return prisma.user.findUnique({
+      where: {
+        email
+      }
+    })
   },
 
-  async create(data: Omit<User, '_id'>) {
-    const now = new Date()
-    const doc = { ...data, createdAt: now, updatedAt: now }
-    const res = await col.users().insertOne(doc)
-    return { ...doc, _id: objectIdToString(res.insertedId) }
+  async create(data: RegisterUserDto) {
+    // default role is user
+    const res = await prisma.user.create({
+      data: {
+        ...data,
+        role: {
+          connectOrCreate: {
+            where: { name: 'USER' },
+            create: { name: 'USER' },
+          },
+        }
+      },
+    })
+    return res
   },
 
   async list() {
-    return col.users().find().toArray()
+    return prisma.user.findMany({
+      omit: { password: true }
+    })
   },
 
   async findById(id: string) {
-    return col.users().findOne({ _id: new ObjectId(id) })
+    return prisma.user.findUnique({
+      where: {
+        id: parseInt(id)
+      }
+    })
   },
 }

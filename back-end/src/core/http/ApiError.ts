@@ -18,4 +18,28 @@ export class ApiError extends Error {
     return new ApiError(StatusCodes.BAD_REQUEST, msg, details)
   }
   // Sau này mở rộng thêm các static theo mã lỗi...
+  static Unauthorized(msg = 'Unauthorized', details?: unknown) {
+    return new ApiError(StatusCodes.UNAUTHORIZED, msg, details)
+  }
+
+  static Forbidden(msg = 'Forbidden', details?: unknown) {
+    return new ApiError(StatusCodes.FORBIDDEN, msg, details)
+  }
+
+  static NotFound(msg = 'Not Found', details?: unknown) {
+    return new ApiError(StatusCodes.NOT_FOUND, msg, details)
+  }
+
+  static Conflict(msg = 'Conflict', details?: unknown) {
+    return new ApiError(StatusCodes.CONFLICT, msg, details)
+  }
+  
+  static Internal(msg = 'Internal Server Error', details?: unknown) {
+    return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details)
+  }
+
+  static RedisError(msg = 'Redis Error', details?: unknown) {
+    return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details)
+  }
+
 }

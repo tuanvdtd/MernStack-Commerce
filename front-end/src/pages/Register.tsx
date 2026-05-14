@@ -1,72 +1,73 @@
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import svgPaths from "~/imports/svg-register";
 import googleIcon from "~/imports/google-icon.svg";
+import { googleLoginUrl } from '~/apis/authApi';
+import { userStore } from '~/stores/userStore';
+import { Eye, EyeOff } from 'lucide-react';
 
 export function Register() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [errors, setErrors] = useState<{
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-    fullName?: string;
-  }>({});
+  const { signUp, error, setError, loading } = userStore();
 
-  const validateEmail = (email: string): boolean => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setconfirmPasswordVisible] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setPasswordVisible(!passwordVisible);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setconfirmPasswordVisible(!confirmPasswordVisible);
+  };
+
+  const handleSigninClick = () => {
+    navigate("/login");
+  };
+
+  const handleGoogleSignIn = () => {
+    window.location.href = googleLoginUrl();
+  }
+
+  const handleInputChange = (id: string, value: string) => {
+    setFormData({
+      ...formData,
+      [id]: value
+    });
+  };
+
+  const handleSignUp = async () => {
+    if (!formData.name) {
+      setError('Vui lòng nhập họ tên');
+      return;
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    if (!emailRegex.test(formData.email)) {
+      setError('Vui lòng nhập đúng định dạng email');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp');
+      return;
+    }
+
+    const userData = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+    };
+
+    await signUp(userData);
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: typeof errors = {};
-
-    // Validate email
-    if (!email) {
-      newErrors.email = "Vui lòng nhập email";
-    } else if (!validateEmail(email)) {
-      newErrors.email = "Email không đúng định dạng";
-    }
-
-    // Validate full name
-    if (!fullName) {
-      newErrors.fullName = "Vui lòng nhập họ tên";
-    } else if (fullName.length < 2) {
-      newErrors.fullName = "Họ tên phải có ít nhất 2 ký tự";
-    }
-
-    // Validate password
-    if (!password) {
-      newErrors.password = "Vui lòng nhập mật khẩu";
-    } else if (password.length < 6) {
-      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
-    } else if (password.length > 50) {
-      newErrors.password = "Mật khẩu không được quá 50 ký tự";
-    }
-
-    // Validate confirm password
-    if (!confirmPassword) {
-      newErrors.confirmPassword = "Vui lòng xác nhận mật khẩu";
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-
-    if (validateForm()) {
-      // In a real app, this would call an API
-      alert(`Đăng ký thành công!\nEmail: ${email}\nHọ tên: ${fullName}`);
-      navigate("/login");
-    }
-  };
 
   return (
     <div className="bg-[#f8fafc] min-h-screen flex flex-col">
@@ -89,175 +90,117 @@ export function Register() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="bg-white rounded-2xl shadow-[0px_10px_30px_-5px_rgba(0,0,0,0.04),0px_20px_25px_-5px_rgba(0,0,0,0.03)] border border-[#f1f5f9] p-10 w-full max-w-[440px]">
-          {/* Form Header */}
-          <div className="mb-8">
-            <h2 className="text-[30px] text-[#2b2f32] tracking-[-0.75px] leading-[36px] mb-2">
-              Đăng ký
-            </h2>
-            <p className="text-[#585c5f] text-base">
-              Bắt đầu hành trình mua sắm tuyệt vời của bạn
-            </p>
+      <div className="flex h-[700px] items-center justify-center bg-gray-100">
+      <div className="bg-white w-[400px] p-8 rounded-lg shadow-md">
+        {/* Tiêu đề */}
+        <h1 className="text-2xl font-bold mb-6 text-center">Tạo tài khoản mới</h1>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm">
+            {error}
           </div>
+        )}
 
-          {/* Registration Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Full Name */}
-            <div>
-              <label className="block text-[#585c5f] text-xs uppercase tracking-[1.2px] mb-2 ml-1">
-                Họ và tên
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => {
-                  setFullName(e.target.value);
-                  if (errors.fullName) {
-                    setErrors({ ...errors, fullName: undefined });
-                  }
-                }}
-                placeholder="Nhập họ và tên của bạn"
-                className={`w-full bg-[#edf1f4] rounded-lg px-4 py-3.5 text-base focus:outline-none focus:ring-2 ${
-                  errors.fullName
-                    ? "ring-2 ring-red-500 focus:ring-red-500"
-                    : "focus:ring-[#0ACDFF]"
-                }`}
-              />
-              {errors.fullName && (
-                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.fullName}</p>
-              )}
-            </div>
+        {/* Name Field */}
+        <div className="mb-4">
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            Họ tên
+          </label>
+          <input
+            type="text"
+            id="name"
+            placeholder="Nhập họ tên"
+            className="w-full border rounded-md px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.name}
+            onChange={(e) => handleInputChange('name', e.target.value)}
+            required
+          />
+        </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-[#585c5f] text-xs uppercase tracking-[1.2px] mb-2 ml-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) {
-                    setErrors({ ...errors, email: undefined });
-                  }
-                }}
-                placeholder="Nhập email của bạn"
-                className={`w-full bg-[#edf1f4] rounded-lg px-4 py-3.5 text-base focus:outline-none focus:ring-2 ${
-                  errors.email
-                    ? "ring-2 ring-red-500 focus:ring-red-500"
-                    : "focus:ring-[#0ACDFF]"
-                }`}
-              />
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.email}</p>
-              )}
-            </div>
+        {/* Email Field */}
+        <div className="mb-4">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Email
+          </label>
+          <input
+            type="email"
+            id="email"
+            placeholder="youremail@gmail.com"
+            className="w-full border rounded-md px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.email}
+            onChange={(e) => handleInputChange('email', e.target.value)}
+            required
+          />
+        </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-[#585c5f] text-xs uppercase tracking-[1.2px] mb-2 ml-1">
-                Mật khẩu
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errors.password) {
-                    setErrors({ ...errors, password: undefined });
-                  }
-                }}
-                placeholder="Nhập mật khẩu"
-                className={`w-full bg-[#edf1f4] rounded-lg px-4 py-3.5 text-base focus:outline-none focus:ring-2 ${
-                  errors.password
-                    ? "ring-2 ring-red-500 focus:ring-red-500"
-                    : "focus:ring-[#0ACDFF]"
-                }`}
-              />
-              {errors.password && (
-                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.password}</p>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-[#585c5f] text-xs uppercase tracking-[1.2px] mb-2 ml-1">
-                Xác nhận mật khẩu
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  if (errors.confirmPassword) {
-                    setErrors({ ...errors, confirmPassword: undefined });
-                  }
-                }}
-                placeholder="Nhập lại mật khẩu"
-                className={`w-full bg-[#edf1f4] rounded-lg px-4 py-3.5 text-base focus:outline-none focus:ring-2 ${
-                  errors.confirmPassword
-                    ? "ring-2 ring-red-500 focus:ring-red-500"
-                    : "focus:ring-[#0ACDFF]"
-                }`}
-              />
-              {errors.confirmPassword && (
-                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.confirmPassword}</p>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="w-full bg-[#00cbfd] hover:bg-[#00b8e8] text-[#003e4f] font-normal py-3 rounded-lg shadow-[0px_10px_15px_-3px_rgba(0,203,253,0.2),0px_4px_6px_-4px_rgba(0,203,253,0.2)] transition-colors"
-            >
-              Tiếp theo
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="flex items-center my-8">
-            <div className="flex-1 h-px bg-[rgba(216,222,226,0.5)]" />
-            <span className="px-4 text-[#73777a] text-xs uppercase tracking-[1.2px]">Hoặc</span>
-            <div className="flex-1 h-px bg-[rgba(216,222,226,0.5)]" />
-          </div>
-
-          {/* Social Logins */}
-          <div className="space-y-3 mb-8">
-            <button className="w-full bg-[#edf1f4] hover:bg-[#e0e6ea] rounded-lg py-3 flex items-center justify-center gap-3 transition-colors">
-              <img src={googleIcon} alt="Google" className="w-5 h-5" />
-              <span className="text-[#2b2f32]">Đăng ký bằng Google</span>
-            </button>
-            <button className="w-full bg-[#edf1f4] hover:bg-[#e0e6ea] rounded-lg py-3 flex items-center justify-center gap-3 transition-colors">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
-                <path d={svgPaths.p3db23880} fill="#1877F2" />
-              </svg>
-              <span className="text-[#2b2f32]">Đăng ký bằng Facebook</span>
+        {/* Password Field */}
+        <div className="mb-4">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            Mật khẩu
+          </label>
+          <div className="flex items-center border rounded-md px-4 py-2 mt-1">
+            <input
+              type={passwordVisible ? 'text' : 'password'}
+              id="password"
+              placeholder="Nhập mật khẩu"
+              className="w-full focus:outline-none"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              required
+            />
+            <button className="text-gray-500 hover:text-gray-700 ml-2" onClick={togglePasswordVisibility}>
+              {passwordVisible ? <Eye /> : <EyeOff />}
             </button>
           </div>
 
-          {/* Terms */}
-          <div className="text-center text-xs text-[#585c5f] mb-6 leading-relaxed">
-            Bằng việc đăng ký, bạn đã đồng ý với FlashBuy về{" "}
-            <Link to="/terms" className="text-[#00cbfd] hover:underline">
-              Điều khoản dịch vụ
-            </Link>{" "}
-            &{" "}
-            <Link to="/privacy" className="text-[#00cbfd] hover:underline">
-              Chính sách bảo mật
-            </Link>
-          </div>
-
-          {/* Footer Link */}
-          <div className="text-center text-sm border-t border-[rgba(216,222,226,0.3)] pt-6">
-            <span className="text-[#585c5f]">Bạn đã có tài khoản? </span>
-            <Link to="/login" className="text-[#00cbfd] hover:underline">
-              Đăng nhập ngay
-            </Link>
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mt-4">
+            Xác nhận mật khẩu
+          </label>
+          <div className="flex items-center border rounded-md px-4 py-2 mt-1">
+            <input
+              type={confirmPasswordVisible ? 'text' : 'password'}
+              id="confirmPassword"
+              placeholder="Nhập lại mật khẩu"
+              className="w-full focus:outline-none"
+              value={formData.confirmPassword}
+              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+              required
+            />
+            <button className="text-gray-500 hover:text-gray-700 ml-2" onClick={toggleConfirmPasswordVisibility}>
+              {confirmPasswordVisible ? <Eye /> : <EyeOff />}
+            </button>
           </div>
         </div>
+
+        {/* Create Account Button */}
+        <button
+          className="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition mb-4"
+          onClick={handleSignUp}
+          disabled={loading}
+        >
+          {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+        </button>
+
+        {/* Continue with Google */}
+        <button className="w-full bg-gray-100 flex items-center justify-center py-2 rounded-md font-medium hover:bg-gray-200 transition mb-4"
+          onClick={handleGoogleSignIn}>
+          <img src={googleIcon} alt="Google Logo" className="w-5 h-5 mr-2" />
+          Đăng ký với Google
+        </button>
+
+        {/* Footer */}
+        <p className="text-sm text-center text-gray-500">
+          Đã có tài khoản?{' '}
+          <button
+            onClick={handleSigninClick}
+            className="text-blue-500 hover:underline"
+          >
+            Đăng nhập
+          </button>
+        </p>
       </div>
+    </div>
 
       {/* Footer */}
       <div className="py-8">
