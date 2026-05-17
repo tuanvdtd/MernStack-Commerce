@@ -10,11 +10,19 @@ export const UserRepo = {
     })
   },
 
+  async setActive(email: string, isActive: boolean) {
+    return prisma.user.update({
+      where: { email },
+      data: { isActive },
+    })
+  },
+
   async create(data: RegisterUserDto) {
     // default role is user
     const res = await prisma.user.create({
       data: {
         ...data,
+        isActive: false,
         role: {
           connectOrCreate: {
             where: { name: 'USER' },

@@ -9,8 +9,10 @@ import { Category } from "~/pages/Category";
 import { FlashSale } from "~/pages/FlashSale";
 import { TrackOrder } from "~/pages/TrackOrder";
 import { Account } from "~/pages/Account";
+import { AccountV2 } from "~/pages/AccountV2";
 import { Login } from "~/pages/Login";
 import { Register } from "~/pages/Register";
+import { VerifyOtp } from "~/pages/VerifyOtp";
 import { NotFound } from "~/pages/NotFound";
 import { AdminLayout } from "~/layouts/AdminLayout";
 import { Dashboard } from "~/pages/admin/Dashboard";
@@ -51,6 +53,8 @@ export const router = createBrowserRouter([
       { path: "category/:slug", Component: Category },
       { path: "flash-sale", Component: FlashSale },
       { path: "*", Component: NotFound },
+      { path: "account", Component: Account },
+      { path: "account-v2", Component: AccountV2 },
 
       // Protected routes - phải đăng nhập mới truy cập được
       {
@@ -59,7 +63,6 @@ export const router = createBrowserRouter([
           { path: "cart", Component: Cart },
           { path: "checkout", Component: Checkout },
           { path: "track-order", Component: TrackOrder },
-          { path: "account", Component: Account },
         ],
       },
     ],
@@ -70,6 +73,7 @@ export const router = createBrowserRouter([
     children: [
       { path: "/login", Component: Login },
       { path: "/register", Component: Register },
+      { path: "/verify-otp", Component: VerifyOtp },
     ],
   },
   {

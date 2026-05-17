@@ -24,6 +24,12 @@ export function Login() {
 
   useEffect(() => {
     setError(null)
+    if (registeredEmail) {
+      setFormData((prev) => ({ ...prev, email: registeredEmail }))
+    }
+    if (verifiedEmail) {
+      setFormData((prev) => ({ ...prev, email: verifiedEmail }))
+    }
   }, []);
 
   const handleInputChange = (id: string, value: string) => {
@@ -111,17 +117,22 @@ export function Login() {
           <Alert variant="success" className="mb-4">
             <CheckCircle className="size-4" />
             <AlertDescription>
-              Your email <strong>{verifiedEmail}</strong> has been verified!
+              Email <strong>{verifiedEmail}</strong> đã được xác thực. Bạn có thể đăng nhập ngay.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Registered Email Alert */}
         {registeredEmail && (
           <Alert variant="info" className="mb-4">
             <Info className="size-4" />
             <AlertDescription>
-              Please check <strong>{registeredEmail}</strong> to verify your account!
+              Vui lòng xác thực email <strong>{registeredEmail}</strong>.{' '}
+              <Link
+                to={`/verify-otp?email=${encodeURIComponent(registeredEmail)}`}
+                className="font-medium underline"
+              >
+                Nhập mã OTP
+              </Link>
             </AlertDescription>
           </Alert>
         )}
@@ -129,7 +140,17 @@ export function Login() {
         {/* Error */}
         {error && (
           <div className="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm">
-            {error}
+            <p>{error}</p>
+            {error.toLowerCase().includes('not activated') && formData.email && (
+              <p className="mt-2">
+                <Link
+                  to={`/verify-otp?email=${encodeURIComponent(formData.email)}`}
+                  className="font-medium underline"
+                >
+                  Xác thực tài khoản bằng OTP
+                </Link>
+              </p>
+            )}
           </div>
         )}
 
@@ -141,7 +162,7 @@ export function Login() {
           <input
             type="email"
             id="email"
-            placeholder="youremail@gmail.com"
+            placeholder="a@gmail.com"
             className="w-full border rounded-md px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={formData.email}
             onChange={(e) => handleInputChange('email', e.target.value)}
@@ -169,7 +190,7 @@ export function Login() {
               onClick={togglePasswordVisibility}
               aria-label={passwordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >
-              {passwordVisible ? <Eye /> : <EyeOff />}
+              {passwordVisible ? <EyeOff /> : <Eye />}
             </button>
           </div>
           <button className="text-sm text-blue-500 hover:underline mt-1 block text-right"

@@ -1,8 +1,8 @@
-import { omit } from 'lodash'
+import _ from 'lodash';
 import { ApiError } from '~/core/http/ApiError'
+import { OtpService } from '~/modules/otp/otp.service'
 import { UserRepo } from '~/modules/users/user.repo'
 import { hashPassword, verifyPassword } from '~/utils/password'
-import { BrevoProvider } from '~/core/mail/BrevoProdiver'
 
 export const UserService = {
   async register(email: string, name: string, password: string) {
@@ -14,19 +14,21 @@ export const UserService = {
       name,
       password: passwordHash
     })
-    // sau khi tạo user thì gửi email thông báo
-    const htmlContent = `
-    <h1>Welcome to our website</h1>
-    <p>Your account has been created successfully</p>
-    `
-    //  BrevoProvider.sendEmail(email, 'Welcome to our website', htmlContent)
-    return omit(user, ['password'])
+
+    await OtpService.createAndSendRegisterOtp(email, name)
+    const pickUser = _.omit(user, ['password'])
+      return {
+        ...pickUser,
+        message: 'Registration successful. Please check your email for the OTP to activate your account.',
+    }
   },
 
   async login(email: string, password: string) {
     const user = await UserRepo.findByEmail(email)
-    console.log(user);
     if (!user) throw new ApiError(404, 'User not found')
+    if (!user.isActive) {
+      throw new ApiError(403, 'Account is not activated. Please verify your email with the OTP sent during registration.')
+    }
     const isValid = await verifyPassword(password, user.password)
     if (!isValid) throw new ApiError(401, 'Invalid password')
     // sử dụng jwt để tạo token

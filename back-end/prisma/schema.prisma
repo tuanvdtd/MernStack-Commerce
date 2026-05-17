@@ -19,7 +19,7 @@ model User {
   password String
   googleId String? @unique
   role  Role[]
-  isActive Boolean @default(true)
+  isActive Boolean @default(false)
   avatarUrl String?
   phone String?
   address Address[]
@@ -38,5 +38,21 @@ model Role {
   id Int @id @default(autoincrement())
   name String @unique
   users User[]
+}
+
+enum OtpPurpose {
+  REGISTER
+}
+
+model Otp {
+  id        Int        @id @default(autoincrement())
+  email     String
+  code      String
+  purpose   OtpPurpose @default(REGISTER)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  @@index([email, purpose])
+  @@index([expiresAt])
 }
 

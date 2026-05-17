@@ -32,3 +32,8 @@ export type Address = Prisma.AddressModel
  * 
  */
 export type Role = Prisma.RoleModel
+/**
+ * Model Otp
+ * 
+ */
+export type Otp = Prisma.OtpModel

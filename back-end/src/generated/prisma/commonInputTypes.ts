@@ -150,6 +150,23 @@ export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
 }
 
+export type EnumOtpPurposeFilter<$PrismaModel = never> = {
+  equals?: $Enums.OtpPurpose | Prisma.EnumOtpPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.OtpPurpose[]
+  notIn?: $Enums.OtpPurpose[]
+  not?: Prisma.NestedEnumOtpPurposeFilter<$PrismaModel> | $Enums.OtpPurpose
+}
+
+export type EnumOtpPurposeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.OtpPurpose | Prisma.EnumOtpPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.OtpPurpose[]
+  notIn?: $Enums.OtpPurpose[]
+  not?: Prisma.NestedEnumOtpPurposeWithAggregatesFilter<$PrismaModel> | $Enums.OtpPurpose
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumOtpPurposeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumOtpPurposeFilter<$PrismaModel>
+}
+
 export type NestedIntFilter<$PrismaModel = never> = {
   equals?: number | Prisma.IntFieldRefInput<$PrismaModel>
   in?: number[]
@@ -301,6 +318,23 @@ export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
+}
+
+export type NestedEnumOtpPurposeFilter<$PrismaModel = never> = {
+  equals?: $Enums.OtpPurpose | Prisma.EnumOtpPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.OtpPurpose[]
+  notIn?: $Enums.OtpPurpose[]
+  not?: Prisma.NestedEnumOtpPurposeFilter<$PrismaModel> | $Enums.OtpPurpose
+}
+
+export type NestedEnumOtpPurposeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.OtpPurpose | Prisma.EnumOtpPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.OtpPurpose[]
+  notIn?: $Enums.OtpPurpose[]
+  not?: Prisma.NestedEnumOtpPurposeWithAggregatesFilter<$PrismaModel> | $Enums.OtpPurpose
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumOtpPurposeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumOtpPurposeFilter<$PrismaModel>
 }
 
 

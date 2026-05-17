@@ -23,23 +23,44 @@ export const login = async (credentials: LoginData): Promise<loginRes> => {
   }
 };
 
-export const register = async (userData: RegisterData): Promise<{ user?: User; error?: string }> => {
+export const register = async (
+  userData: RegisterData
+): Promise<{ success?: boolean; email?: string; message?: string; error?: string }> => {
   try {
     const response = await axios.post('/user/register', userData);
-    const user = response.data;
-    localStorage.setItem('token', response.data.token);
+    const data = response.data;
     return {
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        profilePic: user.profilePic || '',
-        isAdmin: false,
-        token: user.token,
-      }
+      success: true,
+      email: data.email,
+      message: data.message,
     };
   } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Some thing wrong';
+    const errorMessage = error.response?.data?.message || 'Something went wrong';
+    return { error: errorMessage };
+  }
+};
+
+export const verifyOtp = async (
+  email: string,
+  code: string
+): Promise<{ success?: boolean; message?: string; error?: string }> => {
+  try {
+    const response = await axios.post('/user/verify-otp', { email, code });
+    return { success: true, message: response.data.message };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || 'Something went wrong';
+    return { error: errorMessage };
+  }
+};
+
+export const resendOtp = async (
+  email: string
+): Promise<{ success?: boolean; message?: string; error?: string }> => {
+  try {
+    const response = await axios.post('/user/resend-otp', { email });
+    return { success: true, message: response.data.message };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || 'Something went wrong';
     return { error: errorMessage };
   }
 };

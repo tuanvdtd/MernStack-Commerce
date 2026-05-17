@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { type User } from "~/types/user";
-import { login, register } from "~/apis/authApi";
+import {
+  login,
+  register,
+  verifyOtp as verifyOtpApi,
+  resendOtp as resendOtpApi,
+} from "~/apis/authApi";
 import type { LoginData, RegisterData } from "~/types/auth.ts";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -15,6 +20,8 @@ type UserState = {
   setUser: (user: User) => void;
   setError: (error: string | null) => void;
   signUp: (registerData: RegisterData) => Promise<boolean>;
+  verifyOtp: (email: string, code: string) => Promise<boolean>;
+  resendOtp: (email: string) => Promise<boolean>;
   logIn: (LoginData: LoginData) => Promise<User | null>;
   logOut: () => void;
 };
@@ -48,11 +55,39 @@ export const userStore = create<UserState>()(
 
         const result = await register(registerData);
 
-        if (result.user) {
-          set({ user: result.user, loading: false });
+        if (result.success) {
+          set({ loading: false });
           return true;
         } else {
-          set({ error: result.error, loading: false });
+          set({ error: result.error ?? 'Đăng ký thất bại', loading: false });
+          return false;
+        }
+      },
+
+      verifyOtp: async (email: string, code: string) => {
+        set({ loading: true, error: null });
+
+        const result = await verifyOtpApi(email, code);
+
+        if (result.success) {
+          set({ loading: false });
+          return true;
+        } else {
+          set({ error: result.error ?? 'Xác thực thất bại', loading: false });
+          return false;
+        }
+      },
+
+      resendOtp: async (email: string) => {
+        set({ loading: true, error: null });
+
+        const result = await resendOtpApi(email);
+
+        if (result.success) {
+          set({ loading: false });
+          return true;
+        } else {
+          set({ error: result.error ?? 'Gửi lại OTP thất bại', loading: false });
           return false;
         }
       },

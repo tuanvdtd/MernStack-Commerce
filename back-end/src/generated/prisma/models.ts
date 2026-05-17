@@ -11,4 +11,5 @@
 export type * from './models/User'
 export type * from './models/Address'
 export type * from './models/Role'
+export type * from './models/Otp'
 export type * from './commonInputTypes'

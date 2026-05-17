@@ -20,3 +20,20 @@ export const LoginSchema = z.object({
   query: ZodEmptyObject,
   params: ZodEmptyObject,
 })
+
+export const VerifyOtpSchema = z.object({
+  body: z.object({
+    email: z.email(),
+    code: z.string().length(6).regex(/^\d+$/),
+  }),
+  query: ZodEmptyObject,
+  params: ZodEmptyObject,
+})
+
+export const ResendOtpSchema = z.object({
+  body: z.object({
+    email: z.email(),
+  }),
+  query: ZodEmptyObject,
+  params: ZodEmptyObject,
+})

@@ -9,7 +9,8 @@
 * 🟢 You can import this file directly.
 */
 
+export const OtpPurpose = {
+  REGISTER: 'REGISTER'
+} as const
 
-
-// This file is empty because there are no enums in the schema.
-export {}
+export type OtpPurpose = (typeof OtpPurpose)[keyof typeof OtpPurpose]

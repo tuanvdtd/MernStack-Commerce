@@ -65,9 +65,11 @@ export function Register() {
       password: formData.password,
     };
 
-    await signUp(userData);
+    const ok = await signUp(userData);
+    if (ok) {
+      navigate(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
+    }
   };
-
 
   return (
     <div className="bg-[#f8fafc] min-h-screen flex flex-col">
@@ -126,7 +128,7 @@ export function Register() {
           <input
             type="email"
             id="email"
-            placeholder="youremail@gmail.com"
+            placeholder="a@gmail.com"
             className="w-full border rounded-md px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={formData.email}
             onChange={(e) => handleInputChange('email', e.target.value)}
@@ -150,7 +152,7 @@ export function Register() {
               required
             />
             <button className="text-gray-500 hover:text-gray-700 ml-2" onClick={togglePasswordVisibility}>
-              {passwordVisible ? <Eye /> : <EyeOff />}
+              {passwordVisible ? <EyeOff /> : <Eye />}
             </button>
           </div>
 
@@ -168,7 +170,7 @@ export function Register() {
               required
             />
             <button className="text-gray-500 hover:text-gray-700 ml-2" onClick={toggleConfirmPasswordVisibility}>
-              {confirmPasswordVisible ? <Eye /> : <EyeOff />}
+              {confirmPasswordVisible ? <EyeOff /> : <Eye />}
             </button>
           </div>
         </div>
