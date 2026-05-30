@@ -54,7 +54,18 @@ export const ModelName = {
   User: 'User',
   Address: 'Address',
   Role: 'Role',
-  Otp: 'Otp'
+  Otp: 'Otp',
+  Category: 'Category',
+  Product: 'Product',
+  ProductVariant: 'ProductVariant',
+  Option: 'Option',
+  OptionValue: 'OptionValue',
+  ProductVariantOptionValue: 'ProductVariantOptionValue',
+  Cart: 'Cart',
+  CartItem: 'CartItem',
+  Discount: 'Discount',
+  DiscountProduct: 'DiscountProduct',
+  DiscountUserUse: 'DiscountUserUse'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -118,12 +129,152 @@ export const OtpScalarFieldEnum = {
 export type OtpScalarFieldEnum = (typeof OtpScalarFieldEnum)[keyof typeof OtpScalarFieldEnum]
 
 
+export const CategoryScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  description: 'description',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
+
+
+export const ProductScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  description: 'description',
+  categoryId: 'categoryId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProductScalarFieldEnum = (typeof ProductScalarFieldEnum)[keyof typeof ProductScalarFieldEnum]
+
+
+export const ProductVariantScalarFieldEnum = {
+  id: 'id',
+  sku: 'sku',
+  price: 'price',
+  stockQuantity: 'stockQuantity',
+  productId: 'productId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProductVariantScalarFieldEnum = (typeof ProductVariantScalarFieldEnum)[keyof typeof ProductVariantScalarFieldEnum]
+
+
+export const OptionScalarFieldEnum = {
+  id: 'id',
+  name: 'name'
+} as const
+
+export type OptionScalarFieldEnum = (typeof OptionScalarFieldEnum)[keyof typeof OptionScalarFieldEnum]
+
+
+export const OptionValueScalarFieldEnum = {
+  id: 'id',
+  value: 'value',
+  synonyms: 'synonyms',
+  optionId: 'optionId'
+} as const
+
+export type OptionValueScalarFieldEnum = (typeof OptionValueScalarFieldEnum)[keyof typeof OptionValueScalarFieldEnum]
+
+
+export const ProductVariantOptionValueScalarFieldEnum = {
+  productVariantId: 'productVariantId',
+  optionValueId: 'optionValueId'
+} as const
+
+export type ProductVariantOptionValueScalarFieldEnum = (typeof ProductVariantOptionValueScalarFieldEnum)[keyof typeof ProductVariantOptionValueScalarFieldEnum]
+
+
+export const CartScalarFieldEnum = {
+  id: 'id',
+  state: 'state',
+  countProduct: 'countProduct',
+  userId: 'userId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CartScalarFieldEnum = (typeof CartScalarFieldEnum)[keyof typeof CartScalarFieldEnum]
+
+
+export const CartItemScalarFieldEnum = {
+  id: 'id',
+  cartId: 'cartId',
+  variantId: 'variantId',
+  quantity: 'quantity',
+  price: 'price',
+  name: 'name',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CartItemScalarFieldEnum = (typeof CartItemScalarFieldEnum)[keyof typeof CartItemScalarFieldEnum]
+
+
+export const DiscountScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  type: 'type',
+  value: 'value',
+  maxValue: 'maxValue',
+  code: 'code',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  maxUses: 'maxUses',
+  usesCount: 'usesCount',
+  maxUsesPerUser: 'maxUsesPerUser',
+  minOrderValue: 'minOrderValue',
+  isActive: 'isActive',
+  appliesTo: 'appliesTo',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DiscountScalarFieldEnum = (typeof DiscountScalarFieldEnum)[keyof typeof DiscountScalarFieldEnum]
+
+
+export const DiscountProductScalarFieldEnum = {
+  discountId: 'discountId',
+  productId: 'productId'
+} as const
+
+export type DiscountProductScalarFieldEnum = (typeof DiscountProductScalarFieldEnum)[keyof typeof DiscountProductScalarFieldEnum]
+
+
+export const DiscountUserUseScalarFieldEnum = {
+  discountId: 'discountId',
+  userId: 'userId',
+  usesCount: 'usesCount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DiscountUserUseScalarFieldEnum = (typeof DiscountUserUseScalarFieldEnum)[keyof typeof DiscountUserUseScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const NullsOrder = {
@@ -167,4 +318,118 @@ export const OtpOrderByRelevanceFieldEnum = {
 } as const
 
 export type OtpOrderByRelevanceFieldEnum = (typeof OtpOrderByRelevanceFieldEnum)[keyof typeof OtpOrderByRelevanceFieldEnum]
+
+
+export const CategoryOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  description: 'description'
+} as const
+
+export type CategoryOrderByRelevanceFieldEnum = (typeof CategoryOrderByRelevanceFieldEnum)[keyof typeof CategoryOrderByRelevanceFieldEnum]
+
+
+export const ProductOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  description: 'description',
+  categoryId: 'categoryId'
+} as const
+
+export type ProductOrderByRelevanceFieldEnum = (typeof ProductOrderByRelevanceFieldEnum)[keyof typeof ProductOrderByRelevanceFieldEnum]
+
+
+export const ProductVariantOrderByRelevanceFieldEnum = {
+  id: 'id',
+  sku: 'sku',
+  productId: 'productId'
+} as const
+
+export type ProductVariantOrderByRelevanceFieldEnum = (typeof ProductVariantOrderByRelevanceFieldEnum)[keyof typeof ProductVariantOrderByRelevanceFieldEnum]
+
+
+export const OptionOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name'
+} as const
+
+export type OptionOrderByRelevanceFieldEnum = (typeof OptionOrderByRelevanceFieldEnum)[keyof typeof OptionOrderByRelevanceFieldEnum]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+
+export const QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+} as const
+
+export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const OptionValueOrderByRelevanceFieldEnum = {
+  id: 'id',
+  value: 'value',
+  optionId: 'optionId'
+} as const
+
+export type OptionValueOrderByRelevanceFieldEnum = (typeof OptionValueOrderByRelevanceFieldEnum)[keyof typeof OptionValueOrderByRelevanceFieldEnum]
+
+
+export const ProductVariantOptionValueOrderByRelevanceFieldEnum = {
+  productVariantId: 'productVariantId',
+  optionValueId: 'optionValueId'
+} as const
+
+export type ProductVariantOptionValueOrderByRelevanceFieldEnum = (typeof ProductVariantOptionValueOrderByRelevanceFieldEnum)[keyof typeof ProductVariantOptionValueOrderByRelevanceFieldEnum]
+
+
+export const CartOrderByRelevanceFieldEnum = {
+  id: 'id'
+} as const
+
+export type CartOrderByRelevanceFieldEnum = (typeof CartOrderByRelevanceFieldEnum)[keyof typeof CartOrderByRelevanceFieldEnum]
+
+
+export const CartItemOrderByRelevanceFieldEnum = {
+  id: 'id',
+  cartId: 'cartId',
+  variantId: 'variantId',
+  name: 'name'
+} as const
+
+export type CartItemOrderByRelevanceFieldEnum = (typeof CartItemOrderByRelevanceFieldEnum)[keyof typeof CartItemOrderByRelevanceFieldEnum]
+
+
+export const DiscountOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  code: 'code'
+} as const
+
+export type DiscountOrderByRelevanceFieldEnum = (typeof DiscountOrderByRelevanceFieldEnum)[keyof typeof DiscountOrderByRelevanceFieldEnum]
+
+
+export const DiscountProductOrderByRelevanceFieldEnum = {
+  discountId: 'discountId',
+  productId: 'productId'
+} as const
+
+export type DiscountProductOrderByRelevanceFieldEnum = (typeof DiscountProductOrderByRelevanceFieldEnum)[keyof typeof DiscountProductOrderByRelevanceFieldEnum]
+
+
+export const DiscountUserUseOrderByRelevanceFieldEnum = {
+  discountId: 'discountId'
+} as const
+
+export type DiscountUserUseOrderByRelevanceFieldEnum = (typeof DiscountUserUseOrderByRelevanceFieldEnum)[keyof typeof DiscountUserUseOrderByRelevanceFieldEnum]
 

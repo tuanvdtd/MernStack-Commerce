@@ -1,12 +1,11 @@
 import { Request, Response } from 'express'
 
-import { OtpService } from '~/modules/otp/otp.service'
 import { UserService } from '~/modules/users/user.service'
 
 export const UserController = {
   register: async (req: Request, res: Response) => {
-    const { email, name, password } = req.body
-    const user = await UserService.register(email, name, password)
+    const { email } = req.body
+    const user = await UserService.register(email)
     return res.status(201).json(user)
   },
 
@@ -22,14 +21,14 @@ export const UserController = {
   },
 
   verifyOtp: async (req: Request, res: Response) => {
-    const { email, code } = req.body
-    const result = await OtpService.verifyRegisterOtp(email, code)
+    const { email, code, password, verifyPassword } = req.body
+    const result = await UserService.completeRegistration(email, code, password, verifyPassword)
     return res.status(200).json(result)
   },
 
   resendOtp: async (req: Request, res: Response) => {
     const { email } = req.body
-    const result = await OtpService.resendRegisterOtp(email)
+    const result = await UserService.resendRegistrationOtp(email)
     return res.status(200).json({
       message: 'OTP has been resent to your email',
       expiresInMinutes: result.expiresInMinutes,

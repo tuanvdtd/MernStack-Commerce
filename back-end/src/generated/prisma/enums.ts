@@ -14,3 +14,29 @@ export const OtpPurpose = {
 } as const
 
 export type OtpPurpose = (typeof OtpPurpose)[keyof typeof OtpPurpose]
+
+
+export const CartState = {
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  PENDING: 'PENDING',
+  FAILED: 'FAILED'
+} as const
+
+export type CartState = (typeof CartState)[keyof typeof CartState]
+
+
+export const DiscountType = {
+  FIXED_AMOUNT: 'FIXED_AMOUNT',
+  PERCENTAGE: 'PERCENTAGE'
+} as const
+
+export type DiscountType = (typeof DiscountType)[keyof typeof DiscountType]
+
+
+export const DiscountAppliesTo = {
+  ALL: 'ALL',
+  SPECIFIC: 'SPECIFIC'
+} as const
+
+export type DiscountAppliesTo = (typeof DiscountAppliesTo)[keyof typeof DiscountAppliesTo]

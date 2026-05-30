@@ -1,6 +1,6 @@
 
 import type { User } from '~/types/user';
-import type { LoginData, RegisterData } from '~/types/auth';
+import type { LoginData, RegisterData, VerifyOtpData } from '~/types/auth';
 import axios from './axiosConfig';
 
 interface loginRes {
@@ -23,6 +23,16 @@ export const login = async (credentials: LoginData): Promise<loginRes> => {
   }
 };
 
+export const logOut = async (): Promise<{ success?: boolean; message?: string; error?: string }> => {
+  try {
+    // const response = await axios.post('/user/logout');
+    return { success: true, message: 'Logout successful' };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || 'Something went wrong';
+    return { error: errorMessage };
+  }
+};
+
 export const register = async (
   userData: RegisterData
 ): Promise<{ success?: boolean; email?: string; message?: string; error?: string }> => {
@@ -41,11 +51,10 @@ export const register = async (
 };
 
 export const verifyOtp = async (
-  email: string,
-  code: string
+  data: VerifyOtpData
 ): Promise<{ success?: boolean; message?: string; error?: string }> => {
   try {
-    const response = await axios.post('/user/verify-otp', { email, code });
+    const response = await axios.post('/user/verify-otp', data);
     return { success: true, message: response.data.message };
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || 'Something went wrong';

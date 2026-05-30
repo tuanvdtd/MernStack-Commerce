@@ -1,7 +1,6 @@
 import { createBrowserRouter, Outlet, Navigate } from "react-router";
 import { RootLayout } from "~/layouts/RootLayout";
-import { HomeLoggedIn } from "~/pages/HomeLoggedIn";
-import { HomeGuest } from "~/pages/HomeGuest";
+import { Home } from "~/pages/Home";
 import { ProductDetail } from "~/pages/ProductDetail";
 import { Cart } from "~/pages/Cart";
 import { Checkout } from "~/pages/Checkout";
@@ -24,15 +23,15 @@ import { OrderDetail } from "~/pages/admin/OrderDetail";
 import { userStore } from "~/stores/userStore";
 
 const ProtectedRoute = () => {
-  const user = userStore.getState().user;
+  const user = userStore((s) => s.user);
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
-  return <Outlet />; // nếu có user trong storage thì chuyển xuống các route con trong route cha
+  return <Outlet />;
 };
 
 const LoginedRedirect = () => {
-  const user = userStore.getState().user;
+  const user = userStore((s) => s.user);
   if (user && user.isAdmin) {
     return <Navigate to="/admin/products" replace />;
   } else if (user) {
@@ -47,14 +46,11 @@ export const router = createBrowserRouter([
     Component: RootLayout,
     children: [
       // Public routes - ai cũng truy cập được
-      { index: true, Component: HomeLoggedIn },
-      { path: "guest", Component: HomeGuest },
+      { index: true, Component: Home },
       { path: "product/:id", Component: ProductDetail },
       { path: "category/:slug", Component: Category },
       { path: "flash-sale", Component: FlashSale },
       { path: "*", Component: NotFound },
-      { path: "account", Component: Account },
-      { path: "account-v2", Component: AccountV2 },
 
       // Protected routes - phải đăng nhập mới truy cập được
       {
@@ -63,6 +59,8 @@ export const router = createBrowserRouter([
           { path: "cart", Component: Cart },
           { path: "checkout", Component: Checkout },
           { path: "track-order", Component: TrackOrder },
+          { path: "account", Component: AccountV2 },
+          { path: "account-old", Component: Account },
         ],
       },
     ],

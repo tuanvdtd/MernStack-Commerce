@@ -17,12 +17,12 @@ export const UserRepo = {
     })
   },
 
-  async create(data: RegisterUserDto) {
+  async create(data: RegisterUserDto, isActive = false) {
     // default role is user
     const res = await prisma.user.create({
       data: {
         ...data,
-        isActive: false,
+        isActive,
         role: {
           connectOrCreate: {
             where: { name: 'USER' },

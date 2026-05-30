@@ -37,3 +37,58 @@ export type Role = Prisma.RoleModel
  * 
  */
 export type Otp = Prisma.OtpModel
+/**
+ * Model Category
+ * 
+ */
+export type Category = Prisma.CategoryModel
+/**
+ * Model Product
+ * 
+ */
+export type Product = Prisma.ProductModel
+/**
+ * Model ProductVariant
+ * 
+ */
+export type ProductVariant = Prisma.ProductVariantModel
+/**
+ * Model Option
+ * 
+ */
+export type Option = Prisma.OptionModel
+/**
+ * Model OptionValue
+ * 
+ */
+export type OptionValue = Prisma.OptionValueModel
+/**
+ * Model ProductVariantOptionValue
+ * 
+ */
+export type ProductVariantOptionValue = Prisma.ProductVariantOptionValueModel
+/**
+ * Model Cart
+ * 
+ */
+export type Cart = Prisma.CartModel
+/**
+ * Model CartItem
+ * 
+ */
+export type CartItem = Prisma.CartItemModel
+/**
+ * Model Discount
+ * 
+ */
+export type Discount = Prisma.DiscountModel
+/**
+ * Model DiscountProduct
+ * 
+ */
+export type DiscountProduct = Prisma.DiscountProductModel
+/**
+ * Model DiscountUserUse
+ * 
+ */
+export type DiscountUserUse = Prisma.DiscountUserUseModel

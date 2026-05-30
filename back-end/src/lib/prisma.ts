@@ -15,6 +15,8 @@ const adapter = new PrismaMariaDb({
   connectTimeout: 10_000,
   acquireTimeout: 30_000,
   minimumIdle: 1,
+  // MySQL 8+ default auth (caching_sha2_password) needs the server RSA key over non-TLS connections
+  allowPublicKeyRetrieval: true,
 });
 const prisma = new PrismaClient({ adapter });
 

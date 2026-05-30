@@ -1,9 +1,11 @@
 import { User, Package, Heart, Settings, MapPin, CreditCard, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
+import { useLogOut } from "~/hooks/useLogOut";
 
 export function Account() {
   const [activeTab, setActiveTab] = useState("profile");
+  const logOut = useLogOut();
 
   const user = {
     name: "Nguyễn Văn A",
@@ -122,7 +124,8 @@ export function Account() {
                     </button>
                   );
                 })}
-                <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                  onClick={logOut}>
                   <LogOut className="w-5 h-5" />
                   <span className="font-semibold">Đăng xuất</span>
                 </button>

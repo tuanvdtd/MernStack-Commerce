@@ -6,7 +6,7 @@ import {
   verifyOtp as verifyOtpApi,
   resendOtp as resendOtpApi,
 } from "~/apis/authApi";
-import type { LoginData, RegisterData } from "~/types/auth.ts";
+import type { LoginData, RegisterData, VerifyOtpData } from "~/types/auth.ts";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 type UserState = {
@@ -20,7 +20,7 @@ type UserState = {
   setUser: (user: User) => void;
   setError: (error: string | null) => void;
   signUp: (registerData: RegisterData) => Promise<boolean>;
-  verifyOtp: (email: string, code: string) => Promise<boolean>;
+  verifyOtp: (data: VerifyOtpData) => Promise<boolean>;
   resendOtp: (email: string) => Promise<boolean>;
   logIn: (LoginData: LoginData) => Promise<User | null>;
   logOut: () => void;
@@ -64,10 +64,10 @@ export const userStore = create<UserState>()(
         }
       },
 
-      verifyOtp: async (email: string, code: string) => {
+      verifyOtp: async (data: VerifyOtpData) => {
         set({ loading: true, error: null });
 
-        const result = await verifyOtpApi(email, code);
+        const result = await verifyOtpApi(data);
 
         if (result.success) {
           set({ loading: false });

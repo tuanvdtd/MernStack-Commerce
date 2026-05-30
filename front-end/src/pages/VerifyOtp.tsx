@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Info, Mail } from 'lucide-react'
+import { Eye, EyeOff, Info, Mail } from 'lucide-react'
 
 import { OtpInput } from '~/components/OtpInput'
 import { Alert, AlertDescription } from '~/components/ui/alert'
@@ -18,6 +18,10 @@ export function VerifyOtp() {
 
   const [email, setEmail] = useState(emailParam)
   const [otp, setOtp] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordVisible, setPasswordVisible] = useState(false)
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
 
@@ -49,8 +53,21 @@ export function VerifyOtp() {
       setError('Vui lòng nhập đủ 6 chữ số OTP')
       return
     }
+    if (password.length < 8) {
+      setError('Mat khau phai co it nhat 8 ky tu')
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Mat khau xac nhan khong khop')
+      return
+    }
 
-    const ok = await verifyOtp(email.trim(), otp)
+    const ok = await verifyOtp({
+      email: email.trim(),
+      code: otp,
+      password,
+      verifyPassword: confirmPassword,
+    })
     if (ok) {
       navigate(`/login?verifiedEmail=${encodeURIComponent(email.trim())}`, { replace: true })
     }
@@ -140,10 +157,60 @@ export function VerifyOtp() {
             <OtpInput value={otp} onChange={setOtp} disabled={loading} />
           </div>
 
+          <div className="mb-4">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Mat khau
+            </label>
+            <div className="flex items-center border rounded-md px-4 py-2 mt-1">
+              <input
+                type={passwordVisible ? 'text' : 'password'}
+                id="password"
+                placeholder="Nhap mat khau"
+                className="w-full focus:outline-none"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="text-gray-500 hover:text-gray-700 ml-2"
+                onClick={() => setPasswordVisible((visible) => !visible)}
+                aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+              >
+                {passwordVisible ? <EyeOff /> : <Eye />}
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              Xac nhan mat khau
+            </label>
+            <div className="flex items-center border rounded-md px-4 py-2 mt-1">
+              <input
+                type={confirmPasswordVisible ? 'text' : 'password'}
+                id="confirmPassword"
+                placeholder="Nhap lai mat khau"
+                className="w-full focus:outline-none"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="text-gray-500 hover:text-gray-700 ml-2"
+                onClick={() => setConfirmPasswordVisible((visible) => !visible)}
+                aria-label={confirmPasswordVisible ? 'Hide password' : 'Show password'}
+              >
+                {confirmPasswordVisible ? <EyeOff /> : <Eye />}
+              </button>
+            </div>
+          </div>
+
           <button
             type="button"
             className="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition mb-4 disabled:opacity-60"
-            disabled={loading || otp.length !== 6}
+            disabled={loading || otp.length !== 6 || password.length < 8 || password !== confirmPassword}
             onClick={handleVerify}
           >
             {loading ? 'Đang xác thực...' : 'Xác thực tài khoản'}

@@ -18,7 +18,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "tree": "npx tree -L 4 -I 'node_modules|.git|dist|build'",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "node --import tsx prisma/seed.ts"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

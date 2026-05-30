@@ -15,8 +15,10 @@ import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { Progress } from "~/components/ui/progress";
+import { useLogOut } from "~/hooks/useLogOut";
 
 export function AccountV2() {
+  const logOut = useLogOut();
   const [activeTab, setActiveTab] = useState("profile");
 
   const user = {
@@ -180,7 +182,8 @@ export function AccountV2() {
                     );
                   })}
                   <Separator className="my-1" />
-                  <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-all cursor-pointer">
+                  <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+                    onClick={logOut}>
                     <LogOut className="w-4 h-4" />
                     <span>Đăng xuất</span>
                   </button>
