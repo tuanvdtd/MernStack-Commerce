@@ -90,16 +90,17 @@ export function Login() {
       }}
     >
       {/* Header */}
-      <div className="backdrop-blur-[12px] bg-[rgba(255,255,255,0.8)] border-b border-[#e2e8f0] sticky top-0 z-50">
-        <div className="max-w-[1280px] mx-auto px-8 py-6">
+      <div className="backdrop-blur-[12px] bg-[rgba(255,255,255,0.8)] border-b border-[rgba(216,222,226,0.2)] sticky top-0 z-50">
+        <div className="max-w-[1280px] mx-auto px-6 py-5">
           <div className="flex items-center justify-between">
-            <Link to="/" className="text-[#0891b2] text-2xl font-normal tracking-[-1.2px]">
-              FlashBuy
-            </Link>
-            <Link to="/help" className="flex items-center gap-1 text-[#00647e] text-sm hover:underline">
-              <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 15 15">
-                <path d={svgPaths.p256c25e0} fill="#00647E" />
-              </svg>
+            <div className="flex items-center gap-6">
+              <Link to="/" className="text-[#00647e] text-2xl font-normal tracking-[-1.2px]">
+                FlashBuy
+              </Link>
+              <div className="bg-[#d8dee2] w-px h-6" />
+              <h1 className="text-[#2b2f32] text-lg">Đăng nhập</h1>
+            </div>
+            <Link to="/login" className="text-[#00647e] text-sm hover:underline">
               Cần trợ giúp?
             </Link>
           </div>

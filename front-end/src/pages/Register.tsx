@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import googleIcon from "~/imports/google-icon.svg";
 import { googleLoginUrl } from "~/apis/authApi";
 import { userStore } from "~/stores/userStore";
+import { Footer } from "~/components/Footer";
 
 export function Register() {
   const navigate = useNavigate();
@@ -52,10 +53,10 @@ export function Register() {
                 FlashBuy
               </Link>
               <div className="bg-[#d8dee2] w-px h-6" />
-              <h1 className="text-[#2b2f32] text-lg">Dang ky</h1>
+              <h1 className="text-[#2b2f32] text-lg">Đăng ký</h1>
             </div>
             <Link to="/login" className="text-[#00647e] text-sm hover:underline">
-              Tro giup?
+              Cần trợ giúp?
             </Link>
           </div>
         </div>
@@ -63,7 +64,7 @@ export function Register() {
 
       <div className="flex h-[700px] items-center justify-center bg-gray-100">
         <div className="bg-white w-[400px] p-8 rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold mb-6 text-center">Tao tai khoan moi</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center">Tạo tài khoản mới</h1>
 
           {error && (
             <div className="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm">
@@ -92,7 +93,7 @@ export function Register() {
             onClick={handleSignUp}
             disabled={loading}
           >
-            {loading ? "Dang gui OTP..." : "Gui ma OTP"}
+            {loading ? "Đang gửi OTP..." : "Gửi mã OTP"}
           </button>
 
           <button
@@ -101,35 +102,19 @@ export function Register() {
             onClick={handleGoogleSignIn}
           >
             <img src={googleIcon} alt="Google Logo" className="w-5 h-5 mr-2" />
-            Dang ky voi Google
+            Đăng ký với Google
           </button>
 
           <p className="text-sm text-center text-gray-500">
-            Da co tai khoan?{" "}
+            Bạn đã có tài khoản?{" "}
             <button onClick={handleSigninClick} className="text-blue-500 hover:underline">
-              Dang nhap
+              Đăng nhập
             </button>
           </p>
         </div>
       </div>
 
-      <div className="py-8">
-        <div className="max-w-[1280px] mx-auto px-8 flex flex-wrap items-center justify-center gap-4 text-xs text-[#73777a]">
-          <span>(c) 2024 Velocity Editorial. All rights reserved.</span>
-          <div className="w-1 h-1 rounded-full bg-[#aaadb0]" />
-          <div className="flex gap-4">
-            <Link to="/privacy" className="hover:text-[#585c5f]">
-              Privacy Policy
-            </Link>
-            <Link to="/terms" className="hover:text-[#585c5f]">
-              Terms of Service
-            </Link>
-            <Link to="/help" className="hover:text-[#585c5f]">
-              Help Center
-            </Link>
-          </div>
-        </div>
-      </div>
+      <Footer />
     </div>
   );
 }

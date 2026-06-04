@@ -113,3 +113,6 @@ out/
 # !src/**/*.example.ts
 
 /generated/prisma
+
+.cursor
+.agents

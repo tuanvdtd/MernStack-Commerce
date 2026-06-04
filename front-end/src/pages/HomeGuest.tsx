@@ -290,6 +290,30 @@ export function HomeGuest() {
         </div>
       </section>
 
+      {/* Trust */}
+      <section className="py-10 bg-gradient-to-r from-slate-900 via-blue-950 to-cyan-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: Truck, title: "Miễn phí vận chuyển", desc: "Đơn từ 300K" },
+              { icon: ShieldCheck, title: "Chính hãng 100%", desc: "Bảo hành 12 tháng" },
+              { icon: Zap, title: "Flash Sale mỗi ngày", desc: "Giảm đến 70%" },
+              { icon: Gift, title: "Ưu đãi thành viên", desc: "Sau khi đăng ký" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3 text-white">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{item.title}</p>
+                  <p className="text-xs text-blue-200/70">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Product catalog — Shopee-style browse */}
       <section id="catalog" className="py-12 bg-muted/20 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -493,30 +517,6 @@ export function HomeGuest() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust */}
-      <section className="py-10 bg-gradient-to-r from-slate-900 via-blue-950 to-cyan-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Truck, title: "Miễn phí vận chuyển", desc: "Đơn từ 300K" },
-              { icon: ShieldCheck, title: "Chính hãng 100%", desc: "Bảo hành 12 tháng" },
-              { icon: Zap, title: "Flash Sale mỗi ngày", desc: "Giảm đến 70%" },
-              { icon: Gift, title: "Ưu đãi thành viên", desc: "Sau khi đăng ký" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3 text-white">
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                  <item.icon className="w-5 h-5 text-cyan-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">{item.title}</p>
-                  <p className="text-xs text-blue-200/70">{item.desc}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

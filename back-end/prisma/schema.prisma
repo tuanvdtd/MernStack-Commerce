@@ -78,6 +78,9 @@ model Product {
   category    Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   variants    ProductVariant[]
   discounts   DiscountProduct[]
+  brand       String
+  imgUrl      String?
+  isActive    Boolean           @default(true)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -89,6 +92,7 @@ model ProductVariant {
   id            String                      @id @default(cuid())
   sku           String                      @unique @db.VarChar(100)
   price         Decimal                     @db.Decimal(12, 2)
+  imgUrl        String?
   stockQuantity Int                         @default(0)
   productId     String
   product       Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)

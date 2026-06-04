@@ -1,10 +1,29 @@
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { ShoppingCart, User, LogIn, UserPlus } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { userStore } from "~/stores/userStore";
+import { cn } from "~/lib/utils";
+
+function navLinkClass(isActive: boolean) {
+  return cn(
+    "relative text-sm pb-1 transition-colors",
+    "after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#00cbfd] after:origin-center after:scale-x-0 after:transition-transform after:duration-300 after:ease-out",
+    isActive
+      ? "text-[#00647e] font-semibold after:scale-x-100"
+      : "text-[#2b2f32] hover:text-[#00647e] hover:after:scale-x-100"
+  );
+}
+
+function iconLinkClass(isActive: boolean) {
+  return cn(
+    "p-2 transition-colors",
+    isActive ? "text-[#00647e]" : "text-[#2b2f32] hover:text-[#00647e]"
+  );
+}
 
 export function Header() {
   const user = userStore((s) => s.user);
+  const { pathname } = useLocation();
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -15,22 +34,31 @@ export function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-6">
-            <Link to="/category/all" className="text-sm text-[#2b2f32] hover:text-[#00647e] transition-colors">
+            <Link
+              to="/category/all"
+              className={navLinkClass(pathname.startsWith("/category"))}
+            >
               Danh mục
             </Link>
-            <Link to="/flash-sale" className="text-sm text-[#2b2f32] hover:text-[#00647e] transition-colors">
+            <Link
+              to="/flash-sale"
+              className={navLinkClass(pathname.startsWith("/flash-sale"))}
+            >
               Flash Sale
             </Link>
-            <Link to="/category/deals" className="text-sm text-[#2b2f32] hover:text-[#00647e] transition-colors">
+            {/* <Link to="/category/deals" className={navLinkClass(pathname.startsWith("/category/deals"))}>
               Ưu đãi
-            </Link>
+            </Link> */}
             {!user && (
               <span className="text-xs text-muted-foreground hidden lg:inline">
                 Xem sản phẩm không cần đăng nhập
               </span>
             )}
             {user && (
-              <Link to="/track-order" className="text-sm text-[#2b2f32] hover:text-[#00647e] transition-colors">
+              <Link
+                to="/track-order"
+                className={navLinkClass(pathname.startsWith("/track-order"))}
+              >
                 Theo dõi đơn
               </Link>
             )}
@@ -54,10 +82,18 @@ export function Header() {
           <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
               <>
-                <Link to="/cart" className="relative p-2 hover:text-[#00647e] transition-colors text-[#2b2f32]" aria-label="Giỏ hàng">
+                <Link
+                  to="/cart"
+                  className={cn("relative", iconLinkClass(pathname.startsWith("/cart")))}
+                  aria-label="Giỏ hàng"
+                >
                   <ShoppingCart className="w-6 h-6" />
                 </Link>
-                <Link to="/account" className="p-2 hover:text-[#00647e] transition-colors text-[#2b2f32]" aria-label="Tài khoản">
+                <Link
+                  to="/account"
+                  className={iconLinkClass(pathname.startsWith("/account"))}
+                  aria-label="Tài khoản"
+                >
                   <User className="w-6 h-6" />
                 </Link>
               </>

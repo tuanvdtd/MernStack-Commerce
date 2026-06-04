@@ -139,3 +139,16 @@
     font: inherit;
     }
 }
+
+/* Admin panel — typography & spacing aligned with Geist + shadcn tokens */
+.admin-shell {
+    --admin-brand: #0acdff;
+    --admin-brand-foreground: #042a38;
+    --admin-sidebar-width: 16rem;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+.admin-shell .admin-main {
+    max-width: 80rem;
+}
