@@ -37,5 +37,5 @@ const unifiedAccent: CategoryAccent = {
 
 export const getCategoryAccent = (): CategoryAccent => unifiedAccent
 
-export const getCategoryIconAccent = (categoryId: string, isActive = false): string =>
+export const getCategoryIconAccent = (_categoryId: string, isActive = false): string =>
   isActive ? storeTokens.iconBoxActive : storeTokens.iconBox

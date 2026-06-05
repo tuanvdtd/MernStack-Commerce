@@ -1,5 +1,4 @@
 import { Link, useNavigate, useSearchParams } from "react-router";
-import svgPaths from "~/imports/svg-login";
 import imgGoogleIcon from "~/imports/google-icon.svg";
 import { Footer } from "~/components/Footer";
 import { useEffect, useState } from 'react';

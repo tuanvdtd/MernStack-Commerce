@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import {
   User, Package, Heart, MapPin, CreditCard, Settings, LogOut,
-  Camera, Shield, Bell, Mail, Phone, Calendar, ChevronRight,
+  Camera, Shield, Bell, Mail, Phone, Calendar,
   Truck, CheckCircle2, Clock, ShoppingBag, Pencil, Trash2, Plus, Star
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
