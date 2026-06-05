@@ -22,6 +22,7 @@ import { OrdersList } from "~/pages/admin/OrdersList";
 import { OrderDetail } from "~/pages/admin/OrderDetail";
 import { userStore } from "~/stores/userStore";
 
+// eslint-disable-next-line react-refresh/only-export-components
 const ProtectedRoute = () => {
   const user = userStore((s) => s.user);
   if (!user) {
@@ -30,6 +31,7 @@ const ProtectedRoute = () => {
   return <Outlet />;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 const LoginedRedirect = () => {
   const user = userStore((s) => s.user);
   if (user && user.isAdmin) {

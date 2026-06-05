@@ -11,14 +11,15 @@ interface loginRes {
 export const login = async (credentials: LoginData): Promise<loginRes> => {
   try {
     const response = await axios.post('/user/login', credentials);
-    var normalUser: User = response.data;
+    const normalUser: User = response.data;
 
     return {
       user: normalUser
     };
 
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Some thing wrong';
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } }
+    const errorMessage = err.response?.data?.message || 'Some thing wrong';
     return { error: errorMessage };
   }
 };
@@ -27,8 +28,9 @@ export const logOut = async (): Promise<{ success?: boolean; message?: string; e
   try {
     // const response = await axios.post('/user/logout');
     return { success: true, message: 'Logout successful' };
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Something went wrong';
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } }
+    const errorMessage = err.response?.data?.message || 'Something went wrong';
     return { error: errorMessage };
   }
 };
@@ -44,8 +46,9 @@ export const register = async (
       email: data.email,
       message: data.message,
     };
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Something went wrong';
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } }
+    const errorMessage = err.response?.data?.message || 'Something went wrong';
     return { error: errorMessage };
   }
 };
@@ -56,8 +59,9 @@ export const verifyOtp = async (
   try {
     const response = await axios.post('/user/verify-otp', data);
     return { success: true, message: response.data.message };
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Something went wrong';
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } }
+    const errorMessage = err.response?.data?.message || 'Something went wrong';
     return { error: errorMessage };
   }
 };
@@ -68,8 +72,9 @@ export const resendOtp = async (
   try {
     const response = await axios.post('/user/resend-otp', { email });
     return { success: true, message: response.data.message };
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Something went wrong';
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } }
+    const errorMessage = err.response?.data?.message || 'Something went wrong';
     return { error: errorMessage };
   }
 };

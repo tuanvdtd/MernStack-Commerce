@@ -1,4 +1,5 @@
 import { BrevoClient } from '@getbrevo/brevo';
+
 import { env } from '~/config/env'
 
 console.log(env.BREVO_API_KEY);

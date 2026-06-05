@@ -19,5 +19,11 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // setState trong effect là pattern intentional (pagination clamp, sync từ prop)
+      'react-hooks/set-state-in-effect': 'off',
+      // React Compiler memoization warning — chưa migrate React Compiler
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
   },
 ])

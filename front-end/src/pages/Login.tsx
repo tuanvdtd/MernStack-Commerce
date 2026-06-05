@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from '~/components/ui/alert';
 export function Login() {
   const navigate = useNavigate();
   const { logIn, error, setError, loading } = userStore();
-  let [searchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const registeredEmail = searchParams.get('registeredEmail')
   const verifiedEmail = searchParams.get('verifiedEmail')
   const [formData, setFormData] = useState({
