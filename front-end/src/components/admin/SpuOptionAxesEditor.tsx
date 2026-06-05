@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react"
 import { Button } from "~/components/ui/button"
 import { Label } from "~/components/ui/label"
+import { Badge } from "~/components/ui/badge"
 import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
 import {
   addCatalogOption,
@@ -67,22 +68,33 @@ export const SpuOptionAxesEditor = ({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border p-4">
-      <div>
-        <Label>Trục biến thể (Option) *</Label>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Chọn từ catalog hoặc thêm trục mới — mọi SKU dùng chung bộ trục này
-        </p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <Label className="text-sm font-medium">Trục biến thể (Option) *</Label>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Mọi SKU dùng chung bộ trục. Chọn từ catalog hoặc thêm trục mới.
+          </p>
+        </div>
+        <Badge variant="secondary" className="shrink-0">
+          {axes.length} trục
+        </Badge>
       </div>
 
       <ul className="space-y-2">
         {axes.map((axisName, index) => (
           <li
             key={`${axisName}-${index}`}
-            className="flex items-center gap-2 rounded-md bg-muted/40 p-2"
+            className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-border bg-background p-2 sm:gap-3 sm:p-3"
           >
+            <span
+              className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground"
+              aria-hidden
+            >
+              {index + 1}
+            </span>
             <CatalogCreatablePicker
-              className="flex-1"
+              className="min-w-0"
               value={axisName}
               onChange={(name) => handleReplaceAxis(index, name)}
               options={axesAvailableForIndex(index)}
@@ -98,25 +110,31 @@ export const SpuOptionAxesEditor = ({
                 if (name) handleReplaceAxis(index, name)
               }}
             />
-            {axes.length > 1 && (
+            {axes.length > 1 ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => handleRemove(index)}
                 aria-label={`Xóa trục ${axisName}`}
+                className="shrink-0"
               >
                 <Trash2 className="size-4 text-destructive" />
               </Button>
+            ) : (
+              <span className="size-8 shrink-0" aria-hidden />
             )}
           </li>
         ))}
       </ul>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Plus className="size-4 text-muted-foreground" aria-hidden />
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Plus className="size-4 shrink-0" aria-hidden />
+          <span className="font-medium text-foreground">Thêm trục</span>
+        </div>
         <CatalogCreatablePicker
-          className="max-w-xs flex-1"
+          className="min-w-0 flex-1 sm:max-w-sm"
           value=""
           onChange={handleAddAxis}
           options={axesAvailableToAdd}
@@ -124,7 +142,7 @@ export const SpuOptionAxesEditor = ({
             const label = getCatalogLabel(optionCatalog, name)
             return label === name ? name : `${label} (${name})`
           }}
-          placeholder="Thêm trục Option"
+          placeholder="Chọn hoặc tạo trục mới"
           createPlaceholder="Tên trục mới (VD: Warranty)"
           createButtonLabel="Thêm trục"
           onCreate={(raw) => {

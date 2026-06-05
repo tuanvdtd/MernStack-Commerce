@@ -1,26 +1,10 @@
 import { Link } from "react-router"
-import type { LucideIcon } from "lucide-react"
-import {
-  Banknote,
-  Check,
-  Filter,
-  LayoutGrid,
-  LogIn,
-  RotateCcw,
-  Tag,
-  X,
-} from "lucide-react"
+import { Banknote, Filter, LogIn, Tag, X } from "lucide-react"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent } from "~/components/ui/card"
 import { Badge } from "~/components/ui/badge"
 import { cn } from "~/lib/utils"
-
-type CategoryItem = {
-  id: string
-  name: string
-  icon: LucideIcon
-  color: string
-}
+import { storeTokens } from "~/lib/categoryTheme"
 
 type PriceRangeItem = {
   id: string
@@ -28,11 +12,7 @@ type PriceRangeItem = {
 }
 
 type GuestCatalogFiltersProps = {
-  categories: CategoryItem[]
   priceRanges: PriceRangeItem[]
-  categoryCounts: Record<string, number>
-  selectedCategory: string
-  onCategoryChange: (id: string) => void
   selectedPriceRange: string | null
   onPriceRangeChange: (id: string | null) => void
   searchQuery: string
@@ -42,21 +22,8 @@ type GuestCatalogFiltersProps = {
   onClearAll: () => void
 }
 
-const categoryIconStyles: Record<string, string> = {
-  "dien-thoai": "bg-sky-50 text-sky-700 ring-sky-100 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-900",
-  laptop: "bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:ring-violet-900",
-  "dong-ho": "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900",
-  "tai-nghe": "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900",
-  "may-tinh-bang": "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900",
-  "man-hinh": "bg-indigo-50 text-indigo-700 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900",
-}
-
 export function GuestCatalogFilters({
-  categories,
   priceRanges,
-  categoryCounts,
-  selectedCategory,
-  onCategoryChange,
   selectedPriceRange,
   onPriceRangeChange,
   searchQuery,
@@ -65,28 +32,26 @@ export function GuestCatalogFilters({
   activeFilterCount,
   onClearAll,
 }: GuestCatalogFiltersProps) {
-  const selectedCategoryName = categories.find((category) => category.id === selectedCategory)?.name
   const selectedPriceRangeLabel = priceRanges.find((range) => range.id === selectedPriceRange)?.label
   const hasActiveFilters = activeFilterCount > 0
 
   return (
-    <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-      <Card className="gap-0 overflow-hidden rounded-lg border-border/80 bg-background pt-0 pb-0 shadow-sm">
-        <div className="border-b border-border/70 bg-card px-4 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-border">
-                <Filter className="h-4 w-4" />
+    <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
+      <Card className={cn("gap-0 overflow-hidden rounded-lg border pt-0 pb-0 shadow-none", storeTokens.border, storeTokens.surface)}>
+        <div className={cn("border-b px-4 py-3", storeTokens.border, storeTokens.bandBg)}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className={cn("flex size-8 items-center justify-center rounded", storeTokens.iconBox)}>
+                <Filter className="size-4" aria-hidden="true" />
               </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground">Bộ lọc sản phẩm</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">{resultCount} sản phẩm phù hợp</p>
+              <div>
+                <h3 className="text-sm font-semibold text-[#2b2f32]">Khoảng giá</h3>
+                <p className="text-xs text-[#757575]">{resultCount} sản phẩm</p>
               </div>
             </div>
-
             {hasActiveFilters && (
-              <Badge variant="outline" className="h-6 shrink-0 rounded-md border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300">
-                {activeFilterCount} lọc
+              <Badge variant="secondary" className="h-5 rounded bg-[#ee4d2d] text-white hover:bg-[#ee4d2d]">
+                {activeFilterCount}
               </Badge>
             )}
           </div>
@@ -94,23 +59,18 @@ export function GuestCatalogFilters({
 
         <CardContent className="p-0">
           {hasActiveFilters && (
-            <div className="border-b border-border/70 bg-slate-50 px-4 py-3 dark:bg-slate-950/30">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Đang áp dụng</span>
+            <div className={cn("border-b px-4 py-3", storeTokens.border)}>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-medium text-[#2b2f32]">Đang lọc</span>
                 <button
                   type="button"
                   onClick={onClearAll}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-sky-300 dark:hover:text-sky-200"
+                  className="text-xs text-[#00647e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00cbfd]"
                 >
-                  <RotateCcw className="h-3 w-3" />
                   Xóa tất cả
                 </button>
               </div>
-
               <div className="flex flex-wrap gap-1.5">
-                {selectedCategory !== "all" && selectedCategoryName && (
-                  <FilterChip label={selectedCategoryName} onRemove={() => onCategoryChange("all")} removeLabel="Bỏ lọc danh mục" />
-                )}
                 {selectedPriceRange && selectedPriceRangeLabel && (
                   <FilterChip label={selectedPriceRangeLabel} onRemove={() => onPriceRangeChange(null)} removeLabel="Bỏ lọc giá" />
                 )}
@@ -121,76 +81,12 @@ export function GuestCatalogFilters({
             </div>
           )}
 
-          <div className="border-b border-border/70 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <LayoutGrid className="h-4 w-4 text-slate-500" />
-              <h4 className="text-sm font-semibold text-foreground">Danh mục</h4>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onCategoryChange("all")}
-              className={cn(
-                "mb-2 flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                selectedCategory === "all"
-                  ? "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
-                  : "border-transparent bg-muted/30 text-foreground hover:border-border hover:bg-muted/60"
-              )}
-              aria-pressed={selectedCategory === "all"}
-            >
-              <span className="flex items-center gap-2 font-medium">
-                {selectedCategory === "all" && <Check className="h-4 w-4" />}
-                Tất cả sản phẩm
-              </span>
-              <span className="rounded-md bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground ring-1 ring-border/70">
-                {categoryCounts.all}
-              </span>
-            </button>
-
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
-              {categories.map((category) => {
-                const isActive = selectedCategory === category.id
-                const CategoryIcon = category.icon
-
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => onCategoryChange(category.id)}
-                    className={cn(
-                      "group flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isActive
-                        ? "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
-                        : "border-transparent bg-background hover:border-border hover:bg-muted/50"
-                    )}
-                    aria-pressed={isActive}
-                  >
-                    <span
-                      className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1",
-                        categoryIconStyles[category.id] ?? "bg-slate-100 text-slate-700 ring-slate-200"
-                      )}
-                    >
-                      <CategoryIcon className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium leading-tight">{category.name}</span>
-                      <span className="text-xs text-muted-foreground">{categoryCounts[category.id]} sản phẩm</span>
-                    </span>
-                    {isActive && <Check className="h-4 w-4 shrink-0 text-sky-700 dark:text-sky-300" />}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="border-b border-border/70 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-slate-500" />
-              <h4 className="text-sm font-semibold text-foreground">Khoảng giá</h4>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+          <div className="p-3">
+            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[#2b2f32]">
+              <Banknote className="size-4 text-[#757575]" aria-hidden="true" />
+              Chọn mức giá
+            </h4>
+            <div className="grid grid-cols-1 gap-1.5">
               {priceRanges.map((range) => {
                 const isActive = selectedPriceRange === range.id
 
@@ -200,57 +96,47 @@ export function GuestCatalogFilters({
                     type="button"
                     onClick={() => onPriceRangeChange(isActive ? null : range.id)}
                     className={cn(
-                      "min-h-12 rounded-lg border px-3 py-2 text-left text-xs font-medium leading-snug transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isActive
-                        ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
-                        : "border-border/80 bg-background hover:bg-muted/50"
+                      "rounded-md border px-2.5 py-2 text-left text-xs font-medium transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00cbfd]",
+                      isActive ? storeTokens.activeItem : cn(storeTokens.inactiveItem, storeTokens.border, storeTokens.surface)
                     )}
                     aria-pressed={isActive}
                   >
-                    <span className="flex items-start justify-between gap-2">
-                      {range.label}
-                      {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-sky-700 dark:text-sky-300" />}
-                    </span>
+                    {range.label}
                   </button>
                 )
               })}
             </div>
           </div>
 
-          <div className="space-y-3 bg-slate-50 p-4 dark:bg-slate-950/30">
-            <div className="flex items-center justify-between rounded-lg border border-border/70 bg-background px-3 py-2 text-xs">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <Tag className="h-3.5 w-3.5" />
+          <div className={cn("border-t p-3", storeTokens.border)}>
+            <div className={cn("flex items-center justify-between rounded-md border px-2.5 py-2 text-xs", storeTokens.border)}>
+              <span className="flex items-center gap-1 text-[#757575]">
+                <Tag className="size-3.5" aria-hidden="true" />
                 Kết quả
               </span>
-              <span className="font-semibold text-foreground">{resultCount} sản phẩm</span>
+              <span className="font-semibold text-[#2b2f32]">{resultCount}</span>
             </div>
-
-            {hasActiveFilters ? (
-              <Button variant="outline" size="sm" className="h-9 w-full rounded-lg border-dashed" onClick={onClearAll}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Xóa bộ lọc
-              </Button>
-            ) : (
-              <p className="text-center text-xs leading-relaxed text-muted-foreground">Chọn danh mục, khoảng giá hoặc nhập từ khóa để thu hẹp danh sách.</p>
-            )}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="gap-0 overflow-hidden rounded-lg border-border/80 bg-card pt-0 pb-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-              <LogIn className="h-4 w-4" />
+      <Card className={cn("gap-0 overflow-hidden rounded-lg border pt-0 pb-0 shadow-none", storeTokens.border, storeTokens.brandTint)}>
+        <CardContent className="p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className={cn("flex size-7 items-center justify-center rounded", storeTokens.iconBoxActive)}>
+              <LogIn className="size-3.5" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-foreground">Muốn mua hàng?</p>
-              <p className="text-xs text-muted-foreground">Đăng nhập để dùng giỏ hàng.</p>
+              <p className="text-sm font-medium text-[#2b2f32]">Đăng nhập để mua</p>
+              <p className="text-xs text-[#757575]">Giỏ hàng & voucher thành viên</p>
             </div>
           </div>
-          <Button size="sm" className="h-9 w-full rounded-lg" asChild>
-            <Link to="/login">Đăng nhập ngay</Link>
+          <Button
+            size="sm"
+            className="h-8 w-full rounded-md border-0 !bg-[#00cbfd] !text-[#003e4f]"
+            asChild
+          >
+            <Link to="/login">Đăng nhập</Link>
           </Button>
         </CardContent>
       </Card>
@@ -265,15 +151,15 @@ type FilterChipProps = {
 }
 
 const FilterChip = ({ label, onRemove, removeLabel }: FilterChipProps) => (
-  <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-sky-200 bg-background py-1 pl-2 pr-1 text-xs font-medium text-sky-800 dark:border-sky-900 dark:text-sky-200">
+  <span className={cn("inline-flex max-w-full items-center gap-1 rounded border py-0.5 pl-2 pr-0.5 text-xs text-[#2b2f32]", storeTokens.border, storeTokens.surface)}>
     <span className="truncate">{label}</span>
     <button
       type="button"
       onClick={onRemove}
-      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-sky-950"
+      className="flex size-4 items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#00cbfd]"
       aria-label={removeLabel}
     >
-      <X className="h-3 w-3" />
+      <X className="size-3" aria-hidden="true" />
     </button>
   </span>
 )

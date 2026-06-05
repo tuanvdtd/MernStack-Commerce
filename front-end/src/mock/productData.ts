@@ -9,12 +9,54 @@ export type Product = QuickViewProduct & {
 };
 
 export const categories = [
-  { id: "dien-thoai", name: "Điện thoại", icon: Smartphone, color: "from-blue-500 to-cyan-400", count: 234 },
-  { id: "laptop", name: "Laptop", icon: Laptop, color: "from-violet-500 to-purple-400", count: 156 },
-  { id: "dong-ho", name: "Đồng hồ", icon: Watch, color: "from-emerald-500 to-teal-400", count: 89 },
-  { id: "tai-nghe", name: "Tai nghe", icon: Headphones, color: "from-orange-500 to-amber-400", count: 312 },
-  { id: "may-tinh-bang", name: "Máy tính bảng", icon: Tablet, color: "from-pink-500 to-rose-400", count: 78 },
-  { id: "man-hinh", name: "Màn hình", icon: Monitor, color: "from-indigo-500 to-blue-400", count: 45 },
+  {
+    id: "dien-thoai",
+    name: "Điện thoại",
+    icon: Smartphone,
+    color: "from-blue-500 to-cyan-400",
+    count: 234,
+    image: "/categories/dien-thoai2.png",
+  },
+  {
+    id: "laptop",
+    name: "Laptop",
+    icon: Laptop,
+    color: "from-violet-500 to-purple-400",
+    count: 156,
+    image: "/categories/laptop.png",
+  },
+  {
+    id: "dong-ho",
+    name: "Đồng hồ",
+    icon: Watch,
+    color: "from-emerald-500 to-teal-400",
+    count: 89,
+    image: "/categories/dong-ho.png",
+  },
+  {
+    id: "tai-nghe",
+    name: "Tai nghe",
+    icon: Headphones,
+    color: "from-orange-500 to-amber-400",
+    count: 312,
+    image: "/categories/tai-nghe2.png",
+  },
+  {
+    id: "may-tinh-bang",
+    name: "Máy tính bảng",
+    icon: Tablet,
+    color: "from-pink-500 to-rose-400",
+    count: 78,
+    image: "/categories/may-tinh-bang2.png",
+  },
+  {
+    id: "man-hinh",
+    name: "Màn hình",
+    icon: Monitor,
+    color: "from-indigo-500 to-blue-400",
+    count: 45,
+    image: "/categories/man-hinh2.png",
+  },
 ];
 
 export const priceRanges = [

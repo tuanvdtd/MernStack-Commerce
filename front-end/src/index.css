@@ -2,12 +2,14 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+    --font-heading: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -51,6 +53,7 @@
 :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
+    --store-header-height: 4rem;
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
@@ -140,15 +143,45 @@
     }
 }
 
-/* Admin panel — typography & spacing aligned with Geist + shadcn tokens */
 .admin-shell {
-    --admin-brand: #0acdff;
-    --admin-brand-foreground: #042a38;
-    --admin-sidebar-width: 16rem;
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
+    --admin-brand: oklch(0.78 0.14 220);
+    --admin-brand-foreground: oklch(0.2 0.04 220);
+    --admin-sidebar-width: 15rem;
 }
 
-.admin-shell .admin-main {
-    max-width: 80rem;
+@keyframes hero-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.hero-gradient {
+    --hero-deep: #0c1929;
+    --hero-mid: #132337;
+    --hero-surface: #1a3348;
+    --hero-brand: #00cbfd;
+    --hero-brand-deep: #003e4f;
+    --hero-muted: #94a3b8;
+    --hero-text: #f1f5f9;
+
+    background-color: var(--hero-deep);
+    background-image:
+        radial-gradient(ellipse 72% 56% at 86% 74%, rgba(0, 203, 253, 0.24) 0%, transparent 58%),
+        radial-gradient(ellipse 46% 40% at 10% 16%, rgba(238, 77, 45, 0.07) 0%, transparent 52%),
+        linear-gradient(152deg, #0c1929 0%, #132337 46%, #1a3348 100%);
+}
+
+.hero-apple {
+    min-height: clamp(32rem, 78dvh, 42rem);
+}
+
+.hero-apple [data-slot="carousel"],
+.hero-apple [data-slot="carousel-content"] {
+    height: 100%;
+    min-height: inherit;
+}
+
+@media (min-width: 1024px) {
+    .hero-apple {
+        min-height: clamp(38rem, 88dvh, 52rem);
+    }
 }

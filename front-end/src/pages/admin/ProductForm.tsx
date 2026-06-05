@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -25,18 +25,13 @@ import {
   createDefaultSkuForm,
   type SkuFormData,
 } from "~/components/admin/SkuFormCard"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardAction,
-} from "~/components/ui/card"
+import { ProductFormStepper } from "~/components/admin/ProductFormStepper"
+import { ProductFormSummary } from "~/components/admin/ProductFormSummary"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Textarea } from "~/components/ui/textarea"
 import { Switch } from "~/components/ui/switch"
+import { Separator } from "~/components/ui/separator"
 import {
   Select,
   SelectContent,
@@ -53,8 +48,13 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
-import { Plus, ArrowLeft, Package, Layers } from "lucide-react"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "~/components/ui/accordion"
+import { Plus, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { AdminPage } from "~/components/admin/AdminPage"
 import { AdminPageHeader } from "~/components/admin/AdminPageHeader"
@@ -86,6 +86,7 @@ const spuSchema = z.object({
 })
 
 type SpuFormData = z.infer<typeof spuSchema>
+type FormStep = "spu" | "skus"
 
 const mapSkuToForm = (sku: SKU, optionAxes: string[]): SkuFormData => ({
   id: sku.id,
@@ -107,7 +108,8 @@ export function ProductForm() {
   const [skus, setSkus] = useState<SkuFormData[]>(() => [
     createDefaultSkuForm([...DEFAULT_OPTION_AXES]),
   ])
-  const [activeTab, setActiveTab] = useState("spu")
+  const [activeStep, setActiveStep] = useState<FormStep>("spu")
+  const [openSkuPanels, setOpenSkuPanels] = useState<string[]>(["sku-0"])
   const [slugTouched, setSlugTouched] = useState(false)
   const isEditMode = !!id
 
@@ -126,6 +128,24 @@ export function ProductForm() {
 
   const watchName = form.watch("name")
   const watchSlug = form.watch("slug")
+  const watchCategoryId = form.watch("categoryId")
+  const watchBrand = form.watch("brand")
+  const watchImgUrl = form.watch("imgUrl")
+  const watchIsActive = form.watch("isActive")
+
+  const skuStats = useMemo(() => {
+    const prices = skus.map((s) => s.price).filter((p) => p > 0)
+    const minPrice = prices.length ? Math.min(...prices) : 0
+    const maxPrice = prices.length ? Math.max(...prices) : 0
+    const totalStock = skus.reduce((sum, s) => sum + (s.stockQuantity || 0), 0)
+    return { minPrice, maxPrice, totalStock }
+  }, [skus])
+
+  const productId = id ?? null
+  const existingProduct = productId
+    ? products.find((p) => p.id === productId)
+    : undefined
+  const canSaveSkus = Boolean(productId)
 
   useEffect(() => {
     if (!slugTouched && watchName && !isEditMode) {
@@ -151,11 +171,12 @@ export function ProductForm() {
     setOptionCatalog(mergeProductIntoOptionCatalog(cloneDefaultOptionCatalog(), product))
     setOptionAxes(axes)
     setSlugTouched(true)
-    setSkus(
+    const mapped =
       product.skus.length > 0
         ? product.skus.map((s) => mapSkuToForm(s, axes))
         : [createDefaultSkuForm(axes)]
-    )
+    setSkus(mapped)
+    setOpenSkuPanels(mapped.map((_, i) => `sku-${i}`))
   }, [isEditMode, id, products, form])
 
   const handleOptionAxesChange = (axes: string[]) => {
@@ -169,7 +190,9 @@ export function ProductForm() {
   }
 
   const handleAddSku = () => {
+    const newIndex = skus.length
     setSkus((prev) => [...prev, createDefaultSkuForm(optionAxes)])
+    setOpenSkuPanels((prev) => [...prev, `sku-${newIndex}`])
   }
 
   const handleRemoveSku = (index: number) => {
@@ -178,33 +201,95 @@ export function ProductForm() {
       return
     }
     setSkus((prev) => prev.filter((_, i) => i !== index))
+    setOpenSkuPanels((prev) =>
+      prev
+        .filter((id) => id !== `sku-${index}`)
+        .map((id) => {
+          const n = Number(id.replace("sku-", ""))
+          return n > index ? `sku-${n - 1}` : id
+        })
+    )
   }
 
   const handleSkuChange = (index: number, data: SkuFormData) => {
     setSkus((prev) => prev.map((s, i) => (i === index ? data : s)))
   }
 
-  const handleContinueToSkus = async () => {
-    const valid = await form.trigger()
-    if (!valid) {
-      setActiveTab("spu")
-      return
-    }
-    const axesError = validateOptionAxes(optionAxes)
-    if (axesError) {
-      toast.error(axesError)
-      setActiveTab("spu")
-      return
-    }
-    setActiveTab("skus")
+  const buildSkusFromForm = (targetProductId: string): SKU[] => {
+    const now = new Date().toISOString()
+    return skus.map((row, index) => ({
+      id: row.id ?? `sku-${Date.now()}-${index}`,
+      productId: targetProductId,
+      sku: row.sku.trim(),
+      price: row.price,
+      imgUrl: row.imgUrl?.trim() || undefined,
+      stockQuantity: row.stockQuantity,
+      options: alignSkuOptionsToAxes(optionAxes, row.options).filter((o) =>
+        o.value.trim()
+      ),
+      createdAt: existingProduct?.skus[index]?.createdAt ?? now,
+      updatedAt: now,
+    }))
   }
 
-  const onSubmit = (data: SpuFormData) => {
-    const category = ADMIN_CATEGORIES.find((c) => c.id === data.categoryId)
+  const handleSaveSpu = async () => {
+    const valid = await form.trigger()
+    if (!valid) return
+
     const axesError = validateOptionAxes(optionAxes)
     if (axesError) {
       toast.error(axesError)
-      setActiveTab("spu")
+      return
+    }
+
+    const data = form.getValues()
+    const category = ADMIN_CATEGORIES.find((c) => c.id === data.categoryId)
+    const now = new Date().toISOString()
+    const newId = productId ?? `spu-${Date.now()}`
+    const builtSkus = buildSkusFromForm(newId)
+
+    const spuPayload: SPU = {
+      id: newId,
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      categoryId: data.categoryId,
+      categoryName: category?.name ?? "",
+      brand: data.brand,
+      optionAxes: [...optionAxes],
+      imgUrl: data.imgUrl?.trim() || undefined,
+      isActive: data.isActive,
+      skus: existingProduct?.skus ?? builtSkus,
+      createdAt: existingProduct?.createdAt ?? now,
+      updatedAt: now,
+      ...computeProductStats(existingProduct?.skus ?? builtSkus),
+    }
+
+    if (productId) {
+      updateProduct(productId, {
+        name: spuPayload.name,
+        slug: spuPayload.slug,
+        description: spuPayload.description,
+        categoryId: spuPayload.categoryId,
+        categoryName: spuPayload.categoryName,
+        brand: spuPayload.brand,
+        optionAxes: spuPayload.optionAxes,
+        imgUrl: spuPayload.imgUrl,
+        isActive: spuPayload.isActive,
+      })
+      toast.success("Đã lưu thông tin SPU")
+      return
+    }
+
+    addProduct(spuPayload)
+    toast.success("Đã tạo SPU")
+    navigate(`/admin/products/edit/${newId}`, { replace: true })
+  }
+
+  const handleSaveSkus = () => {
+    if (!productId) {
+      toast.error("Lưu SPU trước để có thể lưu SKU")
+      setActiveStep("spu")
       return
     }
 
@@ -219,7 +304,7 @@ export function ProductForm() {
     }))
 
     const otherSkuCodes = products
-      .filter((p) => p.id !== id)
+      .filter((p) => p.id !== productId)
       .flatMap((p) => p.skus.map((s) => s.sku))
 
     const skuError = validateSkuForms(
@@ -230,61 +315,39 @@ export function ProductForm() {
     )
     if (skuError) {
       toast.error(skuError)
-      setActiveTab("skus")
       return
     }
 
-    const productId = isEditMode && id ? id : `spu-${Date.now()}`
-    const now = new Date().toISOString()
-    const existing = products.find((p) => p.id === productId)
-
-    const builtSkus: SKU[] = skuPayload.map((row, index) => ({
-      id: skus[index].id ?? `sku-${Date.now()}-${index}`,
-      productId,
-      sku: row.sku,
-      price: row.price,
-      imgUrl: row.imgUrl,
-      stockQuantity: row.stockQuantity,
-      options: row.options,
-      createdAt: existing?.skus[index]?.createdAt ?? now,
-      updatedAt: now,
-    }))
-
+    const builtSkus = buildSkusFromForm(productId)
     const stats = computeProductStats(builtSkus)
 
-    const productData: SPU = {
-      id: productId,
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      categoryId: data.categoryId,
-      categoryName: category?.name ?? "",
-      brand: data.brand,
-      optionAxes: [...optionAxes],
-      imgUrl: data.imgUrl?.trim() || undefined,
-      isActive: data.isActive,
+    updateProduct(productId, {
       skus: builtSkus,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
       ...stats,
-    }
+    })
+    toast.success("Đã lưu các SKU")
+  }
 
-    if (isEditMode && id) {
-      updateProduct(id, productData)
-      toast.success("Đã cập nhật SPU và các SKU")
-    } else {
-      addProduct(productData)
-      toast.success("Đã tạo SPU và các SKU")
-    }
-
-    navigate("/admin/products")
+  const summaryProps = {
+    name: watchName,
+    slug: watchSlug,
+    categoryId: watchCategoryId,
+    brand: watchBrand,
+    isActive: watchIsActive,
+    imgUrl: watchImgUrl,
+    optionAxes,
+    optionCatalog,
+    skuCount: skus.length,
+    minPrice: skuStats.minPrice,
+    maxPrice: skuStats.maxPrice,
+    totalStock: skuStats.totalStock,
   }
 
   return (
-    <AdminPage>
+    <AdminPage className="gap-6">
       <AdminPageHeader
         title={isEditMode ? "Chỉnh sửa SPU / SKU" : "Tạo SPU & SKU"}
-        description="Bước 1: SPU + trục Option → Bước 2: SKU (chọn giá trị từng trục)"
+        description="SPU và SKU lưu độc lập. Chuyển tab tự do, không cần hoàn thành bước trước."
         leading={
           <Button
             type="button"
@@ -298,29 +361,29 @@ export function ProductForm() {
         }
       />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
-            <TabsList className="grid h-10 w-full max-w-sm grid-cols-2">
-              <TabsTrigger value="spu" className="gap-2">
-                <Package className="size-4" aria-hidden />
-                SPU
-              </TabsTrigger>
-              <TabsTrigger value="skus" className="gap-2">
-                <Layers className="size-4" aria-hidden />
-                SKU ({skus.length})
-              </TabsTrigger>
-            </TabsList>
+      <ProductFormStepper
+        activeStep={activeStep}
+        skuCount={skus.length}
+        onStepClick={setActiveStep}
+      />
 
-            <TabsContent value="spu" className="mt-0 flex flex-col gap-6">
-              <Card className="shadow-none">
-                <CardHeader className="border-b">
-                  <CardTitle>Thông tin SPU</CardTitle>
-                  <CardDescription>
-                    Tên, slug, danh mục, trục biến thể và ảnh đại diện
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-5 pt-6">
+      <ProductFormSummary {...summaryProps} className="lg:hidden" />
+
+      <Form {...form}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-8">
+          <div className="min-w-0 space-y-6">
+            {activeStep === "spu" ? (
+              <div className="space-y-8 rounded-xl border border-border bg-card p-5 sm:p-6">
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="font-heading text-sm font-semibold text-foreground">
+                      Định danh sản phẩm
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Tên hiển thị và đường dẫn URL trên cửa hàng
+                    </p>
+                  </div>
+
                   <FormField
                     control={form.control}
                     name="name"
@@ -342,17 +405,23 @@ export function ProductForm() {
                       <FormItem>
                         <FormLabel>Slug (URL) *</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="iphone-15"
-                            {...field}
-                            onChange={(e) => {
-                              setSlugTouched(true)
-                              field.onChange(e)
-                            }}
-                          />
+                          <div className="flex rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring/30">
+                            <span className="flex items-center px-3 text-sm text-muted-foreground">
+                              /
+                            </span>
+                            <Input
+                              placeholder="iphone-15"
+                              className="border-0 shadow-none focus-visible:ring-0"
+                              {...field}
+                              onChange={(e) => {
+                                setSlugTouched(true)
+                                field.onChange(e)
+                              }}
+                            />
+                          </div>
                         </FormControl>
                         <FormDescription>
-                          Tự sinh từ tên nếu chưa chỉnh — phải unique trong DB
+                          Tự sinh từ tên nếu chưa chỉnh. Phải unique trong DB.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -367,7 +436,7 @@ export function ProductForm() {
                         <FormLabel>Mô tả *</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Mô tả chi tiết..."
+                            placeholder="Mô tả chi tiết sản phẩm cho trang chi tiết..."
                             rows={4}
                             {...field}
                           />
@@ -376,14 +445,27 @@ export function ProductForm() {
                       </FormItem>
                     )}
                   />
+                </section>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Separator />
+
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="font-heading text-sm font-semibold text-foreground">
+                      Phân loại
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Danh mục và thương hiệu dùng cho lọc và SEO
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="categoryId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Danh mục (categoryId) *</FormLabel>
+                          <FormLabel>Danh mục *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -428,13 +510,30 @@ export function ProductForm() {
                       )}
                     />
                   </div>
+                </section>
 
+                <Separator />
+
+                <section>
                   <SpuOptionAxesEditor
                     axes={optionAxes}
                     onChange={handleOptionAxesChange}
                     optionCatalog={optionCatalog}
                     onCatalogChange={setOptionCatalog}
                   />
+                </section>
+
+                <Separator />
+
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="font-heading text-sm font-semibold text-foreground">
+                      Media & trạng thái
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ảnh đại diện SPU và quyết định hiển thị trên storefront
+                    </p>
+                  </div>
 
                   <FormField
                     control={form.control}
@@ -444,7 +543,7 @@ export function ProductForm() {
                         <FormControl>
                           <ImageUploadField
                             label="Ảnh đại diện SPU"
-                            description="Chọn từ máy tính/điện thoại — ảnh riêng có thể đặt ở từng SKU"
+                            description="Ảnh riêng có thể đặt ở từng SKU ở bước sau"
                             value={field.value}
                             onChange={field.onChange}
                             onError={(msg) => toast.error(msg)}
@@ -459,10 +558,10 @@ export function ProductForm() {
                     control={form.control}
                     name="isActive"
                     render={({ field }) => (
-                      <FormItem className="flex items-center justify-between rounded-lg border border-border p-4">
-                        <div>
-                          <FormLabel>Đang bán (isActive)</FormLabel>
-                          <FormDescription>
+                      <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 px-4 py-3">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm">Đang bán</FormLabel>
+                          <FormDescription className="text-xs">
                             Tắt để ẩn toàn bộ SPU và SKU khỏi cửa hàng
                           </FormDescription>
                         </div>
@@ -475,89 +574,137 @@ export function ProductForm() {
                       </FormItem>
                     )}
                   />
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  className={adminBrandButtonClass}
-                  onClick={handleContinueToSkus}
-                >
-                  Tiếp theo: thêm SKU
-                </Button>
+                </section>
               </div>
-            </TabsContent>
+            ) : (
+              <div className="space-y-4">
+                {!canSaveSkus ? (
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                    Chưa có SPU trên hệ thống. Lưu tab SPU trước để có thể lưu SKU.
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-heading text-sm font-semibold text-foreground">
+                      Biến thể SKU
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {watchSlug ? (
+                        <>
+                          Slug:{" "}
+                          <span className="font-mono text-foreground">
+                            /{watchSlug}
+                          </span>
+                        </>
+                      ) : (
+                        "Mã, giá, tồn kho và giá trị theo từng trục Option"
+                      )}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleAddSku}
+                  >
+                    <Plus className="size-4" aria-hidden />
+                    Thêm SKU
+                  </Button>
+                </div>
 
-            <TabsContent value="skus" className="mt-0">
-              <Card className="shadow-none">
-                <CardHeader className="border-b">
-                  <CardTitle>Biến thể SKU</CardTitle>
-                  <CardDescription>
-                    {watchSlug ? (
-                      <>
-                        Slug:{" "}
-                        <span className="font-mono text-foreground">{watchSlug}</span>
-                      </>
-                    ) : (
-                      "Mã, giá, tồn kho và giá trị theo trục SPU"
-                    )}
-                  </CardDescription>
-                  <CardAction>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddSku}
-                    >
-                      <Plus className="size-4" aria-hidden />
-                      Thêm SKU
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-6">
-                  {skus.map((sku, index) => (
-                    <SkuFormCard
-                      key={sku.id ?? `new-${index}`}
-                      index={index}
-                      data={sku}
-                      optionAxes={optionAxes}
-                      optionCatalog={optionCatalog}
-                      onCatalogChange={setOptionCatalog}
-                      productSlug={watchSlug || slugify(watchName || "product")}
-                      canRemove={skus.length > 1}
-                      onChange={(data) => handleSkuChange(index, data)}
-                      onRemove={() => handleRemoveSku(index)}
-                    />
-                  ))}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                {skus.length === 1 ? (
+                  <SkuFormCard
+                    index={0}
+                    data={skus[0]}
+                    optionAxes={optionAxes}
+                    optionCatalog={optionCatalog}
+                    onCatalogChange={setOptionCatalog}
+                    productSlug={watchSlug || slugify(watchName || "product")}
+                    canRemove={false}
+                    onChange={(data) => handleSkuChange(0, data)}
+                    onRemove={() => handleRemoveSku(0)}
+                  />
+                ) : (
+                  <Accordion
+                    type="multiple"
+                    value={openSkuPanels}
+                    onValueChange={setOpenSkuPanels}
+                    className="space-y-3"
+                  >
+                    {skus.map((sku, index) => (
+                      <AccordionItem
+                        key={sku.id ?? `new-${index}`}
+                        value={`sku-${index}`}
+                        className="overflow-hidden rounded-xl border border-border bg-card px-0 last:border-b"
+                      >
+                        <AccordionTrigger className="px-4 py-3 hover:no-underline sm:px-5">
+                          <span className="flex flex-col items-start gap-0.5 text-left">
+                            <span className="text-sm font-medium">
+                              SKU #{index + 1}
+                              {sku.sku ? (
+                                <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
+                                  {sku.sku}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="text-xs font-normal text-muted-foreground">
+                              {sku.price > 0
+                                ? `${sku.price.toLocaleString("vi-VN")}đ`
+                                : "Chưa nhập giá"}
+                            </span>
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-0 pb-0">
+                          <SkuFormCard
+                            index={index}
+                            data={sku}
+                            optionAxes={optionAxes}
+                            optionCatalog={optionCatalog}
+                            onCatalogChange={setOptionCatalog}
+                            productSlug={
+                              watchSlug || slugify(watchName || "product")
+                            }
+                            canRemove={skus.length > 1}
+                            onChange={(data) => handleSkuChange(index, data)}
+                            onRemove={() => handleRemoveSku(index)}
+                            compact
+                          />
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                )}
+              </div>
+            )}
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/admin/products")}
-            >
-              Hủy
-            </Button>
-            {activeTab === "spu" ? (
+            <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-0">
               <Button
                 type="button"
-                className={adminBrandButtonClass}
-                onClick={handleContinueToSkus}
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => navigate("/admin/products")}
               >
-                Tiếp theo
+                Đóng
               </Button>
-            ) : (
-              <Button type="submit" className={cn(adminBrandButtonClass)}>
-                {isEditMode ? "Lưu SPU & SKU" : "Tạo SPU & SKU"}
+              <Button
+                type="button"
+                className={cn(adminBrandButtonClass)}
+                onClick={activeStep === "spu" ? handleSaveSpu : handleSaveSkus}
+                disabled={activeStep === "skus" && !canSaveSkus}
+              >
+                {activeStep === "spu"
+                  ? productId
+                    ? "Lưu SPU"
+                    : "Tạo SPU"
+                  : "Lưu SKU"}
               </Button>
-            )}
+            </div>
           </div>
-        </form>
+
+          <ProductFormSummary {...summaryProps} className="hidden lg:block" />
+        </div>
       </Form>
     </AdminPage>
   )

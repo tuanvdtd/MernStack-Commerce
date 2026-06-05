@@ -1,62 +1,101 @@
-import { Link } from "react-router";
+import { Link } from "react-router"
+import { Star } from "lucide-react"
+import { Badge } from "~/components/ui/badge"
+import { Button } from "~/components/ui/button"
+import { Card, CardContent } from "~/components/ui/card"
+import { cn } from "~/lib/utils"
+import { storeTokens } from "~/lib/categoryTheme"
 
-interface ProductCardProps {
-  id: string;
-  image: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  discount?: number;
-  sold?: number;
-  variant?: "default" | "flashsale";
+type ProductCardProps = {
+  id: string
+  image: string
+  name: string
+  price: number
+  originalPrice?: number
+  discount?: number
+  sold?: number
+  rating?: number
+  reviews?: number
+  variant?: "default" | "flashsale"
 }
 
-export function ProductCard({ id, image, name, price, originalPrice, discount, sold, variant = "default" }: ProductCardProps) {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-  };
+const formatPrice = (price: number) =>
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price)
 
-  const isFlashSale = variant === "flashsale";
+export const ProductCard = ({
+  id,
+  image,
+  name,
+  price,
+  originalPrice,
+  discount,
+  sold,
+  rating,
+  reviews,
+  variant = "default",
+}: ProductCardProps) => {
+  const isFlashSale = variant === "flashsale"
 
   return (
-    <Link to={`/product/${id}`}>
-      <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.03] h-full flex flex-col">
-        {/* Image */}
-        <div className={`relative aspect-square overflow-hidden ${isFlashSale ? "p-3" : ""}`}>
+    <Card
+      className={cn(
+        "flex h-full flex-col overflow-hidden border-gray-200 bg-white pt-0 pb-0 shadow-none",
+        /* Hover nhẹ — chỉ shadow, không đổi border/màu/scale */
+        "hover:shadow-[0_1px_8px_rgba(0,0,0,0.08)]"
+      )}
+    >
+      <div className={cn("relative aspect-square w-full shrink-0 overflow-hidden bg-[#f5f5f5]", isFlashSale && "p-2")}>
+        <Link to={`/product/${id}`} className="block size-full">
           <img
             src={image}
             alt={name}
-            className={`w-full h-full object-cover ${isFlashSale ? "rounded-xl" : ""}`}
+            className={cn("size-full object-cover", isFlashSale && "rounded")}
+            loading="lazy"
           />
-          {discount && (
-            <div className={`absolute ${isFlashSale ? "top-5 right-5" : "top-2 right-2"} bg-red-500 text-white px-2 py-1 rounded-lg text-sm font-semibold`}>
-              -{discount}%
-            </div>
+        </Link>
+        {discount != null && (
+          <Badge className="absolute top-1.5 left-1.5 z-10 rounded-sm bg-[#ee4d2d] px-1.5 text-[10px] text-white hover:bg-[#ee4d2d]">
+            -{discount}%
+          </Badge>
+        )}
+      </div>
+
+      <CardContent className="flex flex-1 flex-col gap-1.5 p-2.5 sm:p-3">
+        <Link to={`/product/${id}`}>
+          <h3 className="line-clamp-2 min-h-[36px] text-xs font-normal leading-snug text-[#2b2f32] sm:text-sm">
+            {name}
+          </h3>
+        </Link>
+
+        {rating != null && reviews != null && (
+          <div className="flex items-center gap-0.5">
+            <Star className="size-3 fill-[#ffc107] text-[#ffc107]" aria-hidden="true" />
+            <span className="text-[10px] text-[#757575] sm:text-xs">
+              {rating} | {reviews.toLocaleString()} đánh giá
+            </span>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-baseline gap-1.5">
+          <span className={cn("text-sm font-medium sm:text-base", storeTokens.price)}>{formatPrice(price)}</span>
+          {originalPrice != null && (
+            <span className="text-[10px] text-[#bdbdbd] line-through sm:text-xs">{formatPrice(originalPrice)}</span>
           )}
         </div>
 
-        {/* Content */}
-        <div className="p-4 flex-1 flex flex-col justify-between">
-          <h3 className="text-sm text-gray-800 line-clamp-2 mb-2 min-h-[40px]">{name}</h3>
+        {sold != null && (
+          <p className="text-[10px] text-[#757575]">Đã bán {sold}</p>
+        )}
 
-          <div className="space-y-2">
-            <div className="flex items-baseline space-x-2">
-              <span className="text-lg font-semibold text-red-500">{formatPrice(price)}</span>
-              {originalPrice && (
-                <span className="text-sm text-gray-400 line-through">{formatPrice(originalPrice)}</span>
-              )}
-            </div>
-
-            {sold && (
-              <p className="text-xs text-gray-500">Đã bán {sold}</p>
-            )}
-
-            <button className="w-full bg-[#0ACDFF] hover:bg-[#09b8e8] text-white py-2 rounded-lg transition-colors duration-200 mt-2">
-              Mua ngay
-            </button>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-auto h-7 rounded-md border-gray-200 text-xs text-[#2b2f32] sm:h-8"
+          asChild
+        >
+          <Link to={`/product/${id}`}>{isFlashSale ? "Mua ngay" : "Xem chi tiết"}</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  )
 }

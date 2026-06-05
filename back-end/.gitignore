@@ -116,3 +116,5 @@ out/
 
 .cursor
 .agents
+
+src/generated/prisma/

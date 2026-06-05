@@ -1,10 +1,11 @@
 import { Link } from "react-router";
 import { useEffect, useState } from "react";
 import {
-  Smartphone, Laptop, Watch, Headphones, Tablet, Monitor,
   Zap, TrendingUp, Star, ShieldCheck, Truck, ArrowRight,
-  ChevronRight, Heart, Eye, Timer, Flame, Gift, Sparkles
+  ChevronRight, Heart, Eye, Timer, Gift
 } from "lucide-react";
+import { HomeHeroSection } from "~/components/home/HomeHeroSection";
+import { HomeTopCategories } from "~/components/home/HomeTopCategories";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -22,15 +23,6 @@ const flashSaleProducts = [
   { id: "2", name: "Samsung Galaxy S24 Ultra", image: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400&q=80", price: 29990000, originalPrice: 35990000, discount: 17, sold: 89, stock: 150 },
   { id: "3", name: "Xiaomi 14 Pro 5G", image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=400&q=80", price: 18990000, originalPrice: 24990000, discount: 24, sold: 203, stock: 250 },
   { id: "4", name: "MacBook Pro M3 14 inch", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&q=80", price: 39990000, originalPrice: 49990000, discount: 20, sold: 67, stock: 100 },
-];
-
-const categories = [
-  { id: 1, name: "Điện thoại", icon: Smartphone, color: "from-blue-500 to-cyan-400", count: 234 },
-  { id: 2, name: "Laptop", icon: Laptop, color: "from-violet-500 to-purple-400", count: 156 },
-  { id: 3, name: "Đồng hồ thông minh", icon: Watch, color: "from-emerald-500 to-teal-400", count: 89 },
-  { id: 4, name: "Tai nghe", icon: Headphones, color: "from-orange-500 to-amber-400", count: 312 },
-  { id: 5, name: "Máy tính bảng", icon: Tablet, color: "from-pink-500 to-rose-400", count: 78 },
-  { id: 6, name: "Màn hình", icon: Monitor, color: "from-indigo-500 to-blue-400", count: 45 },
 ];
 
 const trendingProducts = [
@@ -72,135 +64,12 @@ export function HomeLoggedIn() {
     return () => clearInterval(timer);
   }, []);
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return "Chào buổi sáng";
-    if (h < 18) return "Chào buổi chiều";
-    return "Chào buổi tối";
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      {/* ===== HERO SECTION ===== */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-cyan-900 pt-12 pb-20">
-        {/* Animated background blobs */}
-        <div className="absolute top-[-120px] right-[-80px] w-[500px] h-[500px] rounded-full bg-cyan-500/10 blur-[100px] animate-pulse" />
-        <div className="absolute bottom-[-100px] left-[-60px] w-[400px] h-[400px] rounded-full bg-blue-500/10 blur-[80px] animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-violet-500/5 blur-[120px]" />
+      <HomeHeroSection variant="member" userName={user?.name} />
 
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          {/* Greeting bar */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full px-4 py-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm text-cyan-100">
-                {greeting()}, <span className="font-semibold text-white">{user?.name || "bạn"}</span>! 👋
-              </span>
-            </div>
-          </div>
+      <HomeTopCategories />
 
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <div>
-                <Badge variant="secondary" className="mb-4 bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30">
-                  <Zap className="w-3 h-3 mr-1" /> Ưu đãi độc quyền thành viên
-                </Badge>
-                <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
-                  Thiết bị thông minh
-                  <span className="block bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                    cho cuộc sống hiện đại
-                  </span>
-                </h1>
-                <p className="mt-4 text-lg text-blue-200/80 max-w-lg leading-relaxed">
-                  Khám phá bộ sưu tập điện thoại, laptop, smartwatch mới nhất với giá ưu đãi lên đến <span className="text-cyan-300 font-semibold">70%</span>
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-4">
-                <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-lg shadow-cyan-500/25 rounded-full px-8 h-12 text-base" asChild>
-                  <Link to="/flash-sale">
-                    <Flame className="w-4 h-4 mr-2" /> Săn Flash Sale
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white backdrop-blur rounded-full px-8 h-12 text-base" asChild>
-                  <Link to="/category/all">
-                    Khám phá ngay <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
-                </Button>
-              </div>
-
-              {/* Stats */}
-              <div className="flex gap-8 pt-4">
-                {[
-                  { label: "Sản phẩm", value: "10K+" },
-                  { label: "Khách hàng", value: "50K+" },
-                  { label: "Đánh giá 5★", value: "25K+" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <div className="text-2xl font-bold text-white">{s.value}</div>
-                    <div className="text-sm text-blue-300/70">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Hero Image */}
-            <div className="relative hidden lg:block">
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-3xl blur-2xl" />
-              <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl shadow-cyan-500/10">
-                <img src="/hero-tech.png" alt="Smart Devices" className="w-full h-[480px] object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
-                {/* Floating card */}
-                <div className="absolute bottom-6 left-6 right-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center">
-                        <Gift className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-white font-medium text-sm">Voucher thành viên mới</p>
-                        <p className="text-cyan-300 text-xs">Giảm 500K cho đơn từ 2 triệu</p>
-                      </div>
-                    </div>
-                    <Button size="sm" className="bg-cyan-500 hover:bg-cyan-400 text-white rounded-full text-xs h-8">
-                      Nhận ngay
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== CATEGORIES ===== */}
-      <section className="py-16 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold tracking-tight">Danh mục sản phẩm</h2>
-            <Button variant="ghost" className="text-muted-foreground" asChild>
-              <Link to="/category/all">Xem tất cả <ChevronRight className="w-4 h-4 ml-1" /></Link>
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((cat) => (
-              <Link key={cat.id} to={`/category/${cat.id}`}>
-                <Card className="group hover:shadow-lg hover:shadow-cyan-500/5 hover:border-cyan-500/30 transition-all duration-300 cursor-pointer h-full">
-                  <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${cat.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                      <cat.icon className="w-7 h-7 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm">{cat.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{cat.count} sản phẩm</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
       <Separator />
 
       {/* ===== FLASH SALE ===== */}

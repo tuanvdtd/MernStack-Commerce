@@ -7,5 +7,5 @@ type AdminPageProps = {
 }
 
 export const AdminPage = ({ children, className }: AdminPageProps) => (
-  <div className={cn("flex flex-col gap-8", className)}>{children}</div>
+  <div className={cn("flex flex-col gap-6 lg:gap-7", className)}>{children}</div>
 )

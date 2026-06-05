@@ -1,20 +1,45 @@
 import { useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router"
-import { ArrowDownAZ, ArrowUpAZ, Search, SlidersHorizontal, Star, TrendingUp } from "lucide-react"
+import { ArrowDownAZ, ArrowUpAZ, PackageOpen, Search, SlidersHorizontal, Star, TrendingUp } from "lucide-react"
 import { ProductCard } from "~/components/ProductCard"
 import { GuestCatalogFilters } from "~/components/GuestCatalogFilters"
+import { CategoryPageHeader } from "~/components/category/CategoryPageHeader"
+import { CategoryQuickNav } from "~/components/category/CategoryQuickNav"
 import { allProducts, categories, priceRanges } from "~/mock/productData"
+import { storeTokens } from "~/lib/categoryTheme"
 import { Input } from "~/components/ui/input"
+import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
 
-const categoryNames: Record<string, string> = {
-  "dien-thoai": "Điện thoại",
-  laptop: "Laptop",
-  "tai-nghe": "Tai nghe",
-  "dong-ho": "Đồng hồ",
-  "may-tinh-bang": "Máy tính bảng",
-  "man-hinh": "Màn hình",
-  all: "Tất cả sản phẩm",
+const categoryMeta: Record<string, { title: string; description: string }> = {
+  all: {
+    title: "Tất cả sản phẩm",
+    description: "Điện thoại, laptop, tai nghe và phụ kiện công nghệ — lọc theo giá, đánh giá và từ khóa.",
+  },
+  "dien-thoai": {
+    title: "Điện thoại",
+    description: "iPhone, Samsung Galaxy, Xiaomi chính hãng VN/A.",
+  },
+  laptop: {
+    title: "Laptop",
+    description: "MacBook, Dell XPS, gaming và ultrabook.",
+  },
+  "tai-nghe": {
+    title: "Tai nghe",
+    description: "AirPods, Sony, tai nghe true wireless và gaming.",
+  },
+  "dong-ho": {
+    title: "Đồng hồ thông minh",
+    description: "Apple Watch, Galaxy Watch, Pixel Watch.",
+  },
+  "may-tinh-bang": {
+    title: "Máy tính bảng",
+    description: "iPad, Galaxy Tab và máy tính bảng học tập.",
+  },
+  "man-hinh": {
+    title: "Màn hình",
+    description: "4K, ultrawide, gaming 144Hz+.",
+  },
 }
 
 const sortOptions = [
@@ -33,16 +58,27 @@ export function Category() {
   const [sortBy, setSortBy] = useState<string>("popular")
 
   const currentCategory = slug || "all"
-  const pageTitle = categoryNames[currentCategory] || "Khám phá danh mục"
+  const meta = categoryMeta[currentCategory] ?? {
+    title: "Khám phá danh mục",
+    description: "Duyệt thiết bị điện tử theo danh mục và bộ lọc.",
+  }
+
+  const activeCategory = categories.find((category) => category.id === currentCategory)
 
   const handleCategoryChange = (categoryId: string) => {
     navigate(`/category/${categoryId}`)
   }
 
-  const handleClearAllFilters = () => {
+  const handleClearPriceAndSearch = () => {
     setPriceRange(null)
     setSearchQuery("")
-    navigate("/category/all")
+  }
+
+  const handleClearAllFilters = () => {
+    handleClearPriceAndSearch()
+    if (currentCategory !== "all") {
+      navigate("/category/all")
+    }
   }
 
   const categoryCounts = useMemo(() => {
@@ -77,21 +113,22 @@ export function Category() {
 
     switch (sortBy) {
       case "price-asc":
-        products.sort((firstProduct, secondProduct) => firstProduct.price - secondProduct.price)
+        products.sort((a, b) => a.price - b.price)
         break
       case "price-desc":
-        products.sort((firstProduct, secondProduct) => secondProduct.price - firstProduct.price)
+        products.sort((a, b) => b.price - a.price)
         break
       case "rating":
-        products.sort((firstProduct, secondProduct) => secondProduct.rating - firstProduct.rating)
+        products.sort((a, b) => b.rating - a.rating)
         break
-      case "popular":
       default:
-        products.sort((firstProduct, secondProduct) => (secondProduct.reviews ?? 0) - (firstProduct.reviews ?? 0))
+        products.sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0))
     }
 
     return products
   }, [currentCategory, priceRange, searchQuery, sortBy])
+
+  const sidebarFilterCount = [priceRange !== null, searchQuery.trim().length > 0].filter(Boolean).length
 
   const activeFilterCount = [
     currentCategory !== "all",
@@ -100,143 +137,124 @@ export function Category() {
   ].filter(Boolean).length
 
   return (
-    <div className="min-h-screen bg-slate-50 py-6 dark:bg-background sm:py-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <header className="mb-6 rounded-lg border border-border/80 bg-background p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">Danh mục sản phẩm</p>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{pageTitle}</h1>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Duyệt sản phẩm công nghệ theo danh mục, mức giá và từ khóa. Kết quả được sắp xếp để dễ so sánh trước khi mua.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-sm sm:flex">
-              <div className="rounded-lg border border-border/70 bg-slate-50 px-3 py-2 dark:bg-slate-950/30">
-                <span className="block text-xs text-muted-foreground">Tổng sản phẩm</span>
-                <strong className="text-base text-foreground">{categoryCounts.all}</strong>
-              </div>
-              <div className="rounded-lg border border-border/70 bg-slate-50 px-3 py-2 dark:bg-slate-950/30">
-                <span className="block text-xs text-muted-foreground">Đang hiển thị</span>
-                <strong className="text-base text-foreground">{filteredProducts.length}</strong>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <GuestCatalogFilters
+    <div className={cn("min-h-screen", storeTokens.pageBg)}>
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+        <div className={cn("overflow-hidden rounded-lg border shadow-sm", storeTokens.border, storeTokens.surface)}>
+          <CategoryPageHeader
+            title={meta.title}
+            description={meta.description}
+            resultCount={filteredProducts.length}
+            totalCount={categoryCounts.all}
+            categoryIcon={activeCategory?.icon}
+            showDefaultIcon={currentCategory === "all"}
+          />
+          <CategoryQuickNav
             categories={categories}
-            priceRanges={priceRanges}
             categoryCounts={categoryCounts}
             selectedCategory={currentCategory}
             onCategoryChange={handleCategoryChange}
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <GuestCatalogFilters
+            priceRanges={priceRanges}
             selectedPriceRange={priceRange}
             onPriceRangeChange={setPriceRange}
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
             resultCount={filteredProducts.length}
-            activeFilterCount={activeFilterCount}
-            onClearAll={handleClearAllFilters}
+            activeFilterCount={sidebarFilterCount}
+            onClearAll={handleClearPriceAndSearch}
           />
 
-          <main className="space-y-5">
-            <section className="rounded-lg border border-border/80 bg-background p-4 shadow-sm">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                    <SlidersHorizontal className="h-4 w-4 text-slate-500" />
-                    Sắp xếp
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {sortOptions.map((option) => {
-                      const isActive = sortBy === option.key
-                      const OptionIcon = option.icon
-
-                      return (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => setSortBy(option.key)}
-                          className={cn(
-                            "inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            isActive
-                              ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
-                              : "border-border/80 bg-background text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                          )}
-                          aria-pressed={isActive}
-                        >
-                          <OptionIcon className="h-3.5 w-3.5" />
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="relative w-full xl:w-80">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Tìm kiếm trong danh mục..."
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    className="h-9 rounded-lg bg-muted/30 pl-9 text-sm"
-                    aria-label="Tìm kiếm sản phẩm trong danh mục"
-                  />
-                </div>
+          <div className={cn("rounded-lg border shadow-sm", storeTokens.border, storeTokens.surface)}>
+            <main className="p-4 sm:p-5">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-[#2b2f32]">
+                  {filteredProducts.length} sản phẩm
+                </h2>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    className="text-xs text-[#00647e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00cbfd]"
+                  >
+                    Xóa bộ lọc ({activeFilterCount})
+                  </button>
+                )}
               </div>
-            </section>
 
-            {filteredProducts.length === 0 ? (
-              <section className="rounded-lg border border-border/80 bg-background p-8 text-center shadow-sm sm:p-12">
-                <p className="mx-auto mb-4 max-w-md text-sm font-medium leading-6 text-muted-foreground">
-                  Không tìm thấy sản phẩm phù hợp với bộ lọc hiện tại. Hãy thử xóa bớt điều kiện hoặc chọn danh mục khác.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleClearAllFilters}
-                  className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Xem tất cả sản phẩm
-                </button>
-              </section>
-            ) : (
-              <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} {...product} />
-                ))}
-              </section>
-            )}
+              <section className={cn("mb-3 rounded-lg border", storeTokens.border, storeTokens.bandBg)}>
+                <div className={cn("flex flex-col gap-2 border-b px-3 py-2 sm:flex-row sm:items-center sm:justify-between", storeTokens.border)}>
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-[#2b2f32]">
+                    <SlidersHorizontal className="size-4 text-[#757575]" aria-hidden="true" />
+                    Sắp xếp
+                  </span>
+                  <div className="relative w-full sm:max-w-[220px]">
+                    <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-[#757575]" aria-hidden="true" />
+                    <Input
+                      type="text"
+                      placeholder="Tìm sản phẩm..."
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      className={cn("h-8 rounded-md border-gray-200 bg-white pl-8 text-sm")}
+                      aria-label="Tìm kiếm sản phẩm"
+                    />
+                  </div>
+                </div>
 
-            {filteredProducts.length > 0 && (
-              <nav className="flex items-center justify-center gap-2 pt-2" aria-label="Phân trang sản phẩm">
-                <button
-                  type="button"
-                  className="h-9 rounded-lg border border-border/80 bg-background px-4 text-xs font-semibold text-muted-foreground transition-colors disabled:opacity-50"
-                  disabled
-                >
-                  Trước
-                </button>
-                <button
-                  type="button"
-                  className="h-9 min-w-9 rounded-lg border border-sky-300 bg-sky-50 px-3 text-xs font-bold text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
-                  aria-current="page"
-                >
-                  1
-                </button>
-                <button
-                  type="button"
-                  className="h-9 rounded-lg border border-border/80 bg-background px-4 text-xs font-semibold text-muted-foreground transition-colors disabled:opacity-50"
-                  disabled
-                >
-                  Sau
-                </button>
-              </nav>
-            )}
-          </main>
+                <div className="flex flex-wrap gap-1.5 p-2">
+                  {sortOptions.map((option) => {
+                    const isActive = sortBy === option.key
+                    const OptionIcon = option.icon
+
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setSortBy(option.key)}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00cbfd]",
+                          isActive
+                            ? storeTokens.activeItem
+                            : cn(storeTokens.inactiveItem, storeTokens.surface, storeTokens.border)
+                        )}
+                        aria-pressed={isActive}
+                      >
+                        <OptionIcon className="size-3" aria-hidden="true" />
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+
+              {filteredProducts.length === 0 ? (
+                <section className={cn("rounded-lg border border-dashed p-10 text-center", storeTokens.border)}>
+                  <PackageOpen className="mx-auto mb-3 size-10 text-[#bdbdbd]" aria-hidden="true" />
+                  <h3 className="text-base font-medium text-[#2b2f32]">Không tìm thấy sản phẩm</h3>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-[#757575]">
+                    Thử xóa bộ lọc hoặc đổi từ khóa tìm kiếm.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={handleClearAllFilters}>
+                    Xem tất cả
+                  </Button>
+                </section>
+              ) : (
+                <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      {...product}
+                      rating={product.rating}
+                      reviews={product.reviews}
+                    />
+                  ))}
+                </section>
+              )}
+            </main>
+          </div>
         </div>
       </div>
     </div>

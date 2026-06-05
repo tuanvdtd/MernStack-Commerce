@@ -13,22 +13,19 @@ import {
   Gift,
   Search,
   SlidersHorizontal,
-  LogIn,
-  UserPlus,
-  MapPin,
   CheckCircle2,
-  Trophy,
   ArrowRight,
 } from "lucide-react";
+import { HomeHeroSection } from "~/components/home/HomeHeroSection";
+import { HomeTopCategories } from "~/components/home/HomeTopCategories";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Progress } from "~/components/ui/progress";
 import { Separator } from "~/components/ui/separator";
-import { Input } from "~/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { ProductQuickViewDialog, type QuickViewProduct } from "~/components/ProductQuickViewDialog";
-import { categories, allProducts } from "~/mock/productData";
+import { allProducts } from "~/mock/productData";
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
@@ -88,148 +85,26 @@ export function HomeGuest() {
 
   const openQuickView = (product: QuickViewProduct) => setQuickViewProduct(product);
 
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Guest CTA strip */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-sm text-center">
-          <span>
-            Bạn đang xem với tư cách <strong>khách</strong> — không cần đăng nhập để duyệt sản phẩm
-          </span>
-          <span className="hidden sm:inline text-white/60">|</span>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" className="h-8 rounded-full bg-white text-orange-600 hover:bg-white/90" asChild>
-              <Link to="/login">
-                <LogIn className="w-3.5 h-3.5 mr-1" /> Đăng nhập
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-full border-white/50 !bg-transparent text-white shadow-none hover:!bg-white/20 hover:!text-white hover:border-white/80"
-              asChild
-            >
-              <Link to="/register">
-                <UserPlus className="w-3.5 h-3.5 mr-1" /> Đăng ký
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
+      <HomeHeroSection variant="guest" />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-cyan-900 pt-10 pb-16">
-        <div className="absolute top-[-100px] right-[-60px] w-[400px] h-[400px] rounded-full bg-cyan-500/10 blur-[80px]" />
-        <div className="absolute bottom-[-80px] left-[-40px] w-[300px] h-[300px] rounded-full bg-blue-500/10 blur-[60px]" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-          <Badge variant="secondary" className="mb-4 bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
-            Miễn phí xem &amp; so sánh sản phẩm
-          </Badge>
-          <div className="grid lg:grid-cols-2 gap-10 items-center">
-            <div className="space-y-6">
-              <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight">
-                Mua sắm thông minh
-                <span className="block bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                  không cần đăng nhập
-                </span>
-              </h1>
-              <p className="text-lg text-blue-200/80 max-w-lg">
-                Duyệt hàng ngàn sản phẩm công nghệ, xem giá, đánh giá và chi tiết — giống Shopee hay Amazon. Đăng nhập khi bạn sẵn sàng mua hàng.
-              </p>
-
-              <div className="flex gap-2 max-w-xl">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm điện thoại, laptop, tai nghe..."
-                    className="pl-10 h-12 rounded-full bg-white border-0 shadow-lg"
-                  />
-                </div>
-                <Button
-                  size="lg"
-                  className="h-12 rounded-full px-6 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 shadow-lg shadow-cyan-500/25"
-                  onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" })}
-                >
-                  Tìm kiếm
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap gap-4 text-sm text-blue-200/70">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-cyan-400" /> Hàng chính hãng
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Truck className="w-4 h-4 text-cyan-400" /> Giao nhanh 2h
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-cyan-400" /> Toàn quốc
-                </span>
-              </div>
-            </div>
-
-            <div className="hidden lg:block relative">
-              <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
-                <img src="/hero-tech.png" alt="Sản phẩm công nghệ" className="w-full h-[360px] object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4">
-                  <p className="text-white font-medium text-sm">12+ sản phẩm đang hiển thị</p>
-                  <p className="text-cyan-300 text-xs mt-0.5">Cuộn xuống để khám phá danh mục đầy đủ</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Categories */}
-      <section className="py-12 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold tracking-tight">Danh mục nổi bật</h2>
-            <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-              <Link to="/category/all">
-                Xem tất cả <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
-            </Button>
-          </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(cat.id);
-                  document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="group text-left"
-              >
-                <Card className={`h-full transition-all duration-300 hover:shadow-lg hover:border-cyan-500/30 ${selectedCategory === cat.id ? "ring-2 ring-cyan-500 border-cyan-500/50" : ""}`}>
-                  <CardContent className="p-4 flex flex-col items-center text-center gap-2">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cat.color} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                      <cat.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <p className="font-medium text-xs sm:text-sm">{cat.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{cat.count} SP</p>
-                  </CardContent>
-                </Card>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+      <HomeTopCategories onCategoryClick={handleCategorySelect} />
 
       <Separator />
 
       {/* Flash Sale preview */}
-      <section className="py-12 bg-background">
+      <section className="py-16 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
               <Flame className="w-7 h-7 text-red-500" />
-              <h2 className="text-2xl font-bold">Flash Sale</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Flash Sale</h2>
               <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -291,22 +166,22 @@ export function HomeGuest() {
       </section>
 
       {/* Trust */}
-      <section className="py-10 bg-gradient-to-r from-slate-900 via-blue-950 to-cyan-900">
+      <section className="py-12 bg-gradient-to-r from-slate-900 via-blue-950 to-cyan-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Truck, title: "Miễn phí vận chuyển", desc: "Đơn từ 300K" },
-              { icon: ShieldCheck, title: "Chính hãng 100%", desc: "Bảo hành 12 tháng" },
-              { icon: Zap, title: "Flash Sale mỗi ngày", desc: "Giảm đến 70%" },
-              { icon: Gift, title: "Ưu đãi thành viên", desc: "Sau khi đăng ký" },
+              { icon: Truck, title: "Miễn phí vận chuyển", desc: "Đơn hàng từ 300K" },
+              { icon: ShieldCheck, title: "Bảo hành chính hãng", desc: "12 tháng toàn quốc" },
+              { icon: Zap, title: "Giao hàng nhanh", desc: "Trong 2h nội thành" },
+              { icon: Gift, title: "Ưu đãi thành viên", desc: "Tích điểm đổi quà" },
             ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3 text-white">
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                  <item.icon className="w-5 h-5 text-cyan-400" />
+              <div key={i} className="flex items-center gap-4 text-white">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
+                  <item.icon className="size-6 text-cyan-400" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm">{item.title}</p>
-                  <p className="text-xs text-blue-200/70">{item.desc}</p>
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-sm text-blue-200/70">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -315,11 +190,11 @@ export function HomeGuest() {
       </section>
 
       {/* Product catalog — Shopee-style browse */}
-      <section id="catalog" className="py-12 bg-muted/20 scroll-mt-20">
+      <section id="catalog" className="scroll-mt-20 bg-muted/30 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center gap-3 mb-6">
-            <TrendingUp className="w-6 h-6 text-cyan-500" />
-            <h2 className="text-2xl font-bold">Khám phá sản phẩm</h2>
+          <div className="mb-8 flex items-center gap-3">
+            <TrendingUp className="size-6 text-cyan-500" />
+            <h2 className="text-3xl font-bold tracking-tight">Khám phá sản phẩm</h2>
             <Badge variant="outline" className="ml-auto sm:ml-2">
               {filteredProducts.length} sản phẩm
             </Badge>
@@ -400,9 +275,10 @@ export function HomeGuest() {
                           setSearchQuery(tag.query);
                           document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className="rounded-full bg-slate-50 dark:bg-muted/50 px-3 py-1.5 text-xs text-slate-600 dark:text-muted-foreground hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950/20 dark:hover:text-cyan-300 ring-1 ring-slate-100 dark:ring-transparent transition-all duration-200 font-medium"
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-100 transition-all duration-200 hover:bg-cyan-50 hover:text-cyan-600 dark:bg-muted/50 dark:text-muted-foreground dark:ring-transparent dark:hover:bg-cyan-950/20 dark:hover:text-cyan-300"
                       >
-                        🔥 {tag.text}
+                        <Flame className="size-3 text-red-500" aria-hidden="true" />
+                        {tag.text}
                       </button>
                     ))}
                   </div>

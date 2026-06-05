@@ -1,6 +1,6 @@
 import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
-import { adminBrandButtonClass } from "~/lib/admin/ui"
+import { adminBrandButtonClass, adminGhostButtonClass } from "~/lib/admin/ui"
 
 type AdminPaginationProps = {
   currentPage: number
@@ -29,55 +29,63 @@ export const AdminPagination = ({
   currentPage,
   totalPages,
   totalItems,
-  pageSize,
   onPageChange,
   itemLabel = "mục",
 }: AdminPaginationProps) => {
-  if (totalPages <= 1) return null
-
-  const start = (currentPage - 1) * pageSize + 1
-  const end = Math.min(currentPage * pageSize, totalItems)
+  const safeTotalPages = Math.max(1, totalPages)
+  const showPageButtons = safeTotalPages > 1
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-muted-foreground">
-        Hiển thị {start}–{end} / {totalItems} {itemLabel}
+      <p className="text-[13px] text-muted-foreground">
+        {totalItems === 0 ? (
+          <>0 {itemLabel}</>
+        ) : (
+          <>
+            Trang {currentPage}/{safeTotalPages}
+          </>
+        )}
       </p>
-      <div className="flex items-center gap-1.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-        >
-          Trước
-        </Button>
-        {getPageNumbers(currentPage, totalPages).map((pageNum) => (
+      {showPageButtons && (
+        <div className="flex items-center gap-1">
           <Button
-            key={pageNum}
             type="button"
-            variant={currentPage === pageNum ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            className={cn(
-              "min-w-8 tabular-nums",
-              currentPage === pageNum && adminBrandButtonClass
-            )}
-            onClick={() => onPageChange(pageNum)}
+            className={cn("h-8 bg-background text-[13px]", adminGhostButtonClass)}
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
           >
-            {pageNum}
+            Trước
           </Button>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-        >
-          Sau
-        </Button>
-      </div>
+          {getPageNumbers(currentPage, safeTotalPages).map((pageNum) => (
+            <Button
+              key={pageNum}
+              type="button"
+              variant={currentPage === pageNum ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "h-8 min-w-8 bg-background font-mono text-[13px] tabular-nums",
+                adminGhostButtonClass,
+                currentPage === pageNum && adminBrandButtonClass
+              )}
+              onClick={() => onPageChange(pageNum)}
+            >
+              {pageNum}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn("h-8 bg-background text-[13px]", adminGhostButtonClass)}
+            onClick={() => onPageChange(Math.min(safeTotalPages, currentPage + 1))}
+            disabled={currentPage === safeTotalPages}
+          >
+            Sau
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
