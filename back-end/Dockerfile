@@ -9,6 +9,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+# Prisma client nằm trong src/generated/prisma (gitignored) — phải generate trước khi build
+RUN npx prisma generate
 RUN npm run build
 
 # Production ---
