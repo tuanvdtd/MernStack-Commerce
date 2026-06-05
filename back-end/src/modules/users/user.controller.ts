@@ -3,7 +3,7 @@ import { Request, Response } from 'express'
 import { UserService } from '~/modules/users/user.service'
 
 export const UserController = {
-  // Register a new user test cicd
+  // Register a new user test cicd ver2
   register: async (req: Request, res: Response) => {
     const { email } = req.body
     const user = await UserService.register(email)
