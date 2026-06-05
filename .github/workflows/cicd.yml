@@ -1,63 +1,138 @@
-# name: CI/CD Service
+name: CI/CD Pipeline
 
-# on:
-#   push:
-#     branches: [ main ]
-#   pull_request:
-#     branches: [ main ]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-# jobs:
-#   # --- JOB 1: BUILD FRONTEND (Vite + Nginx) ---
-#   build-frontend:
-#     name: Build & Push Frontend
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v4
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1: Lint + Typecheck Frontend
+  # ─────────────────────────────────────────────
+  lint-frontend:
+    name: Lint & Typecheck Frontend
+    runs-on: ubuntu-latest
+    # Chỉ chạy khi có thay đổi ở front-end
+    if: |
+      github.event_name == 'pull_request' ||
+      contains(toJson(github.event.commits.*.modified), 'front-end/') ||
+      contains(toJson(github.event.commits.*.added), 'front-end/')
+    defaults:
+      run:
+        working-directory: front-end
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-#       - name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
 
-#       - name: Login to Docker Hub
-#         uses: docker/login-action@v3
-#         with:
-#           username: ${{ secrets.DOCKERHUB_USERNAME }}
-#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Install dependencies
+        run: npm ci
 
-#       - name: Build and push FE
-#         uses: docker/build-push-action@v5
-#         with:
-#           context: ./front-end
-#           file: ./front-end/Dockerfile
-#           push: ${{ github.event_name != 'pull_request' }}
-#           tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-fe:latest
-#           # Thêm Cache để build nhanh hơn
-#           cache-from: type=gha
-#           cache-to: type=gha,mode=max
+      - name: Typecheck
+        run: npx tsc -b --noEmit
 
-#   # --- JOB 2: BUILD BACKEND (Node.js/Babel) ---
-#   build-backend:
-#     name: Build & Push Backend
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v4
+      - name: Lint
+        run: npm run lint
 
-#       - name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v3
+  # ─────────────────────────────────────────────
+  # JOB 2: Lint + Typecheck Backend
+  # ─────────────────────────────────────────────
+  lint-backend:
+    name: Lint & Typecheck Backend
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      contains(toJson(github.event.commits.*.modified), 'back-end/') ||
+      contains(toJson(github.event.commits.*.added), 'back-end/')
+    defaults:
+      run:
+        working-directory: back-end
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-#       - name: Login to Docker Hub
-#         uses: docker/login-action@v3
-#         with:
-#           username: ${{ secrets.DOCKERHUB_USERNAME }}
-#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: back-end/package-lock.json
 
-#       - name: Build and push BE
-#         uses: docker/build-push-action@v5
-#         with:
-#           context: ./back-end
-#           file: ./back-end/Dockerfile
-#           push: ${{ github.event_name != 'pull_request' }}
-#           tags: ${{ secrets.DOCKERHUB_USERNAME }}/mernstack-ecommerce-be:latest
-#           cache-from: type=gha
-#           cache-to: type=gha,mode=max
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Build & Push Frontend Docker image
+  # ─────────────────────────────────────────────
+  build-frontend:
+    name: Build & Push Frontend
+    runs-on: ubuntu-latest
+    # Chỉ chạy sau khi lint pass, và chỉ trên push (không phải PR)
+    needs: lint-frontend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push FE image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./front-end
+          file: ./front-end/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashbuy-fe:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────
+  # JOB 4: Build & Push Backend Docker image
+  # ─────────────────────────────────────────────
+  build-backend:
+    name: Build & Push Backend
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push BE image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./back-end
+          file: ./back-end/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashbuy-be:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

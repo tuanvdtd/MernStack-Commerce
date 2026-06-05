@@ -1,5 +1,5 @@
 # Build ---
-FROM node:20-alpine as build-step
+FROM node:22-alpine AS build-step
 WORKDIR /app
 
 # Copy package.json và package-lock.json
@@ -11,8 +11,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-#  Production
-FROM node:20-alpine as production-step
+# Production ---
+FROM node:22-alpine AS production-step
 WORKDIR /app
 
 COPY --from=build-step /app/build ./build
