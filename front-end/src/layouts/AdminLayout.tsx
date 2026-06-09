@@ -1,23 +1,43 @@
 import { Outlet, Link, useLocation } from "react-router"
+import { ScrollToTop } from "~/components/ScrollToTop"
+import { AdminAccountMenu } from "~/components/admin/AdminAccountMenu"
 import {
   LayoutDashboard,
   Package,
   ShoppingCart,
+  Ticket,
   Warehouse,
   LogOut,
   Menu,
   X,
   Store,
+  Home,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Button } from "~/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { LogOutConfirmDialog } from "~/components/LogOutConfirmDialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip"
+import { useLogOutConfirm } from "~/hooks/useLogOutConfirm"
+import { userStore } from "~/stores/userStore"
+import { getUserInitials } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
+
+const SIDEBAR_COLLAPSED_KEY = "admin-sidebar-collapsed"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
   { icon: Package, label: "Sản phẩm", path: "/admin/products" },
   { icon: Warehouse, label: "Kho hàng", path: "/admin/inventory" },
   { icon: ShoppingCart, label: "Đơn hàng", path: "/admin/orders" },
+  { icon: Ticket, label: "Mã giảm giá", path: "/admin/discounts" },
 ] as const
 
 const routeTitles: Record<string, string> = {
@@ -25,6 +45,7 @@ const routeTitles: Record<string, string> = {
   "/admin/products": "Sản phẩm",
   "/admin/inventory": "Kho hàng",
   "/admin/orders": "Đơn hàng",
+  "/admin/discounts": "Mã giảm giá",
 }
 
 const isNavActive = (pathname: string, path: string) => {
@@ -35,121 +56,286 @@ const isNavActive = (pathname: string, path: string) => {
 const getPageTitle = (pathname: string) => {
   if (pathname.startsWith("/admin/products/")) return "Sản phẩm"
   if (pathname.startsWith("/admin/orders/")) return "Đơn hàng"
+  if (pathname.startsWith("/admin/discounts/")) return "Mã giảm giá"
   return routeTitles[pathname] ?? "Quản trị"
+}
+
+function SidebarTooltip({
+  label,
+  collapsed,
+  children,
+}: {
+  label: string
+  collapsed: boolean
+  children: ReactNode
+}) {
+  if (!collapsed) return children
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 export function AdminLayout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true"
+  })
   const pageTitle = getPageTitle(location.pathname)
+  const user = userStore((s) => s.user)
+  const { open, setOpen, requestLogOut, confirmLogOut } = useLogOutConfirm()
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed))
+  }, [sidebarCollapsed])
 
   const handleCloseSidebar = () => setSidebarOpen(false)
 
-  return (
-    <div className="admin-shell min-h-svh bg-zinc-50 text-foreground dark:bg-zinc-950">
-      {sidebarOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-zinc-900/20 backdrop-blur-[1px] lg:hidden"
-          aria-label="Đóng menu"
-          onClick={handleCloseSidebar}
-        />
-      )}
+  const toggleSidebarCollapsed = () => setSidebarCollapsed((prev) => !prev)
 
-      <aside
+  return (
+    <TooltipProvider delayDuration={0}>
+      <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[var(--admin-sidebar-width)] flex-col border-r border-border/80 bg-background transition-transform duration-200 lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "admin-shell min-h-svh bg-zinc-50 text-foreground dark:bg-zinc-950",
+          sidebarCollapsed && "admin-sidebar-collapsed"
         )}
       >
-        <div className="flex h-[3.25rem] items-center gap-2.5 px-4">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--admin-brand)] text-[var(--admin-brand-foreground)]">
-            <Store className="size-3.5" aria-hidden strokeWidth={2} />
-          </div>
-          <Link
-            to="/admin"
-            className="truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
+        <ScrollToTop />
+        {sidebarOpen && (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-zinc-900/20 backdrop-blur-[1px] lg:hidden"
+            aria-label="Đóng menu"
             onClick={handleCloseSidebar}
-          >
-            FlashBuy
-          </Link>
-        </div>
+          />
+        )}
 
-        <nav
-          className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2"
-          aria-label="Menu quản trị"
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 flex w-[var(--admin-sidebar-width)] flex-col border-r border-zinc-200/90 bg-white text-foreground shadow-[2px_0_12px_-2px_rgba(0,0,0,0.08)] transition-[width,transform] duration-200 lg:translate-x-0 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          )}
         >
-          {menuItems.map((item) => {
-            const Icon = item.icon
-            const active = isNavActive(location.pathname, item.path)
-
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={handleCloseSidebar}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors duration-150",
-                  active
-                    ? "bg-[var(--admin-brand)]/10 text-[var(--admin-brand)]"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                )}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon className="size-4 shrink-0" aria-hidden strokeWidth={1.75} />
-                <span>{item.label}</span>
-              </Link>
-            )
-          })}
-        </nav>
-
-        <div className="border-t border-border/80 p-2">
-          <Link to="/" onClick={handleCloseSidebar}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-full justify-start gap-2 px-2.5 text-[13px] text-muted-foreground"
-            >
-              <LogOut className="size-3.5" aria-hidden strokeWidth={1.75} />
-              Về cửa hàng
-            </Button>
-          </Link>
-        </div>
-      </aside>
-
-      <div className="flex min-h-svh flex-col lg:pl-[var(--admin-sidebar-width)]">
-        <header className="sticky top-0 z-30 flex h-[3.25rem] shrink-0 items-center justify-between gap-4 border-b border-border/80 bg-background/80 px-4 backdrop-blur-md sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="lg:hidden"
-              onClick={() => setSidebarOpen((open) => !open)}
-              aria-label={sidebarOpen ? "Đóng menu" : "Mở menu"}
-            >
-              {sidebarOpen ? (
-                <X className="size-4" strokeWidth={1.75} />
-              ) : (
-                <Menu className="size-4" strokeWidth={1.75} />
+          <div
+            className={cn(
+              "flex h-[3.25rem] shrink-0 items-center border-b border-zinc-200/90 dark:border-zinc-800/80",
+              sidebarCollapsed ? "justify-center px-2" : "justify-between gap-2 px-3"
+            )}
+          >
+            <Link
+              to="/admin"
+              className={cn(
+                "flex min-w-0 items-center gap-2.5",
+                sidebarCollapsed && "justify-center"
               )}
-            </Button>
-            <p className="truncate text-[13px] text-muted-foreground">
-              <span className="hidden sm:inline">Quản trị / </span>
-              <span className="font-medium text-foreground">{pageTitle}</span>
-            </p>
+              onClick={handleCloseSidebar}
+            >
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--admin-brand)] text-[var(--admin-brand-foreground)] shadow-sm">
+                <Store className="size-4" aria-hidden strokeWidth={2} />
+              </div>
+              {!sidebarCollapsed && (
+                <span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                  FlashBuy
+                </span>
+              )}
+            </Link>
+            {!sidebarCollapsed && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="hidden shrink-0 text-muted-foreground hover:bg-zinc-100 hover:text-foreground lg:inline-flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                onClick={toggleSidebarCollapsed}
+                aria-label="Thu nhỏ sidebar"
+              >
+                <PanelLeftClose className="size-4" strokeWidth={1.75} />
+              </Button>
+            )}
           </div>
-          <Link to="/" className="sm:hidden">
-            <Button variant="ghost" size="sm" className="h-8 text-[13px]">
-              Về cửa hàng
-            </Button>
-          </Link>
-        </header>
 
-        <main className="w-full flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
-          <Outlet />
-        </main>
+          <nav
+            className="flex-1 space-y-1 overflow-y-auto px-2 py-3"
+            aria-label="Menu quản trị"
+          >
+            {menuItems.map((item) => {
+              const Icon = item.icon
+              const active = isNavActive(location.pathname, item.path)
+
+              const link = (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={handleCloseSidebar}
+                  className={cn(
+                    "flex items-center rounded-lg text-[13px] font-medium transition-colors duration-150",
+                    sidebarCollapsed
+                      ? "justify-center px-2 py-2.5"
+                      : "gap-2.5 px-2.5 py-2",
+                    active
+                      ? "bg-[var(--admin-brand)]/12 text-[var(--admin-brand)] shadow-[inset_3px_0_0_0_var(--admin-brand)]"
+                      : "text-muted-foreground hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+                  )}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden strokeWidth={1.75} />
+                  {!sidebarCollapsed && <span>{item.label}</span>}
+                </Link>
+              )
+
+              return (
+                <SidebarTooltip
+                  key={item.path}
+                  label={item.label}
+                  collapsed={sidebarCollapsed}
+                >
+                  {link}
+                </SidebarTooltip>
+              )
+            })}
+          </nav>
+
+          <div className="space-y-0.5 border-t border-zinc-200/90 p-2 dark:border-zinc-800/80">
+            {user && !sidebarCollapsed && (
+              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-100 bg-zinc-50 px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-800/50">
+                <Avatar className="size-7 shrink-0 ring-2 ring-white dark:ring-zinc-700">
+                  <AvatarImage src={user.profilePic} alt={user.name} />
+                  <AvatarFallback className="bg-[var(--admin-brand)]/10 text-[10px] text-[var(--admin-brand)]">
+                    {getUserInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-foreground">
+                    {user.name}
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+            )}
+            {user && sidebarCollapsed && (
+              <SidebarTooltip label={user.name} collapsed>
+                <div className="flex justify-center py-1">
+                  <Avatar className="size-8 ring-2 ring-zinc-100 dark:ring-zinc-700">
+                    <AvatarImage src={user.profilePic} alt={user.name} />
+                    <AvatarFallback className="bg-[var(--admin-brand)]/10 text-[10px] text-[var(--admin-brand)]">
+                      {getUserInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              </SidebarTooltip>
+            )}
+            {/* <SidebarTooltip label="Về cửa hàng" collapsed={sidebarCollapsed}>
+              <Link to="/" onClick={handleCloseSidebar}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 w-full text-[13px] text-muted-foreground hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+                    sidebarCollapsed
+                      ? "justify-center px-2"
+                      : "justify-start gap-2 px-2.5"
+                  )}
+                >
+                  <Home className="size-3.5 shrink-0" aria-hidden strokeWidth={1.75} />
+                  {!sidebarCollapsed && "Về cửa hàng"}
+                </Button>
+              </Link>
+            </SidebarTooltip> */}
+            {user && (
+              <SidebarTooltip label="Đăng xuất" collapsed={sidebarCollapsed}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 w-full text-[13px] text-destructive hover:bg-destructive/10 hover:text-destructive",
+                    sidebarCollapsed
+                      ? "justify-center px-2"
+                      : "justify-start gap-2 px-2.5"
+                  )}
+                  onClick={() => {
+                    handleCloseSidebar()
+                    requestLogOut()
+                  }}
+                >
+                  <LogOut className="size-3.5 shrink-0" aria-hidden strokeWidth={1.75} />
+                  {!sidebarCollapsed && "Đăng xuất"}
+                </Button>
+              </SidebarTooltip>
+            )}
+            {sidebarCollapsed && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="hidden h-8 w-full justify-center px-2 text-muted-foreground hover:bg-zinc-100 hover:text-foreground lg:inline-flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                onClick={toggleSidebarCollapsed}
+                aria-label="Mở rộng sidebar"
+              >
+                <PanelLeftOpen className="size-3.5" strokeWidth={1.75} />
+              </Button>
+            )}
+          </div>
+        </aside>
+
+        <div className="flex min-h-svh flex-col transition-[padding] duration-200 lg:pl-[var(--admin-sidebar-width)]">
+          <header className="sticky top-0 z-30 flex h-[3.25rem] shrink-0 items-center justify-between gap-4 border-b border-border/80 bg-background/90 px-4 shadow-sm backdrop-blur-md sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="lg:hidden"
+                onClick={() => setSidebarOpen((open) => !open)}
+                aria-label={sidebarOpen ? "Đóng menu" : "Mở menu"}
+              >
+                {sidebarOpen ? (
+                  <X className="size-4" strokeWidth={1.75} />
+                ) : (
+                  <Menu className="size-4" strokeWidth={1.75} />
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="hidden text-muted-foreground lg:inline-flex"
+                onClick={toggleSidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="size-4" strokeWidth={1.75} />
+                ) : (
+                  <PanelLeftClose className="size-4" strokeWidth={1.75} />
+                )}
+              </Button>
+              <p className="truncate text-[13px] text-muted-foreground">
+                <span className="hidden sm:inline">Quản trị / </span>
+                <span className="font-medium text-foreground">{pageTitle}</span>
+              </p>
+            </div>
+            <AdminAccountMenu />
+          </header>
+
+          <main className="w-full flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+            <Outlet />
+          </main>
+        </div>
+
+        <LogOutConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          onConfirm={confirmLogOut}
+        />
       </div>
-    </div>
+    </TooltipProvider>
   )
 }

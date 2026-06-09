@@ -6,7 +6,8 @@ export const UserRepo = {
     return prisma.user.findUnique({
       where: {
         email
-      }
+      },
+      include: { role: true },
     })
   },
 

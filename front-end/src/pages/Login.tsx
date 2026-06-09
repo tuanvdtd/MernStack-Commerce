@@ -6,6 +6,7 @@ import { userStore } from "~/stores/userStore";
 import { googleLoginUrl } from "~/apis/authApi";
 import { Eye, EyeOff, CheckCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '~/components/ui/alert';
+import { getLoginRedirectPath } from "~/config/rbacConfig";
 
 
 export function Login() {
@@ -68,11 +69,7 @@ export function Login() {
     };
     const user = await logIn(userData);
     if (user != null) {
-      if (user.isAdmin == true) {
-        navigate('/admin/products');
-      }
-      else
-        navigate('/');
+      navigate(getLoginRedirectPath(user.role));
     }
   };
 

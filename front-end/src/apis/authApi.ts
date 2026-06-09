@@ -3,19 +3,43 @@ import type { User } from '~/types/user';
 import type { LoginData, RegisterData, VerifyOtpData } from '~/types/auth';
 import axios from './axiosConfig';
 
+interface LoginResponse {
+  id: number;
+  email: string;
+  name: string;
+  phone?: string;
+  avatarUrl?: string;
+  role: string;
+  token: string;
+}
+
 interface loginRes {
   user?: User,
   error?: string
 }
 
+function mapLoginResponse(data: LoginResponse): User {
+  return {
+    id: String(data.id),
+    email: data.email,
+    name: data.name,
+    phone: data.phone,
+    profilePic: data.avatarUrl,
+    role: data.role,
+    token: data.token,
+  }
+}
+
 export const login = async (credentials: LoginData): Promise<loginRes> => {
   try {
-    const response = await axios.post('/user/login', credentials);
-    const normalUser: User = response.data;
+    const response = await axios.post<LoginResponse>('/user/login', credentials);
+    const user = mapLoginResponse(response.data);
 
-    return {
-      user: normalUser
-    };
+    if (user.token) {
+      localStorage.setItem('token', user.token);
+    }
+
+    return { user };
 
   } catch (error) {
     const err = error as { response?: { data?: { message?: string } } }

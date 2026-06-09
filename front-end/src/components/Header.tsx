@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router";
-import { ShoppingCart, User, LogIn, UserPlus } from "lucide-react";
+import { ShoppingCart, LogIn, UserPlus } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
+import { getUserInitials } from "~/lib/admin/ui";
 import { userStore } from "~/stores/userStore";
 import { cn } from "~/lib/utils";
 
@@ -91,10 +93,25 @@ export function Header() {
                 </Link>
                 <Link
                   to="/account"
-                  className={iconLinkClass(pathname.startsWith("/account"))}
+                  className="p-1"
                   aria-label="Tài khoản"
+                  aria-current={
+                    pathname.startsWith("/account") ? "page" : undefined
+                  }
                 >
-                  <User className="w-6 h-6" />
+                  <Avatar
+                    className={cn(
+                      "size-9 border-2 transition-colors",
+                      pathname.startsWith("/account")
+                        ? "border-[#00cbfd]"
+                        : "border-transparent"
+                    )}
+                  >
+                    <AvatarImage src={user.profilePic} alt={user.name} />
+                    <AvatarFallback className="bg-[#00cbfd]/10 text-xs font-medium text-[#00647e]">
+                      {getUserInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
                 </Link>
               </>
             ) : (

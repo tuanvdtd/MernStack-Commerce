@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { SPU, Order, DashboardStats } from '~/types/admin/index';
+import type { SPU, Order, DashboardStats, AdminDiscount } from '~/types/admin/index';
 
 interface AdminState {
   // Products
@@ -8,6 +8,13 @@ interface AdminState {
   addProduct: (product: SPU) => void;
   updateProduct: (id: string, product: Partial<SPU>) => void;
   deleteProduct: (id: string) => void;
+
+  // Discounts
+  discounts: AdminDiscount[];
+  setDiscounts: (discounts: AdminDiscount[]) => void;
+  addDiscount: (discount: AdminDiscount) => void;
+  updateDiscount: (id: string, discount: Partial<AdminDiscount>) => void;
+  deleteDiscount: (id: string) => void;
   
   // Orders
   orders: Order[];
@@ -29,6 +36,23 @@ export const useAdminStore = create<AdminState>((set) => ({
   })),
   deleteProduct: (id) => set((state) => ({
     products: state.products.filter((p) => p.id !== id)
+  })),
+
+  // Discounts
+  discounts: [],
+  setDiscounts: (discounts) => set({ discounts }),
+  addDiscount: (discount) => set((state) => ({
+    discounts: [...state.discounts, discount]
+  })),
+  updateDiscount: (id, discountData) => set((state) => ({
+    discounts: state.discounts.map((d) =>
+      d.id === id
+        ? { ...d, ...discountData, updatedAt: new Date().toISOString() }
+        : d
+    )
+  })),
+  deleteDiscount: (id) => set((state) => ({
+    discounts: state.discounts.filter((d) => d.id !== id)
   })),
   
   // Orders

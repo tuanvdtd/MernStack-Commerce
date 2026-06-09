@@ -15,10 +15,11 @@ import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { Progress } from "~/components/ui/progress";
-import { useLogOut } from "~/hooks/useLogOut";
+import { LogOutConfirmDialog } from "~/components/LogOutConfirmDialog";
+import { useLogOutConfirm } from "~/hooks/useLogOutConfirm";
 
 export function AccountV2() {
-  const logOut = useLogOut();
+  const { open, setOpen, requestLogOut, confirmLogOut } = useLogOutConfirm();
   const [activeTab, setActiveTab] = useState("profile");
 
   const user = {
@@ -183,7 +184,7 @@ export function AccountV2() {
                   })}
                   <Separator className="my-1" />
                   <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-all cursor-pointer"
-                    onClick={logOut}>
+                    onClick={requestLogOut}>
                     <LogOut className="w-4 h-4" />
                     <span>Đăng xuất</span>
                   </button>
@@ -524,6 +525,12 @@ export function AccountV2() {
           </div>
         </div>
       </div>
+
+      <LogOutConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        onConfirm={confirmLogOut}
+      />
     </div>
   );
 }

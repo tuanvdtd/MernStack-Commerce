@@ -98,3 +98,39 @@ export interface DashboardStats {
   pendingOrders: number
   todayOrders: number
 }
+
+/** Khớp enum DiscountType trong Prisma */
+export type DiscountType = "FIXED_AMOUNT" | "PERCENTAGE"
+
+/** Khớp enum DiscountAppliesTo trong Prisma */
+export type DiscountAppliesTo = "ALL" | "SPECIFIC"
+
+/** Trạng thái hiển thị tính từ isActive + thời gian + lượt dùng */
+export type DiscountDisplayStatus =
+  | "active"
+  | "inactive"
+  | "scheduled"
+  | "expired"
+  | "exhausted"
+
+/** Khớp model Discount + quan hệ DiscountProduct */
+export interface AdminDiscount {
+  id: string
+  name: string
+  description: string
+  type: DiscountType
+  value: number
+  maxValue: number
+  code: string
+  startDate: string
+  endDate: string
+  maxUses: number
+  usesCount: number
+  maxUsesPerUser: number
+  minOrderValue: number
+  isActive: boolean
+  appliesTo: DiscountAppliesTo
+  productIds: string[]
+  createdAt: string
+  updatedAt: string
+}

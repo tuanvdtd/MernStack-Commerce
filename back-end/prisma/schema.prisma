@@ -18,7 +18,8 @@ model User {
   name         String
   password     String
   googleId     String?           @unique
-  role         Role[]
+  roleId       Int
+  role         Role              @relation(fields: [roleId], references: [id])
   isActive     Boolean           @default(false)
   avatarUrl    String?
   phone        String?

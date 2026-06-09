@@ -1,4 +1,5 @@
 import { createBrowserRouter, Outlet, Navigate } from "react-router";
+import { ScrollToTop } from "~/components/ScrollToTop";
 import { RootLayout } from "~/layouts/RootLayout";
 import { Home } from "~/pages/Home";
 import { ProductDetail } from "~/pages/ProductDetail";
@@ -20,13 +21,36 @@ import { ProductForm } from "~/pages/admin/ProductForm";
 import { Inventory } from "~/pages/admin/Inventory";
 import { OrdersList } from "~/pages/admin/OrdersList";
 import { OrderDetail } from "~/pages/admin/OrderDetail";
+import { DiscountsList } from "~/pages/admin/DiscountsList";
+import { DiscountForm } from "~/pages/admin/DiscountForm";
+import { permissions, getLoginRedirectPath } from "~/config/rbacConfig";
+import { usePermission } from "~/hooks/usePermission";
 import { userStore } from "~/stores/userStore";
 
 // eslint-disable-next-line react-refresh/only-export-components
-const ProtectedRoute = () => {
+const UserRoute = () => {
   const user = userStore((s) => s.user);
+  const { hasPermission } = usePermission(user?.role);
+
   if (!user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
+  }
+  if (!hasPermission(permissions.VIEW_USER)) {
+    return <Navigate to={getLoginRedirectPath(user.role)} replace />;
+  }
+  return <Outlet />;
+};
+
+// eslint-disable-next-line react-refresh/only-export-components
+const AdminRoute = () => {
+  const user = userStore((s) => s.user);
+  const { hasPermission } = usePermission(user?.role);
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!hasPermission(permissions.VIEW_ADMIN)) {
+    return <Navigate to={getLoginRedirectPath(user.role)} replace />;
   }
   return <Outlet />;
 };
@@ -34,12 +58,15 @@ const ProtectedRoute = () => {
 // eslint-disable-next-line react-refresh/only-export-components
 const LoginedRedirect = () => {
   const user = userStore((s) => s.user);
-  if (user && user.isAdmin) {
-    return <Navigate to="/admin/products" replace />;
-  } else if (user) {
-    return <Navigate to="/" replace />;
+  if (user) {
+    return <Navigate to={getLoginRedirectPath(user.role)} replace />;
   }
-  return <Outlet />; // chưa đăng nhập thì cho vào login/register
+  return (
+    <>
+      <ScrollToTop />
+      <Outlet />
+    </>
+  );
 };
 
 export const router = createBrowserRouter([
@@ -54,9 +81,9 @@ export const router = createBrowserRouter([
       { path: "flash-sale", Component: FlashSale },
       { path: "*", Component: NotFound },
 
-      // Protected routes - phải đăng nhập mới truy cập được
+      // Protected routes - chỉ role user mới truy cập được
       {
-        Component: ProtectedRoute,
+        Component: UserRoute,
         children: [
           { path: "cart", Component: Cart },
           { path: "checkout", Component: Checkout },
@@ -78,15 +105,23 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    Component: AdminLayout,
+    Component: AdminRoute,
     children: [
-      { index: true, Component: Dashboard },
-      { path: "products", Component: ProductsList },
-      { path: "products/create", Component: ProductForm },
-      { path: "products/edit/:id", Component: ProductForm },
-      { path: "inventory", Component: Inventory },
-      { path: "orders", Component: OrdersList },
-      { path: "orders/:id", Component: OrderDetail },
+      {
+        Component: AdminLayout,
+        children: [
+          { index: true, Component: Dashboard },
+          { path: "products", Component: ProductsList },
+          { path: "products/create", Component: ProductForm },
+          { path: "products/edit/:id", Component: ProductForm },
+          { path: "inventory", Component: Inventory },
+          { path: "orders", Component: OrdersList },
+          { path: "orders/:id", Component: OrderDetail },
+          { path: "discounts", Component: DiscountsList },
+          { path: "discounts/create", Component: DiscountForm },
+          { path: "discounts/edit/:id", Component: DiscountForm },
+        ],
+      },
     ],
   },
 ]);

@@ -1,11 +1,12 @@
 import { User, Package, Heart, Settings, MapPin, CreditCard, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import { useLogOut } from "~/hooks/useLogOut";
+import { LogOutConfirmDialog } from "~/components/LogOutConfirmDialog";
+import { useLogOutConfirm } from "~/hooks/useLogOutConfirm";
 
 export function Account() {
   const [activeTab, setActiveTab] = useState("profile");
-  const logOut = useLogOut();
+  const { open, setOpen, requestLogOut, confirmLogOut } = useLogOutConfirm();
 
   const user = {
     name: "Nguyễn Văn A",
@@ -125,7 +126,7 @@ export function Account() {
                   );
                 })}
                 <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                  onClick={logOut}>
+                  onClick={requestLogOut}>
                   <LogOut className="w-5 h-5" />
                   <span className="font-semibold">Đăng xuất</span>
                 </button>
@@ -359,6 +360,12 @@ export function Account() {
           </div>
         </div>
       </div>
+
+      <LogOutConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        onConfirm={confirmLogOut}
+      />
     </div>
   );
 }

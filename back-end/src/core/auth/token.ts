@@ -5,7 +5,7 @@ import { ApiError } from '../http/ApiError';
 import { env } from "~/config/env"
 
 type Payload = {
-  role: string[]
+  role: string
   id: number
 }
 

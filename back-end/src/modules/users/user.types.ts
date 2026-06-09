@@ -23,7 +23,7 @@ export type User = {
   email: string
   name: string
   password: string
-  role: string[]
+  role: string
   joinAt?: Date
   phone?: string
   avatarUrl?: string

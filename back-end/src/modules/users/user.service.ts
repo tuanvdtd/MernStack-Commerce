@@ -4,6 +4,7 @@ import { ApiError } from '~/core/http/ApiError'
 import { OtpPurpose } from '~/generated/prisma/client'
 import { OtpRepo } from '~/modules/otp/otp.repo'
 import { OtpService } from '~/modules/otp/otp.service'
+import { toAuthResponse } from '~/modules/users/user.mapper'
 import { UserRepo } from '~/modules/users/user.repo'
 import { hashPassword, verifyPassword } from '~/utils/password'
 
@@ -74,8 +75,8 @@ export const UserService = {
     }
     const isValid = await verifyPassword(password, user.password)
     if (!isValid) throw new ApiError(401, 'Invalid password')
-    // sử dụng jwt để tạo token
-    return user
+
+    return toAuthResponse(user)
   },
 
   async list() {

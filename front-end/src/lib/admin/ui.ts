@@ -62,6 +62,15 @@ export const ORDER_STATUS_BADGE_CLASS: Record<Order["status"], string> = {
   refunded: "bg-muted text-muted-foreground",
 }
 
+export const getUserInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(-2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+
 export const formatVnd = (amount: number) => `${amount.toLocaleString("vi-VN")}đ`
 
 export const getOrderStatusLabel = (status: Order["status"]) =>
