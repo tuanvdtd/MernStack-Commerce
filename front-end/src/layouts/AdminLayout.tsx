@@ -11,7 +11,6 @@ import {
   Menu,
   X,
   Store,
-  Home,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react"
