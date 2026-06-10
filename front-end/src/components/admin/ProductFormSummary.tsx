@@ -1,14 +1,16 @@
 import { Badge } from "~/components/ui/badge"
 import { Separator } from "~/components/ui/separator"
-import { ADMIN_CATEGORIES } from "~/mock/adminCatalog"
 import { formatVnd } from "~/lib/admin/ui"
+import { findCategoryById } from "~/lib/admin/categoryCatalog"
 import { getCatalogLabel, type OptionCatalogEntry } from "~/lib/admin/optionCatalog"
+import type { AdminCategory } from "~/types/admin/index"
 import { cn } from "~/lib/utils"
 
 type ProductFormSummaryProps = {
   name: string
   slug: string
   categoryId: string
+  categoryCatalog: AdminCategory[]
   brand: string
   isActive: boolean
   imgUrl: string
@@ -25,6 +27,7 @@ export const ProductFormSummary = ({
   name,
   slug,
   categoryId,
+  categoryCatalog,
   brand,
   isActive,
   imgUrl,
@@ -37,7 +40,7 @@ export const ProductFormSummary = ({
   className,
 }: ProductFormSummaryProps) => {
   const categoryName =
-    ADMIN_CATEGORIES.find((c) => c.id === categoryId)?.name ?? null
+    findCategoryById(categoryCatalog, categoryId)?.name ?? null
 
   const priceLabel =
     minPrice > 0 || maxPrice > 0

@@ -1,32 +1,34 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router"
-import { useForm } from "react-hook-form"
+import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { useAdminStore } from "~/stores/adminStore"
-import type { SKU, SPU } from "~/types/admin/index"
-import { ADMIN_BRANDS, ADMIN_CATEGORIES } from "~/mock/adminCatalog"
+import type { SPU } from "~/types/admin/index"
+import { ADMIN_BRANDS } from "~/mock/adminCatalog"
+import { findCategoryById } from "~/lib/admin/categoryCatalog"
+import { createCategory, fetchCategories } from "~/apis/categoryApi"
+import { fetchOptionCatalog } from "~/apis/optionApi"
 import {
-  alignSkuOptionsToAxes,
-  computeProductStats,
-  DEFAULT_OPTION_AXES,
-  deriveOptionAxes,
-  slugify,
-  validateOptionAxes,
-  validateSkuForms,
-} from "~/lib/admin/productUtils"
+  createProduct,
+  getProductApiError,
+  fetchProductById,
+  updateProduct as updateProductApi,
+  type CreateProductPayload,
+  type ProductImageFiles,
+} from "~/apis/productApi"
+import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
+import { deriveOptionAxes } from "~/lib/admin/productUtils"
 import { SpuOptionAxesEditor } from "~/components/admin/SpuOptionAxesEditor"
-import {
-  cloneDefaultOptionCatalog,
-  mergeProductIntoOptionCatalog,
-} from "~/lib/admin/optionCatalog"
-import {
-  SkuFormCard,
-  createDefaultSkuForm,
-  type SkuFormData,
-} from "~/components/admin/SkuFormCard"
+import type { OptionCatalogEntry } from "~/lib/admin/optionCatalog"
+import { SkuFormCard } from "~/components/admin/SkuFormCard"
 import { ProductFormStepper } from "~/components/admin/ProductFormStepper"
 import { ProductFormSummary } from "~/components/admin/ProductFormSummary"
+import {
+  createDefaultVariant,
+  defaultProductFormValues,
+  productFormSchema,
+  type ProductFormValues,
+} from "~/lib/admin/productFormSchema"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Textarea } from "~/components/ui/textarea"
@@ -54,300 +56,489 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "~/components/ui/accordion"
-import { Plus, ArrowLeft } from "lucide-react"
+import { Plus, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog"
 import { AdminPage } from "~/components/admin/AdminPage"
 import { AdminPageHeader } from "~/components/admin/AdminPageHeader"
-import { ImageUploadField } from "~/components/admin/ImageUploadField"
+import {
+  ImageUploadField,
+  type ImageUploadChangeMeta,
+} from "~/components/admin/ImageUploadField"
 import { adminBrandButtonClass } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
+import type { AdminCategory } from "~/types/admin/index"
 
-const spuSchema = z.object({
-  name: z.string().min(3, "Tên SPU phải có ít nhất 3 ký tự"),
-  slug: z
-    .string()
-    .min(3, "Slug phải có ít nhất 3 ký tự")
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug chỉ gồm chữ thường, số và dấu gạch ngang"),
-  description: z.string().min(10, "Mô tả phải có ít nhất 10 ký tự"),
-  categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-  brand: z.string().min(1, "Vui lòng chọn thương hiệu"),
-  imgUrl: z.union([
-    z.literal(""),
-    z
-      .string()
-      .refine(
-        (val) =>
-          val.startsWith("data:image/") ||
-          /^https?:\/\/.+/i.test(val),
-        "Ảnh không hợp lệ"
-      ),
-  ]),
-  isActive: z.boolean(),
-})
-
-type SpuFormData = z.infer<typeof spuSchema>
 type FormStep = "spu" | "skus"
 
-const mapSkuToForm = (sku: SKU, optionAxes: string[]): SkuFormData => ({
-  id: sku.id,
-  sku: sku.sku,
-  price: sku.price,
-  stockQuantity: sku.stockQuantity,
-  imgUrl: sku.imgUrl ?? "",
-  options: alignSkuOptionsToAxes(optionAxes, sku.options),
+const SPU_FIELDS = [
+  "name",
+  "description",
+  "categoryId",
+  "brand",
+  "imgUrl",
+  "isActive",
+  "optionAxes",
+] as const satisfies ReadonlyArray<keyof ProductFormValues>
+
+const mapSpuToFormValues = (product: SPU): ProductFormValues => {
+  const optionAxes = product.optionAxes?.length
+    ? product.optionAxes
+    : deriveOptionAxes(product)
+
+  return {
+    name: product.name,
+    description: product.description,
+    categoryId: product.categoryId,
+    brand: product.brand,
+    imgUrl: product.imgUrl ?? "",
+    isActive: product.isActive,
+    optionAxes,
+    variants:
+      product.skus.length > 0
+        ? product.skus.map((sku) => ({
+            id: sku.id,
+            sku: sku.sku,
+            price: sku.price,
+            stockQuantity: sku.stockQuantity,
+            imgUrl: sku.imgUrl ?? "",
+            options: optionAxes.map((optionName) => ({
+              optionName,
+              value:
+                sku.options.find((o) => o.optionName === optionName)?.value ??
+                "",
+            })),
+          }))
+        : [createDefaultVariant(optionAxes)],
+  }
+}
+
+const isRemoteImageUrl = (url: string | undefined) =>
+  Boolean(url?.trim() && /^https?:\/\//i.test(url.trim()))
+
+const cloneFormValues = (values: ProductFormValues): ProductFormValues => ({
+  ...values,
+  optionAxes: [...values.optionAxes],
+  variants: values.variants.map((variant) => ({
+    ...variant,
+    options: variant.options.map((option) => ({ ...option })),
+  })),
+})
+
+const isSameOptionAxes = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((axis, index) => axis === b[index])
+
+const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
+  name: values.name.trim(),
+  description: values.description.trim(),
+  categoryId: values.categoryId,
+  brand: values.brand,
+  imgUrl: isRemoteImageUrl(values.imgUrl) ? values.imgUrl.trim() : "",
+  isActive: values.isActive,
+  optionAxes: values.optionAxes,
+  variants: values.variants.map((variant) => ({
+    sku: variant.sku.trim(),
+    price: variant.price,
+    stockQuantity: variant.stockQuantity,
+    ...(isRemoteImageUrl(variant.imgUrl)
+      ? { imgUrl: variant.imgUrl!.trim() }
+      : {}),
+    options: variant.options.map((option) => ({
+      optionName: option.optionName,
+      value: option.value.trim(),
+    })),
+  })),
 })
 
 export function ProductForm() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { products, addProduct, updateProduct } = useAdminStore()
-  const [optionCatalog, setOptionCatalog] = useState(cloneDefaultOptionCatalog)
-  const [optionAxes, setOptionAxes] = useState<string[]>([
-    ...DEFAULT_OPTION_AXES,
-  ])
-  const [skus, setSkus] = useState<SkuFormData[]>(() => [
-    createDefaultSkuForm([...DEFAULT_OPTION_AXES]),
-  ])
+  const { addProduct, updateProduct } = useAdminStore()
+  const [categoryCatalog, setCategoryCatalog] = useState<AdminCategory[]>([])
+  const [optionCatalog, setOptionCatalog] = useState<OptionCatalogEntry[]>([])
   const [activeStep, setActiveStep] = useState<FormStep>("spu")
   const [openSkuPanels, setOpenSkuPanels] = useState<string[]>(["sku-0"])
-  const [slugTouched, setSlugTouched] = useState(false)
-  const isEditMode = !!id
+  const [loadedSlug, setLoadedSlug] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(Boolean(id))
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [spuSaveDialogOpen, setSpuSaveDialogOpen] = useState(false)
+  const isEditMode = Boolean(id)
+  const pendingImagesRef = useRef<{ spu?: File; skus: Record<number, File> }>({
+    skus: {},
+  })
+  const saveClickGuardRef = useRef(false)
+  const committedFormRef = useRef<ProductFormValues | null>(null)
 
-  const form = useForm<SpuFormData>({
-    resolver: zodResolver(spuSchema),
-    defaultValues: {
-      name: "",
-      slug: "",
-      description: "",
-      categoryId: "",
-      brand: "",
-      imgUrl: "",
-      isActive: true,
-    },
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: defaultProductFormValues(),
+    mode: "onSubmit",
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "variants",
   })
 
   const watchName = form.watch("name")
-  const watchSlug = form.watch("slug")
   const watchCategoryId = form.watch("categoryId")
   const watchBrand = form.watch("brand")
   const watchImgUrl = form.watch("imgUrl")
   const watchIsActive = form.watch("isActive")
+  const watchOptionAxes = form.watch("optionAxes")
+  const watchVariants = form.watch("variants")
 
   const skuStats = useMemo(() => {
-    const prices = skus.map((s) => s.price).filter((p) => p > 0)
+    const prices = watchVariants.map((s) => s.price).filter((p) => p > 0)
     const minPrice = prices.length ? Math.min(...prices) : 0
     const maxPrice = prices.length ? Math.max(...prices) : 0
-    const totalStock = skus.reduce((sum, s) => sum + (s.stockQuantity || 0), 0)
+    const totalStock = watchVariants.reduce(
+      (sum, s) => sum + (s.stockQuantity || 0),
+      0
+    )
     return { minPrice, maxPrice, totalStock }
-  }, [skus])
-
-  const productId = id ?? null
-  const existingProduct = productId
-    ? products.find((p) => p.id === productId)
-    : undefined
-  const canSaveSkus = Boolean(productId)
+  }, [watchVariants])
 
   useEffect(() => {
-    if (!slugTouched && watchName && !isEditMode) {
-      form.setValue("slug", slugify(watchName))
+    let cancelled = false
+
+    const loadCatalogs = async () => {
+      try {
+        const [categories, options] = await Promise.all([
+          fetchCategories(),
+          fetchOptionCatalog(),
+        ])
+        if (!cancelled) {
+          setCategoryCatalog(categories)
+          setOptionCatalog(options)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(getProductApiError(error))
+        }
+      }
     }
-  }, [watchName, slugTouched, isEditMode, form])
+
+    void loadCatalogs()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
-    if (!isEditMode || !id) return
-    const product = products.find((p) => p.id === id)
-    if (!product) return
+    if (!id) return
+    let cancelled = false
 
-    form.reset({
-      name: product.name,
-      slug: product.slug,
-      description: product.description,
-      categoryId: product.categoryId,
-      brand: product.brand,
-      imgUrl: product.imgUrl ?? "",
-      isActive: product.isActive,
-    })
-    const axes = deriveOptionAxes(product)
-    setOptionCatalog(mergeProductIntoOptionCatalog(cloneDefaultOptionCatalog(), product))
-    setOptionAxes(axes)
-    setSlugTouched(true)
-    const mapped =
-      product.skus.length > 0
-        ? product.skus.map((s) => mapSkuToForm(s, axes))
-        : [createDefaultSkuForm(axes)]
-    setSkus(mapped)
-    setOpenSkuPanels(mapped.map((_, i) => `sku-${i}`))
-  }, [isEditMode, id, products, form])
+    const loadProduct = async () => {
+      setIsLoading(true)
+      try {
+        const product = await fetchProductById(id)
+        if (cancelled) return
+        const formValues = mapSpuToFormValues(product)
+        form.reset(formValues)
+        committedFormRef.current = cloneFormValues(formValues)
+        pendingImagesRef.current = { skus: {} }
+        setLoadedSlug(product.slug)
+        setOpenSkuPanels(
+          product.skus.length > 0
+            ? product.skus.map((_, i) => `sku-${i}`)
+            : ["sku-0"]
+        )
+        setCategoryCatalog((prev) => {
+          if (prev.some((c) => c.id === product.categoryId)) return prev
+          return [
+            ...prev,
+            {
+              id: product.categoryId,
+              name: product.categoryName,
+              slug: product.categoryName.toLowerCase().replace(/\s+/g, "-"),
+            },
+          ]
+        })
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(getProductApiError(error))
+          navigate("/admin/products")
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
 
-  const handleOptionAxesChange = (axes: string[]) => {
-    setOptionAxes(axes)
-    setSkus((prev) =>
-      prev.map((s) => ({
-        ...s,
-        options: alignSkuOptionsToAxes(axes, s.options),
-      }))
+    void loadProduct()
+    return () => {
+      cancelled = true
+    }
+  }, [id, form, navigate])
+
+  const syncVariantsToAxes = (axes: string[]) => {
+    const variants = form.getValues("variants")
+    form.setValue(
+      "variants",
+      variants.map((variant) => ({
+        ...variant,
+        options: axes.map((optionName) => ({
+          optionName,
+          value:
+            variant.options.find((o) => o.optionName === optionName)?.value ??
+            "",
+        })),
+      })),
+      { shouldValidate: false }
     )
   }
 
+  const handleOptionAxesChange = (axes: string[]) => {
+    form.setValue("optionAxes", axes, { shouldValidate: true })
+    syncVariantsToAxes(axes)
+  }
+
   const handleAddSku = () => {
-    const newIndex = skus.length
-    setSkus((prev) => [...prev, createDefaultSkuForm(optionAxes)])
-    setOpenSkuPanels((prev) => [...prev, `sku-${newIndex}`])
+    const axes = form.getValues("optionAxes")
+    append(createDefaultVariant(axes))
+    setOpenSkuPanels((prev) => [...prev, `sku-${fields.length}`])
   }
 
   const handleRemoveSku = (index: number) => {
-    if (skus.length <= 1) {
+    if (fields.length <= 1) {
       toast.error("SPU cần ít nhất 1 SKU")
       return
     }
-    setSkus((prev) => prev.filter((_, i) => i !== index))
+    remove(index)
     setOpenSkuPanels((prev) =>
       prev
-        .filter((id) => id !== `sku-${index}`)
-        .map((id) => {
-          const n = Number(id.replace("sku-", ""))
-          return n > index ? `sku-${n - 1}` : id
+        .filter((panelId) => panelId !== `sku-${index}`)
+        .map((panelId) => {
+          const n = Number(panelId.replace("sku-", ""))
+          return n > index ? `sku-${n - 1}` : panelId
         })
     )
   }
 
-  const handleSkuChange = (index: number, data: SkuFormData) => {
-    setSkus((prev) => prev.map((s, i) => (i === index ? data : s)))
+  const focusSkuPanelsWithErrors = () => {
+    const variantErrors = form.formState.errors.variants
+    if (!variantErrors || !Array.isArray(variantErrors)) return
+
+    const panels = variantErrors
+      .map((row, i) => (row ? `sku-${i}` : null))
+      .filter((panelId): panelId is string => panelId !== null)
+
+    if (panels.length > 0) {
+      setOpenSkuPanels((prev) => [...new Set([...prev, ...panels])])
+    }
   }
 
-  const buildSkusFromForm = (targetProductId: string): SKU[] => {
-    const now = new Date().toISOString()
-    return skus.map((row, index) => ({
-      id: row.id ?? `sku-${Date.now()}-${index}`,
-      productId: targetProductId,
-      sku: row.sku.trim(),
-      price: row.price,
-      imgUrl: row.imgUrl?.trim() || undefined,
-      stockQuantity: row.stockQuantity,
-      options: alignSkuOptionsToAxes(optionAxes, row.options).filter((o) =>
-        o.value.trim()
-      ),
-      createdAt: existingProduct?.skus[index]?.createdAt ?? now,
-      updatedAt: now,
-    }))
+  const isSpuDirty = () => {
+    if (pendingImagesRef.current.spu) return true
+
+    const baseline = committedFormRef.current
+    if (!baseline) return false
+
+    const current = form.getValues()
+    return (
+      current.name !== baseline.name ||
+      current.description !== baseline.description ||
+      current.categoryId !== baseline.categoryId ||
+      current.brand !== baseline.brand ||
+      current.imgUrl !== baseline.imgUrl ||
+      current.isActive !== baseline.isActive ||
+      !isSameOptionAxes(current.optionAxes, baseline.optionAxes)
+    )
   }
 
-  const handleSaveSpu = async () => {
-    const valid = await form.trigger()
+  const revertSpuChanges = () => {
+    const baseline = committedFormRef.current
+    if (!baseline) return
+
+    const current = form.getValues()
+    const axesChanged = !isSameOptionAxes(current.optionAxes, baseline.optionAxes)
+    const variants = current.variants.map((variant, index) => {
+      if (!axesChanged) return variant
+      const baseVariant = baseline.variants[index]
+      if (!baseVariant) return variant
+      return { ...variant, options: baseVariant.options.map((o) => ({ ...o })) }
+    })
+
+    form.reset(
+      {
+        ...current,
+        name: baseline.name,
+        description: baseline.description,
+        categoryId: baseline.categoryId,
+        brand: baseline.brand,
+        imgUrl: baseline.imgUrl,
+        isActive: baseline.isActive,
+        optionAxes: [...baseline.optionAxes],
+        variants,
+      },
+      { keepDirty: false },
+    )
+
+    delete pendingImagesRef.current.spu
+  }
+
+  const goToSkuStep = () => {
+    // Chặn ghost click: Tiếp và Lưu cùng vị trí, re-render có thể kích submit nhầm
+    saveClickGuardRef.current = true
+    setActiveStep("skus")
+    window.setTimeout(() => {
+      saveClickGuardRef.current = false
+    }, 400)
+  }
+
+  const requestNavigateToSkus = async () => {
+    const valid = await form.trigger([...SPU_FIELDS])
     if (!valid) return
 
-    const axesError = validateOptionAxes(optionAxes)
-    if (axesError) {
-      toast.error(axesError)
+    if (isEditMode && isSpuDirty()) {
+      setSpuSaveDialogOpen(true)
       return
     }
 
-    const data = form.getValues()
-    const category = ADMIN_CATEGORIES.find((c) => c.id === data.categoryId)
-    const now = new Date().toISOString()
-    const newId = productId ?? `spu-${Date.now()}`
-    const builtSkus = buildSkusFromForm(newId)
-
-    const spuPayload: SPU = {
-      id: newId,
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      categoryId: data.categoryId,
-      categoryName: category?.name ?? "",
-      brand: data.brand,
-      optionAxes: [...optionAxes],
-      imgUrl: data.imgUrl?.trim() || undefined,
-      isActive: data.isActive,
-      skus: existingProduct?.skus ?? builtSkus,
-      createdAt: existingProduct?.createdAt ?? now,
-      updatedAt: now,
-      ...computeProductStats(existingProduct?.skus ?? builtSkus),
-    }
-
-    if (productId) {
-      updateProduct(productId, {
-        name: spuPayload.name,
-        slug: spuPayload.slug,
-        description: spuPayload.description,
-        categoryId: spuPayload.categoryId,
-        categoryName: spuPayload.categoryName,
-        brand: spuPayload.brand,
-        optionAxes: spuPayload.optionAxes,
-        imgUrl: spuPayload.imgUrl,
-        isActive: spuPayload.isActive,
-      })
-      toast.success("Đã lưu thông tin SPU")
-      return
-    }
-
-    addProduct(spuPayload)
-    toast.success("Đã tạo SPU")
-    navigate(`/admin/products/edit/${newId}`, { replace: true })
+    goToSkuStep()
   }
 
-  const handleSaveSkus = () => {
-    if (!productId) {
-      toast.error("Lưu SPU trước để có thể lưu SKU")
+  const handleStepClick = (step: FormStep) => {
+    if (step === "skus" && activeStep === "spu") {
+      void requestNavigateToSkus()
+      return
+    }
+    setActiveStep(step)
+  }
+
+  const continueToSkusWithoutSaving = () => {
+    revertSpuChanges()
+    setSpuSaveDialogOpen(false)
+    goToSkuStep()
+  }
+
+  const collectPendingImageFiles = (): ProductImageFiles => ({
+    spuImage: pendingImagesRef.current.spu,
+    skuImages: { ...pendingImagesRef.current.skus },
+  })
+
+  const trackSpuImage = (meta?: ImageUploadChangeMeta) => {
+    if (meta?.file) {
+      pendingImagesRef.current.spu = meta.file
+      return
+    }
+    if (meta?.file === null) {
+      delete pendingImagesRef.current.spu
+    }
+  }
+
+  const trackSkuImage = (index: number, meta?: ImageUploadChangeMeta) => {
+    if (meta?.file) {
+      pendingImagesRef.current.skus[index] = meta.file
+      return
+    }
+    if (meta?.file === null) {
+      delete pendingImagesRef.current.skus[index]
+    }
+  }
+
+  const persistProduct = async (values: ProductFormValues) => {
+    const payload = mapFormToPayload(values)
+    const imageFiles = collectPendingImageFiles()
+
+    if (id) {
+      const product = await updateProductApi(id, payload, imageFiles)
+      updateProduct(id, product)
+      pendingImagesRef.current = { skus: {} }
+      const formValues = mapSpuToFormValues(product)
+      form.reset(formValues)
+      committedFormRef.current = cloneFormValues(formValues)
+      setLoadedSlug(product.slug)
+      return product
+    }
+
+    const product = await createProduct(payload, imageFiles)
+    addProduct(product)
+    pendingImagesRef.current = { skus: {} }
+    navigate(`/admin/products/edit/${product.id}`, { replace: true })
+    return product
+  }
+
+  const saveSpuAndContinue = async () => {
+    const valid = await form.trigger([...SPU_FIELDS])
+    if (!valid) {
+      setSpuSaveDialogOpen(false)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await persistProduct(form.getValues())
+      toast.success("Đã lưu thay đổi SPU")
+      setSpuSaveDialogOpen(false)
+      goToSkuStep()
+    } catch (error) {
+      toast.error(getProductApiError(error))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSaveProduct = form.handleSubmit(
+    async (values) => {
+      setIsSubmitting(true)
+      try {
+        await persistProduct(values)
+        toast.success(id ? "Đã lưu sản phẩm" : "Đã tạo sản phẩm")
+      } catch (error) {
+        toast.error(getProductApiError(error))
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    (errors) => {
+      if (errors.variants) {
+        focusSkuPanelsWithErrors()
+        setActiveStep("skus")
+        return
+      }
       setActiveStep("spu")
-      return
     }
-
-    const skuPayload = skus.map((s) => ({
-      sku: s.sku.trim(),
-      price: s.price,
-      stockQuantity: s.stockQuantity,
-      imgUrl: s.imgUrl?.trim() || undefined,
-      options: alignSkuOptionsToAxes(optionAxes, s.options).filter(
-        (o) => o.value.trim()
-      ),
-    }))
-
-    const otherSkuCodes = products
-      .filter((p) => p.id !== productId)
-      .flatMap((p) => p.skus.map((s) => s.sku))
-
-    const skuError = validateSkuForms(
-      skuPayload,
-      optionAxes,
-      optionCatalog,
-      otherSkuCodes
-    )
-    if (skuError) {
-      toast.error(skuError)
-      return
-    }
-
-    const builtSkus = buildSkusFromForm(productId)
-    const stats = computeProductStats(builtSkus)
-
-    updateProduct(productId, {
-      skus: builtSkus,
-      ...stats,
-    })
-    toast.success("Đã lưu các SKU")
-  }
+  )
 
   const summaryProps = {
     name: watchName,
-    slug: watchSlug,
+    slug: loadedSlug ?? "",
     categoryId: watchCategoryId,
+    categoryCatalog,
     brand: watchBrand,
     isActive: watchIsActive,
     imgUrl: watchImgUrl,
-    optionAxes,
+    optionAxes: watchOptionAxes,
     optionCatalog,
-    skuCount: skus.length,
+    skuCount: fields.length,
     minPrice: skuStats.minPrice,
     maxPrice: skuStats.maxPrice,
     totalStock: skuStats.totalStock,
+  }
+
+  if (isLoading) {
+    return (
+      <AdminPage className="items-center justify-center gap-3 py-24">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Đang tải sản phẩm…</p>
+      </AdminPage>
+    )
   }
 
   return (
     <AdminPage className="gap-6">
       <AdminPageHeader
         title={isEditMode ? "Chỉnh sửa SPU / SKU" : "Tạo SPU & SKU"}
-        description="SPU và SKU lưu độc lập. Chuyển tab tự do, không cần hoàn thành bước trước."
+        description="Hoàn thành thông tin SPU, bấm Tiếp để tạo SKU. Slug URL do hệ thống tự sinh khi lưu."
         leading={
           <Button
             type="button"
@@ -363,14 +554,17 @@ export function ProductForm() {
 
       <ProductFormStepper
         activeStep={activeStep}
-        skuCount={skus.length}
-        onStepClick={setActiveStep}
+        skuCount={fields.length}
+        onStepClick={handleStepClick}
       />
 
       <ProductFormSummary {...summaryProps} className="lg:hidden" />
 
       <Form {...form}>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-8">
+        <form
+          onSubmit={handleSaveProduct}
+          className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-8"
+        >
           <div className="min-w-0 space-y-6">
             {activeStep === "spu" ? (
               <div className="space-y-8 rounded-xl border border-border bg-card p-5 sm:p-6">
@@ -380,7 +574,7 @@ export function ProductForm() {
                       Định danh sản phẩm
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Tên hiển thị và đường dẫn URL trên cửa hàng
+                      Tên hiển thị trên cửa hàng. URL slug tự sinh khi lưu.
                     </p>
                   </div>
 
@@ -393,36 +587,6 @@ export function ProductForm() {
                         <FormControl>
                           <Input placeholder="VD: iPhone 15" {...field} />
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="slug"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Slug (URL) *</FormLabel>
-                        <FormControl>
-                          <div className="flex rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring/30">
-                            <span className="flex items-center px-3 text-sm text-muted-foreground">
-                              /
-                            </span>
-                            <Input
-                              placeholder="iphone-15"
-                              className="border-0 shadow-none focus-visible:ring-0"
-                              {...field}
-                              onChange={(e) => {
-                                setSlugTouched(true)
-                                field.onChange(e)
-                              }}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormDescription>
-                          Tự sinh từ tên nếu chưa chỉnh. Phải unique trong DB.
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -466,20 +630,37 @@ export function ProductForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Danh mục *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Chọn danh mục" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {ADMIN_CATEGORIES.map((cat) => (
-                                <SelectItem key={cat.id} value={cat.id}>
-                                  {cat.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <CatalogCreatablePicker
+                              value={field.value}
+                              onChange={field.onChange}
+                              options={categoryCatalog.map((c) => c.id)}
+                              formatOption={(categoryId) =>
+                                findCategoryById(categoryCatalog, categoryId)
+                                  ?.name ?? categoryId
+                              }
+                              placeholder="Chọn danh mục"
+                              createPlaceholder="Tên danh mục mới (VD: Màn hình)"
+                              createButtonLabel="Thêm danh mục"
+                              onCreate={async (raw) => {
+                                try {
+                                  const category = await createCategory(raw)
+                                  setCategoryCatalog((prev) => {
+                                    if (prev.some((c) => c.id === category.id)) {
+                                      return prev
+                                    }
+                                    return [...prev, category]
+                                  })
+                                  field.onChange(category.id)
+                                } catch (error) {
+                                  toast.error(getProductApiError(error))
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Chọn từ danh sách hoặc thêm danh mục mới.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -491,7 +672,10 @@ export function ProductForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Thương hiệu *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Chọn thương hiệu" />
@@ -515,11 +699,28 @@ export function ProductForm() {
                 <Separator />
 
                 <section>
-                  <SpuOptionAxesEditor
-                    axes={optionAxes}
-                    onChange={handleOptionAxesChange}
-                    optionCatalog={optionCatalog}
-                    onCatalogChange={setOptionCatalog}
+                  <FormField
+                    control={form.control}
+                    name="optionAxes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <SpuOptionAxesEditor
+                            axes={field.value}
+                            onChange={handleOptionAxesChange}
+                            optionCatalog={optionCatalog}
+                            onCatalogChange={setOptionCatalog}
+                            error={
+                              typeof form.formState.errors.optionAxes?.message ===
+                              "string"
+                                ? form.formState.errors.optionAxes.message
+                                : null
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </section>
 
@@ -531,7 +732,7 @@ export function ProductForm() {
                       Media & trạng thái
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Ảnh đại diện SPU và quyết định hiển thị trên storefront
+                      Ảnh đại diện SPU bắt buộc. Ảnh SKU là tùy chọn.
                     </p>
                   </div>
 
@@ -542,10 +743,13 @@ export function ProductForm() {
                       <FormItem>
                         <FormControl>
                           <ImageUploadField
-                            label="Ảnh đại diện SPU"
-                            description="Ảnh riêng có thể đặt ở từng SKU ở bước sau"
+                            label="Ảnh đại diện SPU *"
+                            description="Bắt buộc để hiển thị trên storefront"
                             value={field.value}
-                            onChange={field.onChange}
+                            onChange={(newValue, meta) => {
+                              trackSpuImage(meta)
+                              field.onChange(newValue)
+                            }}
                             onError={(msg) => toast.error(msg)}
                           />
                         </FormControl>
@@ -578,22 +782,26 @@ export function ProductForm() {
               </div>
             ) : (
               <div className="space-y-4">
-                {!canSaveSkus ? (
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
-                    Chưa có SPU trên hệ thống. Lưu tab SPU trước để có thể lưu SKU.
+                {typeof form.formState.errors.variants?.message === "string" ? (
+                  <p
+                    className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+                    role="alert"
+                  >
+                    {form.formState.errors.variants.message}
                   </p>
                 ) : null}
+
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-heading text-sm font-semibold text-foreground">
                       Biến thể SKU
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {watchSlug ? (
+                      {loadedSlug ? (
                         <>
                           Slug:{" "}
                           <span className="font-mono text-foreground">
-                            /{watchSlug}
+                            /{loadedSlug}
                           </span>
                         </>
                       ) : (
@@ -613,17 +821,17 @@ export function ProductForm() {
                   </Button>
                 </div>
 
-                {skus.length === 1 ? (
+                {fields.length === 1 ? (
                   <SkuFormCard
+                    control={form.control}
                     index={0}
-                    data={skus[0]}
-                    optionAxes={optionAxes}
+                    optionAxes={watchOptionAxes}
                     optionCatalog={optionCatalog}
                     onCatalogChange={setOptionCatalog}
-                    productSlug={watchSlug || slugify(watchName || "product")}
+                    productName={watchName}
                     canRemove={false}
-                    onChange={(data) => handleSkuChange(0, data)}
                     onRemove={() => handleRemoveSku(0)}
+                    onImageFieldChange={(meta) => trackSkuImage(0, meta)}
                   />
                 ) : (
                   <Accordion
@@ -632,9 +840,9 @@ export function ProductForm() {
                     onValueChange={setOpenSkuPanels}
                     className="space-y-3"
                   >
-                    {skus.map((sku, index) => (
+                    {fields.map((field, index) => (
                       <AccordionItem
-                        key={sku.id ?? `new-${index}`}
+                        key={field.id}
                         value={`sku-${index}`}
                         className="overflow-hidden rounded-xl border border-border bg-card px-0 last:border-b"
                       >
@@ -642,32 +850,32 @@ export function ProductForm() {
                           <span className="flex flex-col items-start gap-0.5 text-left">
                             <span className="text-sm font-medium">
                               SKU #{index + 1}
-                              {sku.sku ? (
+                              {watchVariants[index]?.sku ? (
                                 <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
-                                  {sku.sku}
+                                  {watchVariants[index].sku}
                                 </span>
                               ) : null}
                             </span>
                             <span className="text-xs font-normal text-muted-foreground">
-                              {sku.price > 0
-                                ? `${sku.price.toLocaleString("vi-VN")}đ`
+                              {watchVariants[index]?.price > 0
+                                ? `${watchVariants[index].price.toLocaleString("vi-VN")}đ`
                                 : "Chưa nhập giá"}
                             </span>
                           </span>
                         </AccordionTrigger>
                         <AccordionContent className="px-0 pb-0">
                           <SkuFormCard
+                            control={form.control}
                             index={index}
-                            data={sku}
-                            optionAxes={optionAxes}
+                            optionAxes={watchOptionAxes}
                             optionCatalog={optionCatalog}
                             onCatalogChange={setOptionCatalog}
-                            productSlug={
-                              watchSlug || slugify(watchName || "product")
-                            }
-                            canRemove={skus.length > 1}
-                            onChange={(data) => handleSkuChange(index, data)}
+                            productName={watchName}
+                            canRemove={fields.length > 1}
                             onRemove={() => handleRemoveSku(index)}
+                            onImageFieldChange={(meta) =>
+                              trackSkuImage(index, meta)
+                            }
                             compact
                           />
                         </AccordionContent>
@@ -688,24 +896,83 @@ export function ProductForm() {
               >
                 Đóng
               </Button>
-              <Button
-                type="button"
-                className={cn(adminBrandButtonClass)}
-                onClick={activeStep === "spu" ? handleSaveSpu : handleSaveSkus}
-                disabled={activeStep === "skus" && !canSaveSkus}
-              >
-                {activeStep === "spu"
-                  ? productId
-                    ? "Lưu SPU"
-                    : "Tạo SPU"
-                  : "Lưu SKU"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeStep === "skus" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveStep("spu")}
+                  >
+                    Quay lại SPU
+                  </Button>
+                ) : null}
+                {activeStep === "spu" ? (
+                  <Button
+                    type="button"
+                    className={cn(adminBrandButtonClass, "gap-2")}
+                    onClick={() => void requestNavigateToSkus()}
+                  >
+                    Tiếp
+                    <ArrowRight className="size-4" aria-hidden />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className={cn(adminBrandButtonClass, "gap-2")}
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      if (saveClickGuardRef.current) return
+                      void handleSaveProduct()
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                    ) : null}
+                    {id ? "Lưu sản phẩm" : "Tạo sản phẩm"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
           <ProductFormSummary {...summaryProps} className="hidden lg:block" />
-        </div>
+        </form>
       </Form>
+
+      <AlertDialog open={spuSaveDialogOpen} onOpenChange={setSpuSaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Lưu thay đổi SPU?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có thay đổi thông tin SPU chưa lưu. Lưu trước khi chuyển sang
+              bước SKU? Chọn Bỏ qua sẽ hoàn tác các thay đổi SPU.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={continueToSkusWithoutSaving}
+            >
+              Bỏ qua
+            </Button>
+            <Button
+              type="button"
+              className={cn(adminBrandButtonClass, "gap-2")}
+              disabled={isSubmitting}
+              onClick={() => void saveSpuAndContinue()}
+            >
+              {isSubmitting ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : null}
+              Lưu và tiếp
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminPage>
   )
 }

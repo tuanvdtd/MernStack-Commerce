@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useAdminStore } from "~/stores/adminStore"
-import { mockProducts } from "~/mock/adminData"
+import {
+  deleteProduct as deleteProductApi,
+  fetchProducts,
+  getProductApiError,
+} from "~/apis/productApi"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import {
@@ -70,10 +74,25 @@ export function ProductsList() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (products.length === 0) setProducts(mockProducts)
-    const timer = window.setTimeout(() => setIsLoading(false), 280)
-    return () => window.clearTimeout(timer)
-  }, [products, setProducts])
+    let cancelled = false
+
+    const loadProducts = async () => {
+      setIsLoading(true)
+      try {
+        const data = await fetchProducts()
+        if (!cancelled) setProducts(data)
+      } catch (error) {
+        if (!cancelled) toast.error(getProductApiError(error))
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    void loadProducts()
+    return () => {
+      cancelled = true
+    }
+  }, [setProducts])
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)))
 
@@ -81,8 +100,7 @@ export function ProductsList() {
     const q = searchQuery.toLowerCase()
     const matchesSearch =
       product.name.toLowerCase().includes(q) ||
-      product.brand.toLowerCase().includes(q) ||
-      product.slug.toLowerCase().includes(q)
+      product.brand.toLowerCase().includes(q)
     const matchesCategory =
       categoryFilter === "all" || product.categoryName === categoryFilter
     const matchesActive =
@@ -104,12 +122,18 @@ export function ProductsList() {
   const hasActiveFilters =
     searchQuery !== "" || categoryFilter !== "all" || activeFilter !== "all"
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!selectedProductId) return
-    deleteProduct(selectedProductId)
-    toast.success("Đã xóa sản phẩm")
-    setDeleteDialogOpen(false)
-    setSelectedProductId(null)
+    try {
+      await deleteProductApi(selectedProductId)
+      deleteProduct(selectedProductId)
+      toast.success("Đã xóa sản phẩm")
+    } catch (error) {
+      toast.error(getProductApiError(error))
+    } finally {
+      setDeleteDialogOpen(false)
+      setSelectedProductId(null)
+    }
   }
 
   const handleClearFilters = () => {
@@ -165,7 +189,7 @@ export function ProductsList() {
                 strokeWidth={2}
               />
               <Input
-                placeholder="Tên, slug, thương hiệu..."
+                placeholder="Tên, thương hiệu..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -221,7 +245,6 @@ export function ProductsList() {
             <TableHeader>
               <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
                 <TableHead className={adminThClass}>Sản phẩm</TableHead>
-                <TableHead className={adminThClass}>Slug</TableHead>
                 <TableHead className={adminThClass}>Danh mục</TableHead>
                 <TableHead className={adminThClass}>SKU</TableHead>
                 <TableHead className={adminThClass}>Giá</TableHead>
@@ -235,7 +258,7 @@ export function ProductsList() {
             <TableBody>
               {paginatedProducts.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={7} className="p-0">
                     <AdminEmptyState
                       icon={Package}
                       title="Không tìm thấy sản phẩm"
@@ -291,9 +314,6 @@ export function ProductsList() {
                           </p>
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell className={cn(adminTdClass, adminMonoClass)}>
-                      {product.slug}
                     </TableCell>
                     <TableCell className={adminTdClass}>
                       {product.categoryName}

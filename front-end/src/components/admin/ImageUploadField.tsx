@@ -1,28 +1,35 @@
-import { useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import type { DragEvent } from "react"
 import { ImagePlus, Trash2 } from "lucide-react"
 import { Button } from "~/components/ui/button"
 import { Label } from "~/components/ui/label"
+import {
+  ALLOW_COMMON_FILE_TYPES,
+  LIMIT_COMMON_FILE_SIZE,
+  singleFileValidator,
+} from "~/lib/fileValidator"
 import { cn } from "~/lib/utils"
 
-const MAX_BYTES = 5 * 1024 * 1024
-const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
+const ACCEPT = ALLOW_COMMON_FILE_TYPES.join(",")
 
-const readFileAsDataUrl = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error("Không đọc được file ảnh"))
-    reader.readAsDataURL(file)
-  })
+export type ImageUploadChangeMeta = {
+  file?: File | null
+  previousUrl?: string
+}
 
 type ImageUploadFieldProps = {
   label: string
   description?: string
   value: string
-  onChange: (value: string) => void
+  onChange: (value: string, meta?: ImageUploadChangeMeta) => void
   onError?: (message: string) => void
   className?: string
+}
+
+const revokeBlobUrl = (url: string | undefined) => {
+  if (url?.startsWith("blob:")) {
+    URL.revokeObjectURL(url)
+  }
 }
 
 export const ImageUploadField = ({
@@ -36,23 +43,38 @@ export const ImageUploadField = ({
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const previewRef = useRef(value)
 
-  const handleFile = async (file: File | undefined) => {
+  useEffect(() => {
+    previewRef.current = value
+  }, [value])
+
+  useEffect(() => {
+    return () => {
+      revokeBlobUrl(previewRef.current)
+    }
+  }, [])
+
+  const handleFile = (file: File | undefined) => {
     if (!file) return
-    if (!file.type.startsWith("image/")) {
-      onError?.("Chỉ chấp nhận file ảnh (JPEG, PNG, WebP, GIF)")
+
+    const validationError = singleFileValidator(file)
+    if (validationError) {
+      onError?.(validationError)
       return
     }
-    if (file.size > MAX_BYTES) {
-      onError?.("Ảnh tối đa 5MB")
-      return
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file)
-      onChange(dataUrl)
-    } catch {
-      onError?.("Không đọc được file ảnh")
-    }
+
+    const previousUrl = value || undefined
+    revokeBlobUrl(previousUrl)
+
+    const previewUrl = URL.createObjectURL(file)
+    onChange(previewUrl, { file, previousUrl })
+  }
+
+  const handleRemove = () => {
+    const previousUrl = value || undefined
+    revokeBlobUrl(previousUrl)
+    onChange("", { file: null, previousUrl })
   }
 
   const handleDragOver = (e: DragEvent) => {
@@ -79,8 +101,10 @@ export const ImageUploadField = ({
     e.stopPropagation()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    void handleFile(file)
+    handleFile(file)
   }
+
+  const maxMb = LIMIT_COMMON_FILE_SIZE / (1024 * 1024)
 
   const dropZoneClass = cn(
     "rounded-xl border border-dashed transition-colors",
@@ -103,7 +127,7 @@ export const ImageUploadField = ({
         accept={ACCEPT}
         className="sr-only"
         onChange={(e) => {
-          void handleFile(e.target.files?.[0])
+          handleFile(e.target.files?.[0])
           e.target.value = ""
         }}
       />
@@ -123,7 +147,9 @@ export const ImageUploadField = ({
           />
           <div className="flex flex-col gap-2">
             <p className="text-xs text-muted-foreground">
-              {isDragging ? "Thả ảnh để thay thế" : "Kéo thả ảnh mới hoặc"}
+              {isDragging
+                ? "Thả ảnh để thay thế"
+                : "Ảnh sẽ được tải lên khi bạn lưu sản phẩm"}
             </p>
             <Button
               type="button"
@@ -138,7 +164,7 @@ export const ImageUploadField = ({
               variant="ghost"
               size="sm"
               className="text-destructive hover:text-destructive"
-              onClick={() => onChange("")}
+              onClick={handleRemove}
             >
               <Trash2 className="size-4" aria-hidden />
               Xóa ảnh
@@ -168,7 +194,9 @@ export const ImageUploadField = ({
           <span className="font-medium text-foreground">
             {isDragging ? "Thả ảnh vào đây" : "Chọn hoặc kéo thả ảnh"}
           </span>
-          <span className="text-xs">JPEG, PNG, WebP, GIF — tối đa 5MB</span>
+          <span className="text-xs">
+            JPG, JPEG, PNG — tối đa {maxMb}MB. Tải lên Cloudinary khi lưu.
+          </span>
         </button>
       )}
     </div>

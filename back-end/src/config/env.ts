@@ -22,6 +22,9 @@ const schema = z.object({
   BREVO_API_KEY: z.string(),
   ADMIN_EMAIL_ADDRESS: z.string(),
   ADMIN_EMAIL_NAME: z.string(),
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string()
 })
 
 export const env = schema.parse(process.env)

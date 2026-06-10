@@ -11,7 +11,7 @@ type Payload = {
 
 export const TokenService = {
   generateTokens(payload: Payload) {
-    const accessToken = jwt.sign(payload, env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' })
+    const accessToken = jwt.sign(payload, env.ACCESS_TOKEN_SECRET, { expiresIn: '15d' })
     const refreshToken = jwt.sign(payload, env.REFRESH_TOKEN_SECRET, { expiresIn: '15d' })
     return { accessToken, refreshToken }
   },

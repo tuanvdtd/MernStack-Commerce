@@ -15,6 +15,7 @@ type SpuOptionAxesEditorProps = {
   onChange: (axes: string[]) => void
   optionCatalog: OptionCatalogEntry[]
   onCatalogChange: (catalog: OptionCatalogEntry[]) => void
+  error?: string | null
 }
 
 export const SpuOptionAxesEditor = ({
@@ -22,6 +23,7 @@ export const SpuOptionAxesEditor = ({
   onChange,
   optionCatalog,
   onCatalogChange,
+  error,
 }: SpuOptionAxesEditorProps) => {
   const catalogAxisNames = optionCatalog.map((e) => e.name)
 
@@ -151,6 +153,12 @@ export const SpuOptionAxesEditor = ({
           }}
         />
       </div>
+
+      {error ? (
+        <p className="text-sm font-medium text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

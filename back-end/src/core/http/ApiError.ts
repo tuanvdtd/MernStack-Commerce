@@ -33,6 +33,14 @@ export class ApiError extends Error {
   static Conflict(msg = 'Conflict', details?: unknown) {
     return new ApiError(StatusCodes.CONFLICT, msg, details)
   }
+
+  static UnsupportedMediaType(msg = 'Unsupported Media Type', details?: unknown) {
+    return new ApiError(StatusCodes.UNSUPPORTED_MEDIA_TYPE, msg, details)
+  }
+
+  static PayloadTooLarge(msg = 'Payload Too Large', details?: unknown) {
+    return new ApiError(StatusCodes.REQUEST_TOO_LONG, msg, details)
+  }
   
   static Internal(msg = 'Internal Server Error', details?: unknown) {
     return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details)

@@ -1,80 +1,70 @@
 import { Wand2, Trash2 } from "lucide-react"
+import type { Control } from "react-hook-form"
+import { useFormContext, useWatch } from "react-hook-form"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import { Label } from "~/components/ui/label"
 import { Badge } from "~/components/ui/badge"
-import { ImageUploadField } from "~/components/admin/ImageUploadField"
+import {
+  ImageUploadField,
+  type ImageUploadChangeMeta,
+} from "~/components/admin/ImageUploadField"
 import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "~/components/ui/form"
 import { toast } from "sonner"
-import type { VariantOption } from "~/types/admin/index"
 import {
   addCatalogValue,
   getCatalogLabel,
   getCatalogValues,
   type OptionCatalogEntry,
 } from "~/lib/admin/optionCatalog"
-import {
-  alignSkuOptionsToAxes,
-  suggestSkuCode,
-} from "~/lib/admin/productUtils"
+import { suggestSkuCode, slugify } from "~/lib/admin/productUtils"
+import type { ProductFormValues } from "~/lib/admin/productFormSchema"
 import { formatVnd } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
 
-export interface SkuFormData {
-  id?: string
-  sku: string
-  price: number
-  stockQuantity: number
-  imgUrl: string
-  options: VariantOption[]
-}
-
 type SkuFormCardProps = {
+  control: Control<ProductFormValues>
   index: number
-  data: SkuFormData
   optionAxes: string[]
   optionCatalog: OptionCatalogEntry[]
   onCatalogChange: (catalog: OptionCatalogEntry[]) => void
-  productSlug: string
+  productName: string
   canRemove: boolean
-  onChange: (data: SkuFormData) => void
   onRemove: () => void
+  onImageFieldChange?: (meta?: ImageUploadChangeMeta) => void | Promise<void>
   compact?: boolean
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const createDefaultSkuForm = (optionAxes: string[]): SkuFormData => ({
-  sku: "",
-  price: 0,
-  stockQuantity: 0,
-  imgUrl: "",
-  options: alignSkuOptionsToAxes(optionAxes, []),
-})
-
 export const SkuFormCard = ({
+  control,
   index,
-  data,
   optionAxes,
   optionCatalog,
   onCatalogChange,
-  productSlug,
+  productName,
   canRemove,
-  onChange,
   onRemove,
+  onImageFieldChange,
   compact = false,
 }: SkuFormCardProps) => {
-  const filledOptions = data.options.filter((o) => o.optionName && o.value)
+  const { setValue } = useFormContext<ProductFormValues>()
+  const row = useWatch({ control, name: `variants.${index}` })
+  const filledOptions =
+    row?.options?.filter((o) => o.optionName && o.value) ?? []
 
   const handleSuggestSku = () => {
     if (filledOptions.length === 0) return
-    onChange({ ...data, sku: suggestSkuCode(productSlug, filledOptions) })
-  }
-
-  const handleValueChange = (optionName: string, value: string) => {
-    const options = data.options.map((o) =>
-      o.optionName === optionName ? { ...o, value } : o
+    const suggested = suggestSkuCode(
+      slugify(productName || "product"),
+      filledOptions
     )
-    onChange({ ...data, options })
+    setValue(`variants.${index}.sku`, suggested, { shouldValidate: true })
   }
 
   const handleCreateValue = (optionName: string, rawValue: string) => {
@@ -89,7 +79,9 @@ export const SkuFormCard = ({
   const variantSummary =
     filledOptions.length > 0
       ? filledOptions
-          .map((o) => getCatalogLabel(optionCatalog, o.optionName) + ": " + o.value)
+          .map(
+            (o) => getCatalogLabel(optionCatalog, o.optionName) + ": " + o.value
+          )
           .join(" · ")
       : "Chưa chọn biến thể"
 
@@ -110,10 +102,7 @@ export const SkuFormCard = ({
       ) : null}
 
       <div
-        className={cn(
-          "space-y-5 p-4 sm:p-5",
-          compact ? "" : "pl-5 sm:pl-6"
-        )}
+        className={cn("space-y-5 p-4 sm:p-5", compact ? "" : "pl-5 sm:pl-6")}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1.5">
@@ -121,20 +110,20 @@ export const SkuFormCard = ({
               <h4 className="font-heading text-sm font-semibold text-foreground">
                 SKU #{index + 1}
               </h4>
-              {data.sku ? (
+              {row?.sku ? (
                 <Badge variant="outline" className="font-mono font-normal">
-                  {data.sku}
+                  {row.sku}
                 </Badge>
               ) : null}
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">
               {variantSummary}
             </p>
-            {data.price > 0 ? (
+            {row && row.price > 0 ? (
               <p className="text-xs font-medium text-foreground">
-                {formatVnd(data.price)}
-                {data.stockQuantity > 0
-                  ? ` · Tồn ${data.stockQuantity.toLocaleString("vi-VN")}`
+                {formatVnd(row.price)}
+                {row.stockQuantity > 0
+                  ? ` · Tồn ${row.stockQuantity.toLocaleString("vi-VN")}`
                   : null}
               </p>
             ) : null}
@@ -154,111 +143,164 @@ export const SkuFormCard = ({
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {optionAxes.map((axisName) => {
-            const current = data.options.find((o) => o.optionName === axisName)
+          {optionAxes.map((axisName, axisIndex) => {
             const presetValues = getCatalogValues(optionCatalog, axisName)
+            const currentValue =
+              row?.options?.find((o) => o.optionName === axisName)?.value ?? ""
             const valueOptions = [
               ...new Set([
                 ...presetValues,
-                ...(current?.value ? [current.value] : []),
+                ...(currentValue ? [currentValue] : []),
               ]),
             ]
             const label = getCatalogLabel(optionCatalog, axisName)
 
             return (
-              <div key={axisName} className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  {label} *
-                </Label>
-                <CatalogCreatablePicker
-                  value={current?.value ?? ""}
-                  onChange={(val) => handleValueChange(axisName, val)}
-                  options={valueOptions}
-                  placeholder={`Chọn ${label}`}
-                  createPlaceholder="Giá trị mới…"
-                  createButtonLabel="Thêm"
-                  onCreate={(raw) => handleCreateValue(axisName, raw)}
-                />
-              </div>
+              <FormField
+                key={`${index}-${axisName}`}
+                control={control}
+                name={`variants.${index}.options.${axisIndex}.value`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      {label} *
+                    </FormLabel>
+                    <FormControl>
+                      <CatalogCreatablePicker
+                        value={field.value ?? ""}
+                        onChange={(val) => {
+                          field.onChange(val)
+                          setValue(
+                            `variants.${index}.options.${axisIndex}.optionName`,
+                            axisName,
+                            { shouldValidate: false }
+                          )
+                        }}
+                        options={valueOptions}
+                        placeholder={`Chọn ${label}`}
+                        createPlaceholder="Giá trị mới…"
+                        createButtonLabel="Thêm"
+                        onCreate={(raw) => handleCreateValue(axisName, raw)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )
           })}
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2 lg:col-span-1">
-            <Label htmlFor={`sku-code-${index}`} className="text-xs font-medium">
-              Mã SKU *
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id={`sku-code-${index}`}
-                value={data.sku}
-                onChange={(e) =>
-                  onChange({ ...data, sku: e.target.value.toUpperCase() })
-                }
-                placeholder="IPHONE15-BLACK-256GB"
-                className="font-mono text-sm"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                onClick={handleSuggestSku}
-                title="Gợi ý mã từ slug SPU và giá trị thuộc tính"
-                aria-label="Gợi ý mã SKU"
-                className="shrink-0"
-              >
-                <Wand2 className="size-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">Mã unique toàn hệ thống</p>
-          </div>
+          <FormField
+            control={control}
+            name={`variants.${index}.sku`}
+            render={({ field }) => (
+              <FormItem className="lg:col-span-1">
+                <FormLabel className="text-xs font-medium">Mã SKU *</FormLabel>
+                <div className="flex gap-2">
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(e) =>
+                        field.onChange(e.target.value.toUpperCase())
+                      }
+                      placeholder="IPHONE15-BLACK-256GB"
+                      className="font-mono text-sm"
+                    />
+                  </FormControl>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={handleSuggestSku}
+                    title="Gợi ý mã từ tên SPU và giá trị thuộc tính"
+                    aria-label="Gợi ý mã SKU"
+                    className="shrink-0"
+                  >
+                    <Wand2 className="size-4" />
+                  </Button>
+                </div>
+                <FormMessage />
+                <p className="text-xs text-muted-foreground">
+                  Mã unique toàn hệ thống
+                </p>
+              </FormItem>
+            )}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor={`sku-price-${index}`} className="text-xs font-medium">
-              Giá bán (đ) *
-            </Label>
-            <Input
-              id={`sku-price-${index}`}
-              type="number"
-              min={0}
-              value={data.price || ""}
-              onChange={(e) =>
-                onChange({ ...data, price: Number(e.target.value) || 0 })
-              }
-              placeholder="29990000"
-            />
-            {data.price > 0 ? (
-              <p className="text-xs text-muted-foreground">{formatVnd(data.price)}</p>
-            ) : null}
-          </div>
+          <FormField
+            control={control}
+            name={`variants.${index}.price`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-medium">
+                  Giá bán (đ) *
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={field.value || ""}
+                    onChange={(e) =>
+                      field.onChange(Number(e.target.value) || 0)
+                    }
+                    placeholder="29990000"
+                  />
+                </FormControl>
+                {field.value > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {formatVnd(field.value)}
+                  </p>
+                ) : null}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor={`sku-stock-${index}`} className="text-xs font-medium">
-              Tồn kho *
-            </Label>
-            <Input
-              id={`sku-stock-${index}`}
-              type="number"
-              min={0}
-              value={data.stockQuantity || ""}
-              onChange={(e) =>
-                onChange({
-                  ...data,
-                  stockQuantity: Number(e.target.value) || 0,
-                })
-              }
-              placeholder="100"
-            />
-          </div>
+          <FormField
+            control={control}
+            name={`variants.${index}.stockQuantity`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-medium">Tồn kho *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={field.value || ""}
+                    onChange={(e) =>
+                      field.onChange(Number(e.target.value) || 0)
+                    }
+                    placeholder="100"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
-        <ImageUploadField
-          label="Ảnh SKU (tùy chọn)"
-          description="Dùng khi biến thể có hình khác ảnh SPU"
-          value={data.imgUrl}
-          onChange={(imgUrl) => onChange({ ...data, imgUrl })}
-          onError={(msg) => toast.error(msg)}
+        <FormField
+          control={control}
+          name={`variants.${index}.imgUrl`}
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <ImageUploadField
+                  label="Ảnh SKU (tùy chọn)"
+                  description="Dùng khi biến thể có hình khác ảnh SPU"
+                  value={field.value ?? ""}
+                  onChange={(newValue, meta) => {
+                    onImageFieldChange?.(meta)
+                    field.onChange(newValue)
+                  }}
+                  onError={(msg) => toast.error(msg)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
       </div>
     </div>
