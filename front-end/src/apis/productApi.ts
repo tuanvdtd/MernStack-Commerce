@@ -43,7 +43,7 @@ function buildProductFormData(
       const { imgUrl, ...rest } = variant
       return {
         ...rest,
-        ...(isRemoteImageUrl(imgUrl) ? { imgUrl: imgUrl.trim() } : {}),
+        ...(imgUrl && isRemoteImageUrl(imgUrl) ? { imgUrl: imgUrl.trim() } : {}),
       }
     }),
   }
