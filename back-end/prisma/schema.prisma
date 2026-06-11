@@ -13,20 +13,21 @@ datasource db {
 }
 
 model User {
-  id           Int               @id @default(autoincrement())
-  email        String            @unique
-  name         String
-  password     String
-  googleId     String?           @unique
-  roleId       Int
-  role         Role              @relation(fields: [roleId], references: [id])
-  isActive     Boolean           @default(false)
-  avatarUrl    String?
-  phone        String?
-  address      Address[]
-  carts        Cart[]
-  discountUses DiscountUserUse[]
-  joinAt       DateTime          @default(now())
+  id             Int               @id @default(autoincrement())
+  email          String            @unique
+  name           String
+  password       String
+  googleId       String?           @unique
+  roleId         Int
+  role           Role              @relation(fields: [roleId], references: [id])
+  isActive       Boolean           @default(false)
+  avatarUrl      String?
+  phone          String?
+  address        Address[]
+  carts          Cart[]
+  discountUses   DiscountUserUse[]
+  productReviews ProductReview[]
+  joinAt         DateTime          @default(now())
 }
 
 model Address {
@@ -71,21 +72,41 @@ model Category {
 
 // SPU
 model Product {
-  id          String            @id @default(cuid())
-  name        String            @db.VarChar(255)
-  slug        String            @unique @db.VarChar(255)
-  description String?           @db.Text
-  categoryId  String
-  category    Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  variants    ProductVariant[]
-  discounts   DiscountProduct[]
-  brand       String
-  imgUrl      String?
-  isActive    Boolean           @default(true)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id            String            @id @default(cuid())
+  name          String            @db.VarChar(255)
+  slug          String            @unique @db.VarChar(255)
+  description   String?           @db.Text
+  categoryId    String
+  category      Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants      ProductVariant[]
+  discounts     DiscountProduct[]
+  reviews       ProductReview[]
+  brand         String
+  imgUrl        String?
+  isActive      Boolean           @default(true)
+  averageRating Decimal           @default(0) @db.Decimal(2, 1)
+  reviewCount   Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([categoryId])
+}
+
+model ProductReview {
+  id        String   @id @default(cuid())
+  userId    Int
+  productId String
+  rating    Int
+  comment   String?  @db.VarChar(2000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId, createdAt])
+  @@index([userId, createdAt])
 }
 
 // SKU

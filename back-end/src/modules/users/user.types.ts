@@ -31,3 +31,9 @@ export type User = {
 }
 
 export type RegisterUserDto = Pick<User, 'email' | 'name' | 'password'>
+
+/** Body PATCH /user/me — chỉ field profile cho phép cập nhật. */
+export type PatchProfileInput = {
+  name?: string
+  phone?: string | null
+}

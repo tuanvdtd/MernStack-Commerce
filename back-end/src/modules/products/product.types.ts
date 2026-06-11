@@ -22,4 +22,19 @@ export type CreateProductInput = {
   variants: CreateVariantInput[]
 }
 
-export type UpdateProductInput = CreateProductInput
+/** Body PATCH /products/:id — chỉ field SPU gửi lên, tất cả optional. */
+export type PatchProductSpuInput = {
+  name?: string
+  description?: string
+  categoryId?: string
+  brand?: string
+  imgUrl?: string
+  isActive?: boolean
+  optionAxes?: string[]
+}
+
+/** Body PUT /products/:id/variants — đồng bộ full danh sách SKU. */
+export type UpdateProductVariantsInput = {
+  optionAxes: string[]
+  variants: CreateVariantInput[]
+}

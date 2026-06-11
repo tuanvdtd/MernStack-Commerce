@@ -2,7 +2,11 @@ import { Response } from 'express'
 
 import { AuthRequest } from '~/core/auth/auth.middleware'
 import { ProductService } from '~/modules/products/product.service'
-import type { CreateProductInput } from '~/modules/products/product.types'
+import type {
+  CreateProductInput,
+  PatchProductSpuInput,
+  UpdateProductVariantsInput,
+} from '~/modules/products/product.types'
 
 export const ProductController = {
   list: async (_req: AuthRequest, res: Response) => {
@@ -23,10 +27,21 @@ export const ProductController = {
     return res.status(201).json(product)
   },
 
-  update: async (req: AuthRequest, res: Response) => {
-    const product = await ProductService.update(
+  /** PATCH /products/:id */
+  patchSpu: async (req: AuthRequest, res: Response) => {
+    const product = await ProductService.patchSpu(
       String(req.params.id),
-      req.body as CreateProductInput,
+      req.body as PatchProductSpuInput,
+      req.productImageUploads,
+    )
+    return res.json(product)
+  },
+
+  /** PUT /products/:id/variants */
+  updateVariants: async (req: AuthRequest, res: Response) => {
+    const product = await ProductService.updateVariants(
+      String(req.params.id),
+      req.body as UpdateProductVariantsInput,
       req.productImageUploads,
     )
     return res.json(product)

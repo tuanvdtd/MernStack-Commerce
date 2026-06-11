@@ -12,10 +12,14 @@ import {
   createProduct,
   getProductApiError,
   fetchProductById,
-  updateProduct as updateProductApi,
+  patchProductSpu,
+  updateProductVariants,
   type CreateProductPayload,
+  type PatchProductSpuPayload,
   type ProductImageFiles,
+  type UpdateProductVariantsPayload,
 } from "~/apis/productApi"
+import { isFieldDirty } from "~/lib/admin/getDirtyValues"
 import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
 import { deriveOptionAxes } from "~/lib/admin/productUtils"
 import { SpuOptionAxesEditor } from "~/components/admin/SpuOptionAxesEditor"
@@ -136,6 +140,21 @@ const cloneFormValues = (values: ProductFormValues): ProductFormValues => ({
 const isSameOptionAxes = (a: string[], b: string[]) =>
   a.length === b.length && a.every((axis, index) => axis === b[index])
 
+const mapVariantToPayload = (
+  variant: ProductFormValues["variants"][number]
+) => ({
+  sku: variant.sku.trim(),
+  price: variant.price,
+  stockQuantity: variant.stockQuantity,
+  ...(isRemoteImageUrl(variant.imgUrl)
+    ? { imgUrl: variant.imgUrl!.trim() }
+    : {}),
+  options: variant.options.map((option) => ({
+    optionName: option.optionName,
+    value: option.value.trim(),
+  })),
+})
+
 const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
   name: values.name.trim(),
   description: values.description.trim(),
@@ -144,19 +163,52 @@ const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
   imgUrl: isRemoteImageUrl(values.imgUrl) ? values.imgUrl.trim() : "",
   isActive: values.isActive,
   optionAxes: values.optionAxes,
-  variants: values.variants.map((variant) => ({
-    sku: variant.sku.trim(),
-    price: variant.price,
-    stockQuantity: variant.stockQuantity,
-    ...(isRemoteImageUrl(variant.imgUrl)
-      ? { imgUrl: variant.imgUrl!.trim() }
-      : {}),
-    options: variant.options.map((option) => ({
-      optionName: option.optionName,
-      value: option.value.trim(),
-    })),
-  })),
+  variants: values.variants.map(mapVariantToPayload),
 })
+
+/** Payload bước SKU — gửi full variants, backend replace theo mã SKU. */
+const mapFormToVariantsPayload = (
+  values: ProductFormValues
+): UpdateProductVariantsPayload => ({
+  optionAxes: values.optionAxes,
+  variants: values.variants.map(mapVariantToPayload),
+})
+
+/**
+ * Dựng payload PATCH SPU từ dirtyFields của React Hook Form.
+ * Chỉ gồm field đã sửa; ảnh blob gửi qua multipart, không nhét URL tạm vào JSON.
+ */
+const buildSpuPatchPayload = (
+  values: ProductFormValues,
+  dirtyFields: Record<string, unknown>,
+  hasSpuImage: boolean
+): PatchProductSpuPayload => {
+  const patch: PatchProductSpuPayload = {}
+
+  if (isFieldDirty(dirtyFields, "name")) {
+    patch.name = values.name.trim()
+  }
+  if (isFieldDirty(dirtyFields, "description")) {
+    patch.description = values.description.trim()
+  }
+  if (isFieldDirty(dirtyFields, "categoryId")) {
+    patch.categoryId = values.categoryId
+  }
+  if (isFieldDirty(dirtyFields, "brand")) {
+    patch.brand = values.brand
+  }
+  if (isFieldDirty(dirtyFields, "isActive")) {
+    patch.isActive = values.isActive
+  }
+  if (isFieldDirty(dirtyFields, "optionAxes")) {
+    patch.optionAxes = values.optionAxes
+  }
+  if (isFieldDirty(dirtyFields, "imgUrl") || hasSpuImage) {
+    patch.imgUrl = isRemoteImageUrl(values.imgUrl) ? values.imgUrl.trim() : ""
+  }
+
+  return patch
+}
 
 export function ProductForm() {
   const navigate = useNavigate()
@@ -336,21 +388,11 @@ export function ProductForm() {
     }
   }
 
+  /** Có thay đổi SPU chưa lưu — dùng dirtyFields + file ảnh pending. */
   const isSpuDirty = () => {
     if (pendingImagesRef.current.spu) return true
-
-    const baseline = committedFormRef.current
-    if (!baseline) return false
-
-    const current = form.getValues()
-    return (
-      current.name !== baseline.name ||
-      current.description !== baseline.description ||
-      current.categoryId !== baseline.categoryId ||
-      current.brand !== baseline.brand ||
-      current.imgUrl !== baseline.imgUrl ||
-      current.isActive !== baseline.isActive ||
-      !isSameOptionAxes(current.optionAxes, baseline.optionAxes)
+    return SPU_FIELDS.some((field) =>
+      isFieldDirty(form.formState.dirtyFields, field)
     )
   }
 
@@ -445,21 +487,51 @@ export function ProductForm() {
     }
   }
 
-  const persistProduct = async (values: ProductFormValues) => {
+  /** Đồng bộ store + reset form sau khi API trả về SPU mới nhất. */
+  const applySavedProduct = (product: SPU) => {
+    updateProduct(product.id, product)
+    pendingImagesRef.current = { skus: {} }
+    const formValues = mapSpuToFormValues(product)
+    form.reset(formValues)
+    committedFormRef.current = cloneFormValues(formValues)
+    setLoadedSlug(product.slug)
+    return product
+  }
+
+  /** Lưu bước 1 (edit): PATCH partial SPU, bỏ qua nếu không có thay đổi. */
+  const persistSpuPatch = async (values: ProductFormValues) => {
+    if (!id) return
+
+    const hasSpuImage = Boolean(pendingImagesRef.current.spu)
+    const patch = buildSpuPatchPayload(
+      values,
+      form.formState.dirtyFields,
+      hasSpuImage
+    )
+
+    if (Object.keys(patch).length === 0 && !hasSpuImage) return
+
+    const product = await patchProductSpu(id, patch, {
+      spuImage: pendingImagesRef.current.spu,
+    })
+    return applySavedProduct(product)
+  }
+
+  /** Lưu bước 2 (edit): PUT toàn bộ variants. */
+  const persistVariants = async (values: ProductFormValues) => {
+    if (!id) return
+
+    const payload = mapFormToVariantsPayload(values)
+    const product = await updateProductVariants(id, payload, {
+      skuImages: { ...pendingImagesRef.current.skus },
+    })
+    return applySavedProduct(product)
+  }
+
+  /** Tạo mới: POST full SPU + SKU, rồi chuyển sang edit mode. */
+  const persistCreate = async (values: ProductFormValues) => {
     const payload = mapFormToPayload(values)
     const imageFiles = collectPendingImageFiles()
-
-    if (id) {
-      const product = await updateProductApi(id, payload, imageFiles)
-      updateProduct(id, product)
-      pendingImagesRef.current = { skus: {} }
-      const formValues = mapSpuToFormValues(product)
-      form.reset(formValues)
-      committedFormRef.current = cloneFormValues(formValues)
-      setLoadedSlug(product.slug)
-      return product
-    }
-
     const product = await createProduct(payload, imageFiles)
     addProduct(product)
     pendingImagesRef.current = { skus: {} }
@@ -476,7 +548,7 @@ export function ProductForm() {
 
     setIsSubmitting(true)
     try {
-      await persistProduct(form.getValues())
+      await persistSpuPatch(form.getValues())
       toast.success("Đã lưu thay đổi SPU")
       setSpuSaveDialogOpen(false)
       goToSkuStep()
@@ -491,8 +563,13 @@ export function ProductForm() {
     async (values) => {
       setIsSubmitting(true)
       try {
-        await persistProduct(values)
-        toast.success(id ? "Đã lưu sản phẩm" : "Đã tạo sản phẩm")
+        if (id) {
+          await persistVariants(values)
+          toast.success("Đã lưu sản phẩm")
+        } else {
+          await persistCreate(values)
+          toast.success("Đã tạo sản phẩm")
+        }
       } catch (error) {
         toast.error(getProductApiError(error))
       } finally {

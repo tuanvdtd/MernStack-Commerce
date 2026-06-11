@@ -1,14 +1,17 @@
 import { ApiError } from '~/core/http/ApiError'
 import { toAdminProduct } from '~/modules/products/product.mapper'
 import {
-  cleanupRemovedProductImages,
+  cleanupRemovedVariantImages,
   resolveProductImageUrls,
+  resolveSpuImageForPatch,
+  resolveVariantsImageUrls,
 } from '~/modules/products/product.image'
 import type { ProductImageUploads } from '~/modules/products/product.middleware'
 import { ProductRepo } from '~/modules/products/product.repo'
 import type {
   CreateProductInput,
-  UpdateProductInput,
+  PatchProductSpuInput,
+  UpdateProductVariantsInput,
 } from '~/modules/products/product.types'
 import { CategoryRepo } from '~/modules/categories/category.repo'
 import { generateProductSlug } from '~/utils/productSlug'
@@ -59,34 +62,66 @@ export const ProductService = {
     if (!created) throw ApiError.Internal('Failed to create product')
 
     const resolved = await resolveProductImageUrls(created.id, input, files)
-    const product = await ProductRepo.update(created.id, resolved)
-    if (!product) throw ApiError.Internal('Failed to save product images')
+
+    // Tạo mới: lưu ảnh SPU rồi ghi đè variants kèm ảnh SKU (2 phase sau create draft)
+    await ProductRepo.patchSpu(created.id, { imgUrl: resolved.imgUrl })
+
+    const product = await ProductRepo.replaceVariants(created.id, {
+      optionAxes: resolved.optionAxes,
+      variants: resolved.variants,
+    })
+    if (!product) throw ApiError.Internal('Failed to save product')
 
     return toAdminProduct(product)
   },
 
-  async update(
+  /** Bước 1 edit — partial SPU, upload ảnh nếu có file multipart. */
+  async patchSpu(
     id: string,
-    input: UpdateProductInput,
+    input: PatchProductSpuInput,
     files: ProductImageUploads = emptyUploads(),
   ) {
     const existing = await ProductRepo.findById(id)
     if (!existing) throw ApiError.NotFound('Product not found')
 
-    const category = await CategoryRepo.findById(input.categoryId)
-    if (!category) throw ApiError.NotFound('Category not found')
+    if (input.categoryId) {
+      const category = await CategoryRepo.findById(input.categoryId)
+      if (!category) throw ApiError.NotFound('Category not found')
+    }
+
+    const resolved = await resolveSpuImageForPatch(
+      id,
+      existing.imgUrl,
+      input,
+      files,
+    )
+
+    const product = await ProductRepo.patchSpu(id, resolved)
+    if (!product) throw ApiError.Internal('Failed to update product')
+
+    return toAdminProduct(product)
+  },
+
+  /** Bước 2 edit — replace toàn bộ SKU, dọn ảnh Cloudinary của SKU bị xóa/đổi. */
+  async updateVariants(
+    id: string,
+    input: UpdateProductVariantsInput,
+    files: ProductImageUploads = emptyUploads(),
+  ) {
+    const existing = await ProductRepo.findById(id)
+    if (!existing) throw ApiError.NotFound('Product not found')
 
     const existingSkus = new Set(existing.variants.map((v) => v.sku))
     const newVariants = input.variants.filter((v) => !existingSkus.has(v.sku))
     await assertSkusUnique(newVariants, id)
 
-    await cleanupRemovedProductImages(id, existing, input, files)
+    await cleanupRemovedVariantImages(id, existing, input, files)
 
-    const resolved = await resolveProductImageUrls(id, input, files)
+    const resolved = await resolveVariantsImageUrls(id, input, files)
 
     try {
-      const product = await ProductRepo.update(id, resolved)
-      if (!product) throw ApiError.Internal('Failed to update product')
+      const product = await ProductRepo.replaceVariants(id, resolved)
+      if (!product) throw ApiError.Internal('Failed to update variants')
       return toAdminProduct(product)
     } catch (error) {
       const message = error instanceof Error ? error.message : ''

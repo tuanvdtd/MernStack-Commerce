@@ -10,6 +10,12 @@ import { FlashSale } from "~/pages/FlashSale";
 import { TrackOrder } from "~/pages/TrackOrder";
 import { Account } from "~/pages/Account";
 import { AccountV2 } from "~/pages/AccountV2";
+import { AccountProfile } from "~/pages/account/AccountProfile";
+import { AccountOrders } from "~/pages/account/AccountOrders";
+import { AccountWishlist } from "~/pages/account/AccountWishlist";
+import { AccountAddresses } from "~/pages/account/AccountAddresses";
+import { AccountPayment } from "~/pages/account/AccountPayment";
+import { AccountSettings } from "~/pages/account/AccountSettings";
 import { Login } from "~/pages/Login";
 import { Register } from "~/pages/Register";
 import { VerifyOtp } from "~/pages/VerifyOtp";
@@ -88,7 +94,19 @@ export const router = createBrowserRouter([
           { path: "cart", Component: Cart },
           { path: "checkout", Component: Checkout },
           { path: "track-order", Component: TrackOrder },
-          { path: "account", Component: AccountV2 },
+          {
+            path: "account",
+            Component: AccountV2,
+            children: [
+              { index: true, element: <Navigate to="profile" replace /> },
+              { path: "profile", Component: AccountProfile },
+              { path: "orders", Component: AccountOrders },
+              { path: "wishlist", Component: AccountWishlist },
+              { path: "addresses", Component: AccountAddresses },
+              { path: "payment", Component: AccountPayment },
+              { path: "settings", Component: AccountSettings },
+            ],
+          },
           { path: "account-old", Component: Account },
         ],
       },

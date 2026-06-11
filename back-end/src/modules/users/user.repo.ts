@@ -1,5 +1,5 @@
 import { prisma } from '~/lib/prisma'
-import { RegisterUserDto } from '~/modules/users/user.types'
+import { PatchProfileInput, RegisterUserDto } from '~/modules/users/user.types'
 
 export const UserRepo = {
   async findByEmail(email: string) {
@@ -41,11 +41,19 @@ export const UserRepo = {
     })
   },
 
-  async findById(id: string) {
+  async findById(id: number) {
     return prisma.user.findUnique({
-      where: {
-        id: parseInt(id)
-      }
+      where: { id },
+      include: { role: true },
+    })
+  },
+
+  /** Cập nhật thông tin profile của user đang đăng nhập. */
+  async updateProfile(id: number, data: PatchProfileInput) {
+    return prisma.user.update({
+      where: { id },
+      data,
+      include: { role: true },
     })
   },
 }

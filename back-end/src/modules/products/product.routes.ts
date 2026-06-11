@@ -14,7 +14,8 @@ import {
 import {
   CreateProductSchema,
   GetProductSchema,
-  UpdateProductSchema,
+  PatchProductSpuSchema,
+  UpdateProductVariantsSchema,
 } from '~/modules/products/product.validation'
 
 const r = Router()
@@ -35,13 +36,21 @@ r.post(
   assertProductImages,
   asyncHandler(ProductController.create),
 )
-r.put(
+// Bước 1 edit: partial SPU
+r.patch(
   '/:id',
   productMultipartUpload,
   parseProductFormData,
-  validateRequest(UpdateProductSchema),
-  assertProductImages,
-  asyncHandler(ProductController.update),
+  validateRequest(PatchProductSpuSchema),
+  asyncHandler(ProductController.patchSpu),
+)
+// Bước 2 edit: đồng bộ toàn bộ SKU
+r.put(
+  '/:id/variants',
+  productMultipartUpload,
+  parseProductFormData,
+  validateRequest(UpdateProductVariantsSchema),
+  asyncHandler(ProductController.updateVariants),
 )
 r.delete(
   '/:id',

@@ -4,8 +4,9 @@ import { ApiError } from '~/core/http/ApiError'
 import { OtpPurpose } from '~/generated/prisma/client'
 import { OtpRepo } from '~/modules/otp/otp.repo'
 import { OtpService } from '~/modules/otp/otp.service'
-import { toAuthResponse } from '~/modules/users/user.mapper'
+import { toAuthResponse, toProfileResponse } from '~/modules/users/user.mapper'
 import { UserRepo } from '~/modules/users/user.repo'
+import type { PatchProfileInput } from '~/modules/users/user.types'
 import { hashPassword, verifyPassword } from '~/utils/password'
 
 function normalizeEmail(email: string): string {
@@ -81,5 +82,27 @@ export const UserService = {
 
   async list() {
     return UserRepo.list()
-  }
+  },
+
+  /** Lấy profile user đang đăng nhập. */
+  async getMe(userId: number) {
+    const user = await UserRepo.findById(userId)
+    if (!user) throw new ApiError(404, 'User not found')
+    return toProfileResponse(user)
+  },
+
+  /** PATCH partial profile — chỉ field được gửi lên. */
+  async patchProfile(userId: number, input: PatchProfileInput) {
+    const user = await UserRepo.findById(userId)
+    if (!user) throw new ApiError(404, 'User not found')
+
+    const data: PatchProfileInput = {}
+    if (input.name !== undefined) data.name = input.name.trim()
+    if (input.phone !== undefined) {
+      data.phone = input.phone === null || input.phone === '' ? null : input.phone.trim()
+    }
+
+    const updated = await UserRepo.updateProfile(userId, data)
+    return toProfileResponse(updated)
+  },
 }

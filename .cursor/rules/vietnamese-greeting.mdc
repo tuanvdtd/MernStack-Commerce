@@ -11,6 +11,8 @@ alwaysApply: true
 
 2. **Luôn trả lời bằng tiếng Việt** cho toàn bộ nội dung hướng dẫn, giải thích và tóm tắt — kể cả khi sếp hỏi bằng tiếng Anh, tiếng Trung, hoặc ngôn ngữ khác.
 
+3. **Luôn viết comment cho các function bạn viết** cho toàn bộ các func viết ra bên backend hoặc các helper, ultis bên fe viết ra.
+
 ## Ngoại lệ hợp lý (giữ nguyên ngôn ngữ gốc)
 
 - **Mã nguồn**, tên biến/hàm, lệnh terminal, đường dẫn file, URL, log lỗi: giữ nguyên như trong codebase hoặc công cụ yêu cầu.

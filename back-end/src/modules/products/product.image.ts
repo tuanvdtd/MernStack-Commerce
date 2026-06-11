@@ -1,6 +1,10 @@
 import { ApiError } from '~/core/http/ApiError'
 import { PRODUCT_IMAGE_FOLDER } from '~/modules/upload/upload.constants'
-import type { CreateProductInput } from '~/modules/products/product.types'
+import type {
+  CreateProductInput,
+  PatchProductSpuInput,
+  UpdateProductVariantsInput,
+} from '~/modules/products/product.types'
 import type { ProductImageUploads } from '~/modules/products/product.middleware'
 import type { ProductWithRelations } from '~/modules/products/product.repo'
 import { cloudinaryProvider } from '~/providers/cloudinary.provider'
@@ -83,6 +87,92 @@ export async function resolveProductImageUrls(
   )
 
   return { ...input, imgUrl, variants }
+}
+
+/** PATCH SPU: ưu tiên file upload; không gửi imgUrl thì giữ ảnh cũ. */
+export async function resolveSpuImageForPatch(
+  productId: string,
+  existingImgUrl: string | null | undefined,
+  input: PatchProductSpuInput,
+  files: ProductImageUploads,
+): Promise<PatchProductSpuInput> {
+  const resolved = { ...input }
+
+  if (files.spu) {
+    resolved.imgUrl = await uploadSpuImage(productId, files.spu)
+    return resolved
+  }
+
+  if (input.imgUrl === undefined) {
+    return resolved
+  }
+
+  if (isRemoteImageUrl(input.imgUrl)) {
+    resolved.imgUrl = input.imgUrl.trim()
+    return resolved
+  }
+
+  resolved.imgUrl = existingImgUrl?.trim() || ''
+  return resolved
+}
+
+/** PUT variants: upload ảnh SKU mới theo index, giữ URL remote nếu không đổi file. */
+export async function resolveVariantsImageUrls(
+  productId: string,
+  input: UpdateProductVariantsInput,
+  files: ProductImageUploads,
+): Promise<UpdateProductVariantsInput> {
+  const variants = await Promise.all(
+    input.variants.map(async (variant, index) => {
+      const skuFile = files.skus.get(index)
+      if (skuFile) {
+        return {
+          ...variant,
+          imgUrl: await uploadSkuImage(productId, variant.sku, skuFile),
+        }
+      }
+
+      const existingUrl = variant.imgUrl?.trim()
+      return {
+        ...variant,
+        ...(isRemoteImageUrl(existingUrl) ? { imgUrl: existingUrl } : {}),
+      }
+    }),
+  )
+
+  return { ...input, variants }
+}
+
+/** Xóa ảnh Cloudinary của SKU bị remove hoặc bỏ URL ảnh khi replace variants. */
+export async function cleanupRemovedVariantImages(
+  productId: string,
+  existing: NonNullable<ProductWithRelations>,
+  input: UpdateProductVariantsInput,
+  files: ProductImageUploads,
+) {
+  const incomingSkus = new Set(input.variants.map((variant) => variant.sku))
+
+  for (const variant of existing.variants) {
+    if (!incomingSkus.has(variant.sku) && isRemoteImageUrl(variant.imgUrl)) {
+      await destroySkuImage(productId, variant.sku)
+      continue
+    }
+
+    const index = input.variants.findIndex((item) => item.sku === variant.sku)
+    if (index === -1) continue
+
+    const incoming = input.variants[index]
+    const hasNewFile = files.skus.has(index)
+    const keepsRemoteUrl = isRemoteImageUrl(incoming.imgUrl)
+
+    if (
+      isRemoteImageUrl(variant.imgUrl) &&
+      !hasNewFile &&
+      !keepsRemoteUrl
+    ) {
+      await destroySkuImage(productId, variant.sku)
+    }
+  }
 }
 
 export async function cleanupRemovedProductImages(
