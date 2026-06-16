@@ -7,38 +7,38 @@ import { Switch } from "~/components/ui/switch"
 const notificationSettings = [
   {
     icon: Mail,
-    title: "Nhận email thông báo",
-    desc: "Thông báo về đơn hàng và khuyến mãi",
+    title: "Email notifications",
+    desc: "Updates about orders and promotions",
     defaultOn: true,
   },
   {
     icon: Phone,
-    title: "Nhận thông báo SMS",
-    desc: "Tin nhắn về trạng thái đơn hàng",
+    title: "SMS notifications",
+    desc: "Messages about order status",
     defaultOn: true,
   },
   {
     icon: Bell,
-    title: "Thông báo đẩy",
-    desc: "Nhận push notification trên trình duyệt",
+    title: "Push notifications",
+    desc: "Receive browser push notifications",
     defaultOn: false,
   },
 ]
 
-/** Tab cài đặt tài khoản. */
+/** Account settings tab. */
 export function AccountSettings() {
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">Cài đặt</CardTitle>
-          <CardDescription>Quản lý thông báo và tùy chọn</CardDescription>
+          <CardTitle className="text-xl font-semibold">Settings</CardTitle>
+          <CardDescription>Manage notifications and preferences</CardDescription>
         </CardHeader>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Thông báo</CardTitle>
+          <CardTitle className="text-base">Notifications</CardTitle>
         </CardHeader>
         <Separator />
         <CardContent className="pt-4 space-y-1">
@@ -61,21 +61,21 @@ export function AccountSettings() {
 
       <Card className="border-red-100">
         <CardHeader>
-          <CardTitle className="text-base text-red-600">Vùng nguy hiểm</CardTitle>
+          <CardTitle className="text-base text-red-600">Danger zone</CardTitle>
         </CardHeader>
         <Separator />
         <CardContent className="pt-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-900">Xóa tài khoản</p>
-              <p className="text-xs text-slate-500">Hành động này không thể hoàn tác</p>
+              <p className="text-sm font-medium text-slate-900">Delete account</p>
+              <p className="text-xs text-slate-500">This action cannot be undone</p>
             </div>
             <Button
               variant="outline"
               size="sm"
               className="text-red-500 border-red-200 hover:bg-red-50 cursor-pointer"
             >
-              Xóa tài khoản
+              Delete account
             </Button>
           </div>
         </CardContent>

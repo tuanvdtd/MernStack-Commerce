@@ -11,9 +11,9 @@ export function CartEmptyState() {
       <div className={`mb-5 flex size-16 items-center justify-center rounded-full ${storeTokens.brandTint}`}>
         <PackageOpen className={`size-8 ${storeTokens.brand}`} aria-hidden="true" />
       </div>
-      <h2 className="text-lg font-semibold text-[#2b2f32] sm:text-xl">Giỏ hàng trống</h2>
+      <h2 className="text-lg font-semibold text-[#2b2f32] sm:text-xl">Your cart is empty</h2>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#757575]">
-        Thêm điện thoại, laptop hoặc phụ kiện công nghệ để bắt đầu mua sắm trên FlashBuy.
+        Add phones, laptops, or tech accessories to start shopping on FlashBuy.
       </p>
       <Button
         asChild
@@ -21,7 +21,7 @@ export function CartEmptyState() {
       >
         <Link to="/category/all">
           <ShoppingBag className="mr-2 size-4" aria-hidden="true" />
-          Khám phá sản phẩm
+          Explore products
         </Link>
       </Button>
     </div>

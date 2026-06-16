@@ -13,7 +13,7 @@ const INITIAL_ITEMS: CartItemData[] = [
     id: "1",
     productId: "iphone-16-pro",
     name: "iPhone 16 Pro 256GB",
-    variant: "Titan tự nhiên · Chính hãng VN/A",
+    variant: "Natural Titanium - Official VN/A",
     image:
       "https://images.unsplash.com/photo-1695048133142-1a20484d2569?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
     price: 28_990_000,
@@ -24,7 +24,7 @@ const INITIAL_ITEMS: CartItemData[] = [
     id: "2",
     productId: "airpods-pro-2",
     name: "AirPods Pro 2 (USB-C)",
-    variant: "Trắng · Chính hãng Apple",
+    variant: "White - Official Apple",
     image:
       "https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
     price: 5_990_000,
@@ -35,7 +35,7 @@ const INITIAL_ITEMS: CartItemData[] = [
     id: "3",
     productId: "galaxy-watch-7",
     name: "Samsung Galaxy Watch 7 44mm LTE",
-    variant: "Xanh · Dây silicone",
+    variant: "Blue - Silicone strap",
     image:
       "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
     price: 8_490_000,
@@ -45,7 +45,7 @@ const INITIAL_ITEMS: CartItemData[] = [
 ]
 
 const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price)
+  `${price.toLocaleString("en-US")} VND`
 
 export function Cart() {
   const [cartItems, setCartItems] = useState<CartItemData[]>(INITIAL_ITEMS)
@@ -111,11 +111,11 @@ export function Cart() {
                   <Checkbox
                     checked={selectAll}
                     onCheckedChange={(checked) => toggleSelectAll(checked === true)}
-                    aria-label="Chọn tất cả sản phẩm"
+                    aria-label="Select all products"
                     className="size-[18px] border-gray-300 data-checked:border-[#00cbfd] data-checked:bg-[#00cbfd]"
                   />
                   <span className="text-sm text-[#2b2f32]">
-                    Chọn tất cả ({cartItems.length})
+                    Select all ({cartItems.length})
                   </span>
                 </label>
 
@@ -128,7 +128,7 @@ export function Cart() {
                   className="h-8 text-[#ee4d2d] hover:bg-[#fff5f3] hover:text-[#d73211] disabled:opacity-40"
                 >
                   <Trash2 className="mr-1.5 size-3.5" aria-hidden="true" />
-                  Xóa mục đã chọn
+                  Remove selected
                 </Button>
               </div>
 

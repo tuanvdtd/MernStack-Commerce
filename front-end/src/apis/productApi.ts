@@ -42,7 +42,7 @@ export type ProductImageFiles = {
 
 function getErrorMessage(error: unknown): string {
   const err = error as { response?: { data?: { message?: string } } }
-  return err.response?.data?.message || "Không thể xử lý yêu cầu"
+  return err.response?.data?.message || "Unable to process the request"
 }
 
 const isRemoteImageUrl = (url: string | undefined) =>
@@ -134,7 +134,7 @@ export async function createProduct(
   return response.data
 }
 
-/** Bước 1 edit: PATCH chỉ field SPU thay đổi (+ file ảnh SPU nếu có). */
+/** Edit step 1: PATCH only changed SPU fields, plus the SPU image if any. */
 export async function patchProductSpu(
   id: string,
   payload: PatchProductSpuPayload,
@@ -148,7 +148,7 @@ export async function patchProductSpu(
   return response.data
 }
 
-/** Bước 2 edit: PUT đồng bộ toàn bộ danh sách SKU (+ file ảnh theo index). */
+/** Edit step 2: PUT the full SKU list, plus indexed SKU images. */
 export async function updateProductVariants(
   id: string,
   payload: UpdateProductVariantsPayload,

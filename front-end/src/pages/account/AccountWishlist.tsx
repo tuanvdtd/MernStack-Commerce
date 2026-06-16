@@ -27,13 +27,13 @@ const wishlist = [
   },
 ]
 
-/** Tab sản phẩm yêu thích. */
+/** Wishlist tab. */
 export function AccountWishlist() {
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="px-6">
-          <CardTitle className="text-xl font-semibold">Sản phẩm yêu thích</CardTitle>
+          <CardTitle className="text-xl font-semibold">Wishlist</CardTitle>
         </CardHeader>
         <CardContent className="px-6 pt-0 pb-4">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -53,7 +53,7 @@ export function AccountWishlist() {
                   </Badge>
                   <button
                     type="button"
-                    aria-label="Bỏ yêu thích"
+                    aria-label="Remove from wishlist"
                     className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white shadow-md transition-all cursor-pointer"
                   >
                     <Heart className="w-4 h-4 text-red-500 fill-red-500" />
@@ -86,7 +86,7 @@ export function AccountWishlist() {
                   </div>
                   <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 cursor-pointer">
                     <ShoppingBag className="w-4 h-4 mr-2" />
-                    Thêm vào giỏ
+                    Add to cart
                   </Button>
                 </CardContent>
               </Card>

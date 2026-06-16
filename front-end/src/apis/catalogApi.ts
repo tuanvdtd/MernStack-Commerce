@@ -58,7 +58,7 @@ export type CatalogProductListResponse = {
   }
 }
 
-/** Lấy danh sách sản phẩm public — guest/user, không cần token. */
+/** Fetch public products for guests or users; no token required. */
 export async function fetchCatalogProducts(
   params?: CatalogProductListParams
 ): Promise<CatalogProductListResponse> {
@@ -68,7 +68,7 @@ export async function fetchCatalogProducts(
   return response.data
 }
 
-/** Lấy chi tiết sản phẩm theo slug hoặc id — guest/user. */
+/** Fetch public product details by slug or id for guests or users. */
 export async function fetchCatalogProduct(
   slugOrId: string
 ): Promise<CatalogProductDetail> {

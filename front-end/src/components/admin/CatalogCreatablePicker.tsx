@@ -30,7 +30,7 @@ type CatalogCreatablePickerProps = {
 const MENU_GAP = 4
 const MENU_MIN_HEIGHT = 140
 const MENU_MAX_HEIGHT = 320
-/** Chiều cao ước lượng khi có block Thêm mới */
+/** Estimated height when the create block is visible. */
 const CREATE_BLOCK_HEIGHT = 96
 
 const estimateMenuHeight = (optionCount: number, hasCreate: boolean): number => {
@@ -46,10 +46,10 @@ export const CatalogCreatablePicker = ({
   onChange,
   options,
   onCreate,
-  placeholder = "Chọn hoặc thêm mới",
+  placeholder = "Choose or add new",
   formatOption = (v) => v,
-  createPlaceholder = "Nhập giá trị mới…",
-  createButtonLabel = "Thêm",
+  createPlaceholder = "Enter new value...",
+  createButtonLabel = "Add",
   disabled = false,
   className,
   triggerClassName,
@@ -169,7 +169,7 @@ export const CatalogCreatablePicker = ({
         <div className="min-h-0 flex-1 overflow-y-auto p-1">
           {uniqueOptions.length === 0 ? (
             <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-              Chưa có dữ liệu — thêm mới bên dưới
+              No data yet - add a new item below
             </p>
           ) : (
             uniqueOptions.map((opt) => (
@@ -200,7 +200,7 @@ export const CatalogCreatablePicker = ({
         {onCreate ? (
           <div className="shrink-0 border-t border-border bg-muted/30 p-2">
             <p className="mb-2 px-1 text-xs font-medium text-muted-foreground">
-              Thêm mới
+              Add new
             </p>
             <div className="flex gap-2">
               <Input
@@ -242,7 +242,7 @@ export const CatalogCreatablePicker = ({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         className={cn(
-          "h-9 w-full justify-between font-normal",
+          "h-10 w-full justify-between border-input bg-transparent font-normal shadow-none hover:bg-transparent hover:text-foreground",
           !display && "text-muted-foreground",
           triggerClassName
         )}

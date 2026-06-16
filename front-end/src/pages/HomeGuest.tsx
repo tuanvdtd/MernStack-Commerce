@@ -28,7 +28,7 @@ import { ProductQuickViewDialog, type QuickViewProduct } from "~/components/Prod
 import { allProducts } from "~/mock/productData";
 
 const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+  `${price.toLocaleString("en-US")} VND`;
 
 const flashSaleProducts = allProducts.slice(0, 4);
 
@@ -146,11 +146,11 @@ export function HomeGuest() {
                     {p.sold != null && p.stock != null && (
                       <>
                         <Progress value={soldPercent} className="h-1.5 [&>div]:bg-gradient-to-r [&>div]:from-orange-500 [&>div]:to-red-500" />
-                        <p className="text-[10px] text-muted-foreground">Đã bán {p.sold}</p>
+                        <p className="text-[10px] text-muted-foreground">Sold {p.sold}</p>
                       </>
                     )}
                     <Button variant="outline" size="sm" className="w-full rounded-lg" asChild>
-                      <Link to={`/product/${p.id}`}>Xem chi tiết</Link>
+                      <Link to={`/product/${p.id}`}>View details</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -159,7 +159,7 @@ export function HomeGuest() {
           </div>
           <div className="text-center mt-6">
             <Button variant="outline" className="rounded-full" asChild>
-              <Link to="/flash-sale">Xem tất cả Flash Sale <ChevronRight className="w-4 h-4 ml-1" /></Link>
+              <Link to="/flash-sale">View all Flash Sale <ChevronRight className="w-4 h-4 ml-1" /></Link>
             </Button>
           </div>
         </div>
@@ -170,10 +170,10 @@ export function HomeGuest() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Truck, title: "Miễn phí vận chuyển", desc: "Đơn hàng từ 300K" },
-              { icon: ShieldCheck, title: "Bảo hành chính hãng", desc: "12 tháng toàn quốc" },
-              { icon: Zap, title: "Giao hàng nhanh", desc: "Trong 2h nội thành" },
-              { icon: Gift, title: "Ưu đãi thành viên", desc: "Tích điểm đổi quà" },
+              { icon: Truck, title: "Free shipping", desc: "Orders from 300K VND" },
+              { icon: ShieldCheck, title: "Official warranty", desc: "12 months nationwide" },
+              { icon: Zap, title: "Fast delivery", desc: "Within 2 hours in the city" },
+              { icon: Gift, title: "Member deals", desc: "Earn points for rewards" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-4 text-white">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
@@ -189,14 +189,14 @@ export function HomeGuest() {
         </div>
       </section>
 
-      {/* Product catalog — Shopee-style browse */}
+      {/* Product catalog: marketplace-style browsing. */}
       <section id="catalog" className="scroll-mt-20 bg-muted/30 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="mb-8 flex items-center gap-3">
             <TrendingUp className="size-6 text-cyan-500" />
-            <h2 className="text-3xl font-bold tracking-tight">Khám phá sản phẩm</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Explore products</h2>
             <Badge variant="outline" className="ml-auto sm:ml-2">
-              {filteredProducts.length} sản phẩm
+              {filteredProducts.length} products
             </Badge>
           </div>
 
@@ -213,8 +213,8 @@ export function HomeGuest() {
                       <Gift className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold tracking-wide text-cyan-300 uppercase">Ưu đãi thành viên</h4>
-                      <p className="text-[10px] text-slate-300/80 font-medium">Đăng ký để nhận voucher chào mừng</p>
+                      <h4 className="text-sm font-bold tracking-wide text-cyan-300 uppercase">Member perks</h4>
+                      <p className="text-[10px] text-slate-300/80 font-medium">Sign up to receive a welcome voucher</p>
                     </div>
                   </div>
 
@@ -222,20 +222,20 @@ export function HomeGuest() {
                   <div className="relative overflow-hidden rounded-xl border border-dashed border-cyan-500/50 bg-cyan-950/40 p-3 text-center">
                     <div className="absolute top-1/2 -left-2.5 h-5 w-5 -translate-y-1/2 rounded-full bg-slate-950 border-r border-dashed border-cyan-500/50" />
                     <div className="absolute top-1/2 -right-2.5 h-5 w-5 -translate-y-1/2 rounded-full bg-slate-950 border-l border-dashed border-cyan-500/50" />
-                    <div className="text-[9px] uppercase tracking-widest text-cyan-400 font-bold">VOUCHER CHÀO MỪNG</div>
-                    <div className="my-1.5 text-lg font-black text-white leading-none">GIẢM 500.000đ</div>
+                    <div className="text-[9px] uppercase tracking-widest text-cyan-400 font-bold">WELCOME VOUCHER</div>
+                    <div className="my-1.5 text-lg font-black text-white leading-none">SAVE 500,000 VND</div>
                     <div className="inline-block rounded-md bg-cyan-500/20 px-2 py-0.5 text-[9px] font-mono text-cyan-300">
-                      Mã: WELCOME500
+                      Code: WELCOME500
                     </div>
                   </div>
 
                   {/* Benefits checklist */}
                   <ul className="space-y-2 text-xs text-slate-200/90">
                     {[
-                      "Tích điểm 2% mỗi đơn hàng",
-                      "Miễn phí vận chuyển toàn quốc",
-                      "Hỗ trợ kỹ thuật 24/7 từ chuyên gia",
-                      "Đổi trả 1-đổi-1 trong 15 ngày",
+                      "Earn 2% points on every order",
+                      "Free nationwide shipping",
+                      "24/7 expert technical support",
+                      "1-for-1 exchanges within 15 days",
                     ].map((benefit, i) => (
                       <li key={i} className="flex items-center gap-2">
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
@@ -246,7 +246,7 @@ export function HomeGuest() {
 
                   <Button size="sm" className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 font-semibold shadow-lg shadow-cyan-500/20 group" asChild>
                     <Link to="/register">
-                      Đăng ký ngay <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                      Sign up now <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
                 </CardContent>
@@ -257,7 +257,7 @@ export function HomeGuest() {
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2 border-b pb-2.5 border-slate-100 dark:border-border/60">
                     <Search className="h-4 w-4 text-cyan-600" />
-                    <h4 className="text-sm font-bold">Xu hướng tìm kiếm</h4>
+                    <h4 className="text-sm font-bold">Trending searches</h4>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {[
@@ -266,7 +266,7 @@ export function HomeGuest() {
                       { text: "Sony XM5", query: "Sony" },
                       { text: "Galaxy S24", query: "Samsung" },
                       { text: "Apple Watch", query: "Watch" },
-                      { text: "Tai nghe", query: "AirPods" },
+                      { text: "Headphones", query: "AirPods" },
                     ].map((tag, i) => (
                       <button
                         key={i}
@@ -292,19 +292,19 @@ export function HomeGuest() {
                 <div className="flex flex-col gap-3 border-b border-border/50 bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <SlidersHorizontal className="h-4 w-4 text-cyan-600" />
-                    Sắp xếp kết quả
+                    Sort results
                   </span>
                   <Badge variant="secondary" className="w-fit bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
-                    {filteredProducts.length} sản phẩm
+                    {filteredProducts.length} products
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-2 p-3">
                   {(
                     [
-                      ["popular", "Phổ biến"],
-                      ["price-asc", "Giá thấp"],
-                      ["price-desc", "Giá cao"],
-                      ["rating", "Đánh giá"],
+                      ["popular", "Popular"],
+                      ["price-asc", "Lowest price"],
+                      ["price-desc", "Highest price"],
+                      ["rating", "Rating"],
                     ] as const
                   ).map(([key, label]) => (
                     <button
@@ -324,9 +324,9 @@ export function HomeGuest() {
 
               {filteredProducts.length === 0 ? (
                 <Card className="p-12 text-center">
-                  <p className="text-muted-foreground mb-4">Không tìm thấy sản phẩm phù hợp.</p>
+                  <p className="text-muted-foreground mb-4">No matching products found.</p>
                   <Button variant="outline" onClick={() => { setSelectedCategory("all"); setSearchQuery(""); }}>
-                    Xem tất cả sản phẩm
+                    View all products
                   </Button>
                 </Card>
               ) : (
@@ -362,7 +362,7 @@ export function HomeGuest() {
                                   <Eye className="w-4 h-4 text-gray-600" />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>Xem nhanh</TooltipContent>
+                              <TooltipContent>Quick view</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </div>
@@ -373,7 +373,7 @@ export function HomeGuest() {
                         </Link>
                         <div className="flex items-center gap-1">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span className="text-xs text-muted-foreground">{p.rating} ({p.reviews.toLocaleString()})</span>
+                          <span className="text-xs text-muted-foreground">{p.rating} ({p.reviews.toLocaleString("en-US")})</span>
                         </div>
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="text-base font-bold text-red-500">{formatPrice(p.price)}</span>
@@ -381,10 +381,10 @@ export function HomeGuest() {
                         </div>
                         <div className="mt-auto flex gap-2 pt-1">
                           <Button variant="outline" size="sm" className="flex-1 rounded-lg text-xs h-8" asChild>
-                            <Link to={`/product/${p.id}`}>Chi tiết</Link>
+                            <Link to={`/product/${p.id}`}>Details</Link>
                           </Button>
                           <Button size="sm" className="flex-1 rounded-lg text-xs h-8 bg-gradient-to-r from-cyan-500 to-blue-500" asChild>
-                            <Link to="/login" state={{ from: `/product/${p.id}` }}>Mua hàng</Link>
+                            <Link to="/login" state={{ from: `/product/${p.id}` }}>Buy</Link>
                           </Button>
                         </div>
                       </CardContent>

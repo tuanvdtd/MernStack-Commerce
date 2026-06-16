@@ -9,8 +9,8 @@ export function Account() {
   const { open, setOpen, requestLogOut, confirmLogOut } = useLogOutConfirm();
 
   const user = {
-    name: "Nguyễn Văn A",
-    email: "nguyenvana@example.com",
+    name: "Alex Nguyen",
+    email: "alex.nguyen@example.com",
     phone: "0901234567",
     avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400",
     joinDate: "2024-01-15",
@@ -21,7 +21,7 @@ export function Account() {
       id: "FLB2026040412345",
       date: "2026-04-01",
       status: "shipping",
-      statusText: "Đang giao hàng",
+      statusText: "Shipping",
       total: 44970000,
       items: 3,
       image: "https://images.unsplash.com/photo-1673718424704-51d0d2ca1fd2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=200",
@@ -30,7 +30,7 @@ export function Account() {
       id: "FLB2026032398765",
       date: "2026-03-23",
       status: "delivered",
-      statusText: "Đã giao hàng",
+      statusText: "Delivered",
       total: 15990000,
       items: 1,
       image: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=200",
@@ -59,33 +59,33 @@ export function Account() {
   const addresses = [
     {
       id: 1,
-      label: "Nhà riêng",
-      name: "Nguyễn Văn A",
+      label: "Home",
+      name: "Alex Nguyen",
       phone: "0901234567",
-      address: "123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+      address: "123 Nguyen Van Linh, District 7, Ho Chi Minh City",
       isDefault: true,
     },
     {
       id: 2,
-      label: "Văn phòng",
-      name: "Nguyễn Văn A",
+      label: "Office",
+      name: "Alex Nguyen",
       phone: "0901234567",
-      address: "456 Lê Văn Việt, Quận 9, TP. Hồ Chí Minh",
+      address: "456 Le Van Viet, District 9, Ho Chi Minh City",
       isDefault: false,
     },
   ];
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+    return `${price.toLocaleString("en-US")} VND`;
   };
 
   const tabs = [
-    { id: "profile", label: "Thông tin cá nhân", icon: User },
-    { id: "orders", label: "Đơn hàng", icon: Package },
-    { id: "wishlist", label: "Yêu thích", icon: Heart },
-    { id: "addresses", label: "Địa chỉ", icon: MapPin },
-    { id: "payment", label: "Thanh toán", icon: CreditCard },
-    { id: "settings", label: "Cài đặt", icon: Settings },
+    { id: "profile", label: "Profile", icon: User },
+    { id: "orders", label: "Orders", icon: Package },
+    { id: "wishlist", label: "Wishlist", icon: Heart },
+    { id: "addresses", label: "Addresses", icon: MapPin },
+    { id: "payment", label: "Payment", icon: CreditCard },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   return (
@@ -128,7 +128,7 @@ export function Account() {
                 <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
                   onClick={requestLogOut}>
                   <LogOut className="w-5 h-5" />
-                  <span className="font-semibold">Đăng xuất</span>
+                  <span className="font-semibold">Log out</span>
                 </button>
               </nav>
             </div>
@@ -140,10 +140,10 @@ export function Account() {
               {/* Profile Tab */}
               {activeTab === "profile" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Thông tin cá nhân</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Profile</h2>
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Họ và tên</label>
+                      <label className="block text-gray-700 font-semibold mb-2">Full name</label>
                       <input
                         type="text"
                         defaultValue={user.name}
@@ -159,7 +159,7 @@ export function Account() {
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Số điện thoại</label>
+                      <label className="block text-gray-700 font-semibold mb-2">Phone number</label>
                       <input
                         type="tel"
                         defaultValue={user.phone}
@@ -167,7 +167,7 @@ export function Account() {
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Ngày tham gia</label>
+                      <label className="block text-gray-700 font-semibold mb-2">Join date</label>
                       <input
                         type="text"
                         value={user.joinDate}
@@ -176,7 +176,7 @@ export function Account() {
                       />
                     </div>
                     <button className="bg-[#0ACDFF] hover:bg-[#09b8e8] text-white px-8 py-3 rounded-lg font-semibold transition-colors">
-                      Lưu thay đổi
+                      Save changes
                     </button>
                   </div>
                 </div>
@@ -185,14 +185,14 @@ export function Account() {
               {/* Orders Tab */}
               {activeTab === "orders" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Đơn hàng của tôi</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">My orders</h2>
                   <div className="space-y-4">
                     {orders.map((order) => (
                       <div key={order.id} className="border-2 border-gray-200 rounded-xl p-6 hover:border-[#0ACDFF] transition-colors">
                         <div className="flex items-start justify-between mb-4">
                           <div>
-                            <p className="text-sm text-gray-600 mb-1">Mã đơn hàng: {order.id}</p>
-                            <p className="text-sm text-gray-600">Ngày đặt: {order.date}</p>
+                            <p className="text-sm text-gray-600 mb-1">Order ID: {order.id}</p>
+                            <p className="text-sm text-gray-600">Order date: {order.date}</p>
                           </div>
                           <span
                             className={`px-3 py-1 rounded-lg text-sm font-semibold ${
@@ -207,7 +207,7 @@ export function Account() {
                         <div className="flex items-center space-x-4 mb-4">
                           <img src={order.image} alt="Product" className="w-20 h-20 rounded-lg object-cover" />
                           <div className="flex-1">
-                            <p className="text-gray-700">{order.items} sản phẩm</p>
+                            <p className="text-gray-700">{order.items} items</p>
                             <p className="text-xl font-bold text-red-500">{formatPrice(order.total)}</p>
                           </div>
                         </div>
@@ -216,10 +216,10 @@ export function Account() {
                             to="/track-order"
                             className="flex-1 border-2 border-[#0ACDFF] text-[#0ACDFF] hover:bg-[#0ACDFF] hover:text-white py-2 rounded-lg font-semibold transition-all text-center"
                           >
-                            Theo dõi
+                            Track
                           </Link>
                           <button className="flex-1 bg-[#0ACDFF] hover:bg-[#09b8e8] text-white py-2 rounded-lg font-semibold transition-colors">
-                            Mua lại
+                            Buy again
                           </button>
                         </div>
                       </div>
@@ -231,7 +231,7 @@ export function Account() {
               {/* Wishlist Tab */}
               {activeTab === "wishlist" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Sản phẩm yêu thích</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Wishlist</h2>
                   <div className="grid md:grid-cols-2 gap-6">
                     {wishlist.map((item) => (
                       <div key={item.id} className="border-2 border-gray-200 rounded-xl overflow-hidden hover:border-[#0ACDFF] transition-colors">
@@ -246,7 +246,7 @@ export function Account() {
                             </span>
                           </div>
                           <button className="w-full bg-[#0ACDFF] hover:bg-[#09b8e8] text-white py-2 rounded-lg font-semibold transition-colors">
-                            Thêm vào giỏ
+                            Add to cart
                           </button>
                         </div>
                       </div>
@@ -259,9 +259,9 @@ export function Account() {
               {activeTab === "addresses" && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Địa chỉ của tôi</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">My addresses</h2>
                     <button className="bg-[#0ACDFF] hover:bg-[#09b8e8] text-white px-6 py-2 rounded-lg font-semibold transition-colors">
-                      Thêm địa chỉ mới
+                      Add new address
                     </button>
                   </div>
                   <div className="space-y-4">
@@ -278,7 +278,7 @@ export function Account() {
                               <h3 className="font-bold text-gray-900">{addr.label}</h3>
                               {addr.isDefault && (
                                 <span className="bg-[#0ACDFF] text-white px-2 py-1 rounded text-xs font-semibold">
-                                  Mặc định
+                                  Default
                                 </span>
                               )}
                             </div>
@@ -288,17 +288,17 @@ export function Account() {
                         </div>
                         <div className="flex space-x-3">
                           <button className="text-[#0ACDFF] hover:text-[#09b8e8] font-semibold">
-                            Chỉnh sửa
+                            Edit
                           </button>
                           {!addr.isDefault && (
                             <>
                               <span className="text-gray-300">|</span>
                               <button className="text-gray-600 hover:text-gray-800 font-semibold">
-                                Xóa
+                                Delete
                               </button>
                               <span className="text-gray-300">|</span>
                               <button className="text-[#0ACDFF] hover:text-[#09b8e8] font-semibold">
-                                Đặt làm mặc định
+                                Set as default
                               </button>
                             </>
                           )}
@@ -312,12 +312,12 @@ export function Account() {
               {/* Payment Tab */}
               {activeTab === "payment" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Phương thức thanh toán</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Payment methods</h2>
                   <div className="text-center py-12">
                     <CreditCard className="w-24 h-24 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600 mb-4">Bạn chưa có phương thức thanh toán nào</p>
+                    <p className="text-gray-600 mb-4">You do not have any payment methods yet</p>
                     <button className="bg-[#0ACDFF] hover:bg-[#09b8e8] text-white px-8 py-3 rounded-lg font-semibold transition-colors">
-                      Thêm thẻ
+                      Add card
                     </button>
                   </div>
                 </div>
@@ -326,12 +326,12 @@ export function Account() {
               {/* Settings Tab */}
               {activeTab === "settings" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Cài đặt</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
                   <div className="space-y-6">
                     <div className="flex items-center justify-between py-4 border-b">
                       <div>
-                        <h3 className="font-semibold text-gray-900">Nhận email thông báo</h3>
-                        <p className="text-sm text-gray-600">Nhận thông báo về đơn hàng và khuyến mãi</p>
+                        <h3 className="font-semibold text-gray-900">Email notifications</h3>
+                        <p className="text-sm text-gray-600">Receive updates about orders and promotions</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -340,8 +340,8 @@ export function Account() {
                     </div>
                     <div className="flex items-center justify-between py-4 border-b">
                       <div>
-                        <h3 className="font-semibold text-gray-900">Nhận thông báo SMS</h3>
-                        <p className="text-sm text-gray-600">Nhận tin nhắn về trạng thái đơn hàng</p>
+                        <h3 className="font-semibold text-gray-900">SMS notifications</h3>
+                        <p className="text-sm text-gray-600">Receive messages about order status</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -350,7 +350,7 @@ export function Account() {
                     </div>
                     <div className="pt-4">
                       <button className="text-red-500 hover:text-red-600 font-semibold">
-                        Đổi mật khẩu
+                        Change password
                       </button>
                     </div>
                   </div>

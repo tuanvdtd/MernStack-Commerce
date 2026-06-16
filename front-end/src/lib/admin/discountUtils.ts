@@ -6,24 +6,24 @@ import type {
 import { formatVnd } from "~/lib/admin/ui"
 
 export const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
-  FIXED_AMOUNT: "Giảm cố định",
-  PERCENTAGE: "Giảm theo %",
+  FIXED_AMOUNT: "Fixed amount",
+  PERCENTAGE: "Percentage",
 }
 
 export const DISCOUNT_APPLIES_TO_LABELS: Record<
   AdminDiscount["appliesTo"],
   string
 > = {
-  ALL: "Toàn bộ đơn",
-  SPECIFIC: "Sản phẩm chỉ định",
+  ALL: "Entire order",
+  SPECIFIC: "Selected products",
 }
 
 export const DISCOUNT_STATUS_LABELS: Record<DiscountDisplayStatus, string> = {
-  active: "Đang chạy",
-  inactive: "Đã tắt",
-  scheduled: "Chưa bắt đầu",
-  expired: "Hết hạn",
-  exhausted: "Hết lượt",
+  active: "Active",
+  inactive: "Disabled",
+  scheduled: "Scheduled",
+  expired: "Expired",
+  exhausted: "Fully used",
 }
 
 export const DISCOUNT_STATUS_BADGE_CLASS: Record<DiscountDisplayStatus, string> =
@@ -59,26 +59,26 @@ export const getDiscountStatusBadgeClass = (status: DiscountDisplayStatus) =>
 
 export const formatDiscountValue = (discount: Pick<AdminDiscount, "type" | "value" | "maxValue">) => {
   if (discount.type === "PERCENTAGE") {
-    return `${discount.value}% (tối đa ${formatVnd(discount.maxValue)})`
+    return `${discount.value}% (up to ${formatVnd(discount.maxValue)})`
   }
   return formatVnd(discount.value)
 }
 
 export const formatUsageRatio = (usesCount: number, maxUses: number) =>
-  `${usesCount.toLocaleString("vi-VN")} / ${maxUses.toLocaleString("vi-VN")}`
+  `${usesCount.toLocaleString("en-US")} / ${maxUses.toLocaleString("en-US")}`
 
 export const getUsagePercent = (usesCount: number, maxUses: number) => {
   if (maxUses <= 0) return 0
   return Math.min(100, Math.round((usesCount / maxUses) * 100))
 }
 
-/** Chuyển ISO sang giá trị input datetime-local */
+/** Convert ISO dates to datetime-local input values. */
 export const toDatetimeLocalValue = (iso: string) => {
   const date = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-/** Chuyển datetime-local sang ISO */
+/** Convert datetime-local input values to ISO dates. */
 export const fromDatetimeLocalValue = (value: string) =>
   new Date(value).toISOString()

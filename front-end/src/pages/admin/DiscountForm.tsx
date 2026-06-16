@@ -51,27 +51,27 @@ import { cn } from "~/lib/utils"
 
 const discountSchema = z
   .object({
-    name: z.string().min(3, "Tên phải có ít nhất 3 ký tự"),
-    description: z.string().min(10, "Mô tả phải có ít nhất 10 ký tự"),
+    name: z.string().min(3, "Name must be at least 3 characters"),
+    description: z.string().min(10, "Description must be at least 10 characters"),
     code: z
       .string()
-      .min(3, "Mã phải có ít nhất 3 ký tự")
-      .max(100, "Mã tối đa 100 ký tự")
+      .min(3, "Code must be at least 3 characters")
+      .max(100, "Code must be at most 100 characters")
       .regex(
         /^[A-Z0-9_-]+$/,
-        "Mã chỉ gồm chữ in hoa, số, gạch dưới hoặc gạch ngang"
+        "Code can only include uppercase letters, numbers, underscores, or hyphens"
       ),
     type: z.enum(["FIXED_AMOUNT", "PERCENTAGE"]),
-    value: z.coerce.number().positive("Giá trị phải lớn hơn 0"),
-    maxValue: z.coerce.number().min(0, "Giá trị tối đa không được âm"),
-    minOrderValue: z.coerce.number().min(0, "Giá trị đơn tối thiểu không được âm"),
-    maxUses: z.coerce.number().int().positive("Tổng lượt dùng phải lớn hơn 0"),
+    value: z.coerce.number().positive("Value must be greater than 0"),
+    maxValue: z.coerce.number().min(0, "Maximum value cannot be negative"),
+    minOrderValue: z.coerce.number().min(0, "Minimum order value cannot be negative"),
+    maxUses: z.coerce.number().int().positive("Total usage limit must be greater than 0"),
     maxUsesPerUser: z.coerce
       .number()
       .int()
-      .positive("Lượt dùng mỗi user phải lớn hơn 0"),
-    startDate: z.string().min(1, "Vui lòng chọn ngày bắt đầu"),
-    endDate: z.string().min(1, "Vui lòng chọn ngày kết thúc"),
+      .positive("Uses per customer must be greater than 0"),
+    startDate: z.string().min(1, "Please choose a start date"),
+    endDate: z.string().min(1, "Please choose an end date"),
     appliesTo: z.enum(["ALL", "SPECIFIC"]),
     isActive: z.boolean(),
   })
@@ -79,28 +79,28 @@ const discountSchema = z
     if (new Date(data.endDate) <= new Date(data.startDate)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Ngày kết thúc phải sau ngày bắt đầu",
+        message: "End date must be after start date",
         path: ["endDate"],
       })
     }
     if (data.type === "PERCENTAGE" && data.value > 100) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Phần trăm giảm không được vượt quá 100%",
+        message: "Percentage discount cannot exceed 100%",
         path: ["value"],
       })
     }
     if (data.type === "PERCENTAGE" && data.maxValue <= 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Vui lòng nhập mức giảm tối đa (VND)",
+        message: "Please enter the maximum discount (VND)",
         path: ["maxValue"],
       })
     }
     if (data.type === "FIXED_AMOUNT" && data.maxValue !== data.value) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Với giảm cố định, giá trị tối đa phải bằng giá trị giảm",
+        message: "For fixed discounts, the maximum value must equal the discount value",
         path: ["maxValue"],
       })
     }
@@ -201,12 +201,12 @@ export function DiscountForm() {
 
   const previewDiscount: AdminDiscount = {
     id: id ?? "preview",
-    name: watchValues.name || "Tên mã giảm giá",
+    name: watchValues.name || "Discount name",
     description: watchValues.description || "",
     type: watchValues.type,
     value: Number(watchValues.value) || 0,
     maxValue: Number(watchValues.maxValue) || 0,
-    code: watchValues.code || "MAGIAMGIA",
+    code: watchValues.code || "DISCOUNTCODE",
     startDate: watchValues.startDate
       ? fromDatetimeLocalValue(watchValues.startDate)
       : new Date().toISOString(),
@@ -232,7 +232,7 @@ export function DiscountForm() {
 
   const handleSubmit = (data: DiscountFormData) => {
     if (data.appliesTo === "SPECIFIC" && selectedProductIds.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một sản phẩm")
+      toast.error("Please choose at least one product")
       return
     }
 
@@ -241,7 +241,7 @@ export function DiscountForm() {
         (d) => d.code === data.code && d.id !== existingDiscount.id
       )
       if (duplicateCode) {
-        form.setError("code", { message: "Mã đã tồn tại" })
+        form.setError("code", { message: "Code already exists" })
         return
       }
 
@@ -261,14 +261,14 @@ export function DiscountForm() {
         isActive: data.isActive,
         productIds: data.appliesTo === "SPECIFIC" ? selectedProductIds : [],
       })
-      toast.success("Đã cập nhật mã giảm giá")
+      toast.success("Discount updated")
       navigate("/admin/discounts")
       return
     }
 
     const duplicateCode = discounts.some((d) => d.code === data.code)
     if (duplicateCode) {
-      form.setError("code", { message: "Mã đã tồn tại" })
+      form.setError("code", { message: "Code already exists" })
       return
     }
 
@@ -294,7 +294,7 @@ export function DiscountForm() {
     }
 
     addDiscount(newDiscount)
-    toast.success("Đã tạo mã giảm giá")
+    toast.success("Discount created")
     navigate("/admin/discounts")
   }
 
@@ -302,8 +302,8 @@ export function DiscountForm() {
     return (
       <AdminPage>
         <AdminPageHeader
-          title="Không tìm thấy mã"
-          description="Mã giảm giá không tồn tại hoặc đã bị xóa."
+          title="Discount not found"
+          description="The discount does not exist or was deleted."
           actions={
             <Button
               variant="outline"
@@ -312,7 +312,7 @@ export function DiscountForm() {
               onClick={() => navigate("/admin/discounts")}
             >
               <ArrowLeft className="size-3.5" strokeWidth={1.75} />
-              Quay lại
+              Back
             </Button>
           }
         />
@@ -323,11 +323,11 @@ export function DiscountForm() {
   return (
     <AdminPage>
       <AdminPageHeader
-        title={isEditMode ? "Sửa mã giảm giá" : "Tạo mã giảm giá"}
+        title={isEditMode ? "Edit discount" : "Create discount"}
         description={
           isEditMode
-            ? `Chỉnh sửa mã ${existingDiscount?.code}.`
-            : "Thiết lập voucher, giới hạn lượt dùng và phạm vi áp dụng."
+            ? `Edit code ${existingDiscount?.code}.`
+            : "Set up the voucher, usage limits, and application scope."
         }
         actions={
           <Button
@@ -338,7 +338,7 @@ export function DiscountForm() {
             onClick={() => navigate("/admin/discounts")}
           >
             <ArrowLeft className="size-3.5" strokeWidth={1.75} />
-            Quay lại
+            Back
           </Button>
         }
       />
@@ -352,10 +352,10 @@ export function DiscountForm() {
             <section className="space-y-5 px-5 py-5 lg:px-6">
               <div>
                 <h2 className="text-[15px] font-semibold text-foreground">
-                  Thông tin cơ bản
+                  Basic information
                 </h2>
                 <p className="mt-1 text-[13px] text-muted-foreground">
-                  Tên hiển thị và mã khách nhập khi thanh toán.
+                  Display name and customer-entered checkout code.
                 </p>
               </div>
 
@@ -365,10 +365,10 @@ export function DiscountForm() {
                   name="name"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-2">
-                      <FormLabel>Tên mã</FormLabel>
+                      <FormLabel>Discount name</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Giảm 10% đơn đầu"
+                          placeholder="10% off first order"
                           className={adminFilterInputClass}
                           {...field}
                         />
@@ -382,7 +382,7 @@ export function DiscountForm() {
                   name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mã voucher</FormLabel>
+                      <FormLabel>Voucher code</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="WELCOME10"
@@ -394,7 +394,7 @@ export function DiscountForm() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Chỉ chữ in hoa, số, _ hoặc -
+                        Uppercase letters, numbers, _ or - only
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -407,9 +407,9 @@ export function DiscountForm() {
                     <FormItem className="flex items-end">
                       <div className="flex w-full items-center justify-between rounded-xl border border-border/70 px-4 py-3">
                         <div>
-                          <FormLabel className="mb-0">Kích hoạt</FormLabel>
+                          <FormLabel className="mb-0">Active</FormLabel>
                           <FormDescription className="mt-0.5">
-                            Cho phép khách sử dụng mã
+                            Allow customers to use this code
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -427,10 +427,10 @@ export function DiscountForm() {
                   name="description"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-2">
-                      <FormLabel>Mô tả</FormLabel>
+                      <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Mô tả ngắn về điều kiện áp dụng..."
+                          placeholder="Short description of eligibility rules..."
                           className="min-h-24 resize-y text-[13px]"
                           {...field}
                         />
@@ -445,10 +445,10 @@ export function DiscountForm() {
             <section className="space-y-5 px-5 py-5 lg:px-6">
               <div>
                 <h2 className="text-[15px] font-semibold text-foreground">
-                  Giá trị giảm
+                  Discount value
                 </h2>
                 <p className="mt-1 text-[13px] text-muted-foreground">
-                  Cố định (VND) hoặc phần trăm với mức trần.
+                  Fixed amount (VND) or percentage with a cap.
                 </p>
               </div>
 
@@ -458,7 +458,7 @@ export function DiscountForm() {
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Loại giảm</FormLabel>
+                      <FormLabel>Discount type</FormLabel>
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
@@ -488,8 +488,8 @@ export function DiscountForm() {
                     <FormItem>
                       <FormLabel>
                         {watchType === "PERCENTAGE"
-                          ? "Phần trăm (%)"
-                          : "Số tiền giảm (VND)"}
+                          ? "Percentage (%)"
+                          : "Discount amount (VND)"}
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -510,7 +510,7 @@ export function DiscountForm() {
                     name="maxValue"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Giảm tối đa (VND)</FormLabel>
+                        <FormLabel>Maximum discount (VND)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -521,7 +521,7 @@ export function DiscountForm() {
                           />
                         </FormControl>
                         <FormDescription>
-                          Mức trần khi tính theo phần trăm
+                          Cap applied to percentage discounts
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -533,7 +533,7 @@ export function DiscountForm() {
                   name="minOrderValue"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Đơn tối thiểu (VND)</FormLabel>
+                      <FormLabel>Minimum order (VND)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -543,7 +543,7 @@ export function DiscountForm() {
                           {...field}
                         />
                       </FormControl>
-                      <FormDescription>0 = không yêu cầu</FormDescription>
+                      <FormDescription>0 = no requirement</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -554,10 +554,10 @@ export function DiscountForm() {
             <section className="space-y-5 px-5 py-5 lg:px-6">
               <div>
                 <h2 className="text-[15px] font-semibold text-foreground">
-                  Giới hạn sử dụng
+                  Usage limits
                 </h2>
                 <p className="mt-1 text-[13px] text-muted-foreground">
-                  Tổng lượt dùng toàn hệ thống và mỗi tài khoản.
+                  Total system-wide uses and per-account uses.
                 </p>
               </div>
 
@@ -567,7 +567,7 @@ export function DiscountForm() {
                   name="maxUses"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tổng lượt dùng</FormLabel>
+                      <FormLabel>Total uses</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -586,7 +586,7 @@ export function DiscountForm() {
                   name="maxUsesPerUser"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Lượt / mỗi khách</FormLabel>
+                      <FormLabel>Uses / customer</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -605,7 +605,7 @@ export function DiscountForm() {
                   name="startDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Bắt đầu</FormLabel>
+                      <FormLabel>Start</FormLabel>
                       <FormControl>
                         <Input
                           type="datetime-local"
@@ -622,7 +622,7 @@ export function DiscountForm() {
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Kết thúc</FormLabel>
+                      <FormLabel>End</FormLabel>
                       <FormControl>
                         <Input
                           type="datetime-local"
@@ -640,10 +640,10 @@ export function DiscountForm() {
             <section className="space-y-5 px-5 py-5 lg:px-6">
               <div>
                 <h2 className="text-[15px] font-semibold text-foreground">
-                  Phạm vi áp dụng
+                  Application scope
                 </h2>
                 <p className="mt-1 text-[13px] text-muted-foreground">
-                  Toàn bộ đơn hàng hoặc danh sách SPU chỉ định.
+                  Entire order or selected SPU list.
                 </p>
               </div>
 
@@ -652,7 +652,7 @@ export function DiscountForm() {
                 name="appliesTo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Áp dụng cho</FormLabel>
+                    <FormLabel>Apply to</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger
@@ -683,19 +683,19 @@ export function DiscountForm() {
                       strokeWidth={2}
                     />
                     <Input
-                      placeholder="Tìm sản phẩm..."
+                      placeholder="Search products..."
                       value={productSearch}
                       onChange={(e) => setProductSearch(e.target.value)}
                       className={cn("pl-9", adminFilterInputClass)}
                     />
                   </div>
                   <p className="text-[12px] text-muted-foreground">
-                    Đã chọn {selectedProductIds.length} sản phẩm
+                    {selectedProductIds.length} products selected
                   </p>
                   <div className="max-h-64 space-y-1 overflow-y-auto">
                     {filteredProducts.length === 0 ? (
                       <p className="py-6 text-center text-[13px] text-muted-foreground">
-                        Không có sản phẩm phù hợp
+                        No matching products
                       </p>
                     ) : (
                       filteredProducts.map((product) => {
@@ -713,7 +713,7 @@ export function DiscountForm() {
                               onCheckedChange={(value) =>
                                 handleToggleProduct(product.id, value === true)
                               }
-                              aria-label={`Chọn ${product.name}`}
+                              aria-label={`Select ${product.name}`}
                             />
                             {product.imgUrl ? (
                               <img
@@ -753,10 +753,10 @@ export function DiscountForm() {
                 size="sm"
                 onClick={() => navigate("/admin/discounts")}
               >
-                Hủy
+                Cancel
               </Button>
               <Button type="submit" size="sm" className={adminBrandButtonClass}>
-                {isEditMode ? "Lưu thay đổi" : "Tạo mã"}
+                {isEditMode ? "Save changes" : "Create code"}
               </Button>
             </div>
           </form>
@@ -770,7 +770,7 @@ export function DiscountForm() {
         >
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Xem trước
+              Preview
             </p>
             <p className="mt-3 font-mono text-lg font-semibold tracking-wide text-[var(--admin-brand)]">
               {previewDiscount.code}
@@ -782,35 +782,35 @@ export function DiscountForm() {
 
           <dl className="space-y-3 text-[13px]">
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Giá trị</dt>
+              <dt className="text-muted-foreground">Value</dt>
               <dd className="font-mono font-medium text-right">
                 {formatDiscountValue(previewDiscount)}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Phạm vi</dt>
+              <dt className="text-muted-foreground">Scope</dt>
               <dd className="text-right">
                 {DISCOUNT_APPLIES_TO_LABELS[previewDiscount.appliesTo]}
               </dd>
             </div>
             {previewDiscount.appliesTo === "SPECIFIC" && (
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Sản phẩm</dt>
+                <dt className="text-muted-foreground">Products</dt>
                 <dd className="font-mono text-right">
                   {selectedProductIds.length}
                 </dd>
               </div>
             )}
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Đơn tối thiểu</dt>
+              <dt className="text-muted-foreground">Minimum order</dt>
               <dd className="font-mono text-right">
                 {previewDiscount.minOrderValue > 0
                   ? formatVnd(previewDiscount.minOrderValue)
-                  : "Không"}
+                  : "None"}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Lượt dùng</dt>
+              <dt className="text-muted-foreground">Usage</dt>
               <dd className="font-mono text-right">
                 {formatUsageRatio(
                   previewDiscount.usesCount,
@@ -819,9 +819,9 @@ export function DiscountForm() {
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Mỗi khách</dt>
+              <dt className="text-muted-foreground">Per customer</dt>
               <dd className="font-mono text-right">
-                {previewDiscount.maxUsesPerUser} lần
+                {previewDiscount.maxUsesPerUser} times
               </dd>
             </div>
           </dl>
@@ -829,7 +829,7 @@ export function DiscountForm() {
           <Separator />
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] text-muted-foreground">Trạng thái</span>
+            <span className="text-[13px] text-muted-foreground">Status</span>
             <DiscountStatusBadge discount={previewDiscount} />
           </div>
         </aside>

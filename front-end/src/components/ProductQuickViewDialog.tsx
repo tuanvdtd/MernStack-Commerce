@@ -25,7 +25,7 @@ export type QuickViewProduct = {
 };
 
 const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+  `${price.toLocaleString("en-US")} VND`;
 
 type ProductQuickViewDialogProps = {
   product: QuickViewProduct | null;
@@ -92,7 +92,7 @@ export function ProductQuickViewDialog({
                   <span className="text-sm font-medium">{product.rating}</span>
                   {product.reviews != null && (
                     <span className="text-sm text-muted-foreground">
-                      ({product.reviews.toLocaleString()} đánh giá)
+                      ({product.reviews.toLocaleString("en-US")} reviews)
                     </span>
                   )}
                 </div>
@@ -112,33 +112,33 @@ export function ProductQuickViewDialog({
                     className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-orange-500 [&>div]:to-red-500"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Đã bán {product.sold}/{product.stock}
+                    Sold {product.sold}/{product.stock}
                     {remainingStock != null && remainingStock > 0 && (
-                      <> — còn {remainingStock} sản phẩm</>
+                      <> - {remainingStock} left</>
                     )}
                   </p>
                 </div>
               )}
 
               <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                Sản phẩm chính hãng, bảo hành 12 tháng. Miễn phí vận chuyển cho đơn từ 300.000đ.
+                Official product with a 12-month warranty. Free shipping on orders from 300,000 VND.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Truck className="h-3.5 w-3.5 text-cyan-500" />
-                  Giao nhanh 2h
+                  2-hour fast delivery
                 </span>
                 <span className="flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-cyan-500" />
-                  Bảo hành chính hãng
+                  Official warranty
                 </span>
               </div>
 
               <Separator className="my-5" />
 
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">Số lượng</span>
+                <span className="text-sm font-medium">Quantity</span>
                 <div className="flex items-center rounded-lg border">
                   <Button
                     type="button"
@@ -170,11 +170,11 @@ export function ProductQuickViewDialog({
                   onClick={() => onOpenChange(false)}
                 >
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  Mua ngay
+                  Buy now
                 </Button>
                 <Button variant="outline" className="flex-1" asChild>
                   <Link to={`/product/${product.id}`} onClick={() => onOpenChange(false)}>
-                    Xem chi tiết
+                    View details
                   </Link>
                 </Button>
               </div>

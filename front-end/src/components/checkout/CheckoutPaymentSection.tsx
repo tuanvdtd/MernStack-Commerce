@@ -20,7 +20,7 @@ const cardProviders: { id: CardProvider; label: string; logoSrc: string }[] = [
 ]
 
 /**
- * Chọn phương thức thanh toán: COD hoặc thẻ (Stripe / VNPay).
+ * Choose a payment method: COD or card (Stripe / VNPay).
  */
 export function CheckoutPaymentSection({
   paymentType,
@@ -37,10 +37,10 @@ export function CheckoutPaymentSection({
       )}
     >
       <h2 className="text-base font-semibold text-[#2b2f32] sm:text-lg">
-        Phương thức thanh toán
+        Payment method
       </h2>
       <p className="mt-1 text-sm text-[#757575]">
-        Chọn cách bạn muốn thanh toán cho đơn hàng này.
+        Choose how you want to pay for this order.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -64,10 +64,10 @@ export function CheckoutPaymentSection({
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[#2b2f32]">
-              Thanh toán khi nhận hàng (COD)
+              Cash on delivery (COD)
             </span>
             <span className="mt-0.5 block text-xs leading-relaxed text-[#757575]">
-              Trả tiền mặt hoặc quét mã khi shipper giao hàng
+              Pay in cash or scan a code when the courier arrives
             </span>
           </span>
         </button>
@@ -92,10 +92,10 @@ export function CheckoutPaymentSection({
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[#2b2f32]">
-              Thanh toán bằng thẻ
+              Pay by card
             </span>
             <span className="mt-0.5 block text-xs leading-relaxed text-[#757575]">
-              Thẻ tín dụng, ghi nợ hoặc ví qua cổng thanh toán
+              Credit cards, debit cards, or wallets through a payment gateway
             </span>
           </span>
         </button>
@@ -103,7 +103,7 @@ export function CheckoutPaymentSection({
 
       {paymentType === "card" && (
         <div className="mt-4 rounded-lg border border-gray-100 bg-[#fafafa] p-4">
-          <Label className="text-xs font-medium text-[#757575]">Chọn cổng thanh toán</Label>
+          <Label className="text-xs font-medium text-[#757575]">Choose payment gateway</Label>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {cardProviders.map((provider) => {
               const selected = cardProvider === provider.id

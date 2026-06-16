@@ -1,6 +1,6 @@
 type DirtyFieldRecord = Record<string, unknown>
 
-/** Kiểm tra một field (hoặc phần tử mảng) đã thay đổi so với lần reset gần nhất. */
+/** Check whether a field or array item changed since the latest reset. */
 export function isFieldDirty(dirty: DirtyFieldRecord, name: string): boolean {
   const value = dirty[name]
   if (value === true) return true
@@ -13,8 +13,8 @@ export function isFieldDirty(dirty: DirtyFieldRecord, name: string): boolean {
 }
 
 /**
- * Trích giá trị form chỉ cho các field dirty — dùng khi cần payload PATCH partial.
- * Hỗ trợ object lồng nhau và mảng (useFieldArray).
+ * Extract form values only for dirty fields; useful for partial PATCH payloads.
+ * Supports nested objects and arrays (useFieldArray).
  */
 export function getDirtyValues<T extends object>(
   dirtyFields: DirtyFieldRecord,

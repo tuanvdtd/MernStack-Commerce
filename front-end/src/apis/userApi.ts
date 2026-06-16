@@ -16,7 +16,7 @@ export type PatchProfilePayload = {
   phone?: string | null
 }
 
-/** Map response API sang User trong store. */
+/** Map the API response to the User shape in the store. */
 export function mapProfileToUser(
   profile: UserProfileResponse,
   existing?: User | null
@@ -32,19 +32,19 @@ export function mapProfileToUser(
   }
 }
 
-/** Lấy lỗi message từ response API user. */
+/** Get the user API error message from the response. */
 export function getUserApiError(error: unknown): string {
   const err = error as { response?: { data?: { message?: string } } }
-  return err.response?.data?.message ?? "Đã xảy ra lỗi, vui lòng thử lại"
+  return err.response?.data?.message ?? "Something went wrong, please try again"
 }
 
-/** GET /user/me — profile user đang đăng nhập. */
+/** GET /user/me: current signed-in user profile. */
 export async function fetchMyProfile(): Promise<UserProfileResponse> {
   const response = await axios.get<UserProfileResponse>("/user/me")
   return response.data
 }
 
-/** PATCH /user/me — cập nhật partial profile. */
+/** PATCH /user/me: partially update the profile. */
 export async function patchMyProfile(
   payload: PatchProfilePayload
 ): Promise<UserProfileResponse> {

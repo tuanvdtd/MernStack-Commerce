@@ -43,13 +43,13 @@ export const adminRowActionClass =
   "inline-flex items-center gap-1"
 
 export const ORDER_STATUS_LABELS: Record<Order["status"], string> = {
-  pending: "Chờ xử lý",
-  confirmed: "Đã xác nhận",
-  processing: "Đang xử lý",
-  shipped: "Đã giao vận",
-  delivered: "Đã giao",
-  cancelled: "Đã hủy",
-  refunded: "Đã hoàn tiền",
+  pending: "Pending",
+  confirmed: "Confirmed",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
 }
 
 export const ORDER_STATUS_BADGE_CLASS: Record<Order["status"], string> = {
@@ -71,7 +71,7 @@ export const getUserInitials = (name: string) =>
     .join("")
     .toUpperCase()
 
-export const formatVnd = (amount: number) => `${amount.toLocaleString("vi-VN")}đ`
+export const formatVnd = (amount: number) => `${amount.toLocaleString("en-US")} VND`
 
 export const getOrderStatusLabel = (status: Order["status"]) =>
   ORDER_STATUS_LABELS[status] ?? status

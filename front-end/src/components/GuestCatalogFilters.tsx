@@ -45,8 +45,8 @@ export function GuestCatalogFilters({
                 <Filter className="size-4" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-[#2b2f32]">Khoảng giá</h3>
-                <p className="text-xs text-[#757575]">{resultCount} sản phẩm</p>
+                <h3 className="text-sm font-semibold text-[#2b2f32]">Price range</h3>
+                <p className="text-xs text-[#757575]">{resultCount} products</p>
               </div>
             </div>
             {hasActiveFilters && (
@@ -61,21 +61,21 @@ export function GuestCatalogFilters({
           {hasActiveFilters && (
             <div className={cn("border-b px-4 py-3", storeTokens.border)}>
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-[#2b2f32]">Đang lọc</span>
+                <span className="text-xs font-medium text-[#2b2f32]">Active filters</span>
                 <button
                   type="button"
                   onClick={onClearAll}
                   className="text-xs text-[#00647e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00cbfd]"
                 >
-                  Xóa tất cả
+                  Clear all
                 </button>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {selectedPriceRange && selectedPriceRangeLabel && (
-                  <FilterChip label={selectedPriceRangeLabel} onRemove={() => onPriceRangeChange(null)} removeLabel="Bỏ lọc giá" />
+                  <FilterChip label={selectedPriceRangeLabel} onRemove={() => onPriceRangeChange(null)} removeLabel="Remove price filter" />
                 )}
                 {searchQuery.trim() && (
-                  <FilterChip label={`"${searchQuery.trim()}"`} onRemove={() => onSearchQueryChange("")} removeLabel="Xóa từ khóa" />
+                  <FilterChip label={`"${searchQuery.trim()}"`} onRemove={() => onSearchQueryChange("")} removeLabel="Remove keyword" />
                 )}
               </div>
             </div>
@@ -84,7 +84,7 @@ export function GuestCatalogFilters({
           <div className="p-3">
             <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[#2b2f32]">
               <Banknote className="size-4 text-[#757575]" aria-hidden="true" />
-              Chọn mức giá
+              Choose price range
             </h4>
             <div className="grid grid-cols-1 gap-1.5">
               {priceRanges.map((range) => {
@@ -112,7 +112,7 @@ export function GuestCatalogFilters({
             <div className={cn("flex items-center justify-between rounded-md border px-2.5 py-2 text-xs", storeTokens.border)}>
               <span className="flex items-center gap-1 text-[#757575]">
                 <Tag className="size-3.5" aria-hidden="true" />
-                Kết quả
+                Results
               </span>
               <span className="font-semibold text-[#2b2f32]">{resultCount}</span>
             </div>
@@ -127,8 +127,8 @@ export function GuestCatalogFilters({
               <LogIn className="size-3.5" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-sm font-medium text-[#2b2f32]">Đăng nhập để mua</p>
-              <p className="text-xs text-[#757575]">Giỏ hàng & voucher thành viên</p>
+              <p className="text-sm font-medium text-[#2b2f32]">Sign in to buy</p>
+              <p className="text-xs text-[#757575]">Cart and member vouchers</p>
             </div>
           </div>
           <Button
@@ -136,7 +136,7 @@ export function GuestCatalogFilters({
             className="h-8 w-full rounded-md border-0 !bg-[#00cbfd] !text-[#003e4f]"
             asChild
           >
-            <Link to="/login">Đăng nhập</Link>
+            <Link to="/login">Sign in</Link>
           </Button>
         </CardContent>
       </Card>

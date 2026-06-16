@@ -30,7 +30,7 @@ export const AdminPagination = ({
   totalPages,
   totalItems,
   onPageChange,
-  itemLabel = "mục",
+  itemLabel = "items",
 }: AdminPaginationProps) => {
   const safeTotalPages = Math.max(1, totalPages)
   const showPageButtons = safeTotalPages > 1
@@ -42,7 +42,7 @@ export const AdminPagination = ({
           <>0 {itemLabel}</>
         ) : (
           <>
-            Trang {currentPage}/{safeTotalPages}
+            Page {currentPage}/{safeTotalPages}
           </>
         )}
       </p>
@@ -56,7 +56,7 @@ export const AdminPagination = ({
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
           >
-            Trước
+            Previous
           </Button>
           {getPageNumbers(currentPage, safeTotalPages).map((pageNum) => (
             <Button
@@ -82,7 +82,7 @@ export const AdminPagination = ({
             onClick={() => onPageChange(Math.min(safeTotalPages, currentPage + 1))}
             disabled={currentPage === safeTotalPages}
           >
-            Sau
+            Next
           </Button>
         </div>
       )}

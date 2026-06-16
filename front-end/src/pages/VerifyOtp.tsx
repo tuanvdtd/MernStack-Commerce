@@ -46,19 +46,19 @@ export function VerifyOtp() {
   const handleVerify = async () => {
     setSuccessMessage(null)
     if (!email.trim()) {
-      setError('Vui lòng nhập email')
+      setError('Please enter your email')
       return
     }
     if (otp.length !== 6) {
-      setError('Vui lòng nhập đủ 6 chữ số OTP')
+      setError('Please enter all 6 OTP digits')
       return
     }
     if (password.length < 8) {
-      setError('Mat khau phai co it nhat 8 ky tu')
+      setError('Password must be at least 8 characters')
       return
     }
     if (password !== confirmPassword) {
-      setError('Mat khau xac nhan khong khop')
+      setError('Password confirmation does not match')
       return
     }
 
@@ -78,7 +78,7 @@ export function VerifyOtp() {
     setSuccessMessage(null)
     const ok = await resendOtp(email.trim())
     if (ok) {
-      setSuccessMessage('Mã OTP mới đã được gửi đến email của bạn.')
+      setSuccessMessage('A new OTP code has been sent to your email.')
       setOtp('')
       setResendCooldown(RESEND_COOLDOWN_SEC)
     }
@@ -94,10 +94,10 @@ export function VerifyOtp() {
                 FlashBuy
               </Link>
               <div className="bg-[#d8dee2] w-px h-6" />
-              <h1 className="text-[#2b2f32] text-lg">Xác thực tài khoản</h1>
+              <h1 className="text-[#2b2f32] text-lg">Verify account</h1>
             </div>
             <Link to="/login" className="text-[#00647e] text-sm hover:underline">
-              Trợ giúp?
+              Help?
             </Link>
           </div>
         </div>
@@ -111,16 +111,16 @@ export function VerifyOtp() {
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold mb-2 text-center">Nhập mã OTP</h1>
+          <h1 className="text-2xl font-bold mb-2 text-center">Enter OTP code</h1>
           <p className="text-sm text-gray-500 text-center mb-6">
-            Chúng tôi đã gửi mã 6 chữ số đến email của bạn. Mã có hiệu lực trong{' '}
-            <strong>{OTP_EXPIRY_MINUTES} phút</strong>.
+            We sent a 6-digit code to your email. The code is valid for{' '}
+            <strong>{OTP_EXPIRY_MINUTES} minutes</strong>.
           </p>
 
           <Alert variant="info" className="mb-4">
             <Info className="size-4" />
             <AlertDescription>
-              Kiểm tra hộp thư đến và thư mục spam nếu bạn chưa nhận được email.
+              Check your inbox and spam folder if you have not received the email.
             </AlertDescription>
           </Alert>
 
@@ -152,20 +152,20 @@ export function VerifyOtp() {
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
-              Mã OTP
+              OTP code
             </label>
             <OtpInput value={otp} onChange={setOtp} disabled={loading} />
           </div>
 
           <div className="mb-4">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Mat khau
+              Password
             </label>
             <div className="flex items-center border rounded-md px-4 py-2 mt-1">
               <input
                 type={passwordVisible ? 'text' : 'password'}
                 id="password"
-                placeholder="Nhap mat khau"
+                placeholder="Enter password"
                 className="w-full focus:outline-none"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -184,13 +184,13 @@ export function VerifyOtp() {
 
           <div className="mb-6">
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-              Xac nhan mat khau
+              Confirm password
             </label>
             <div className="flex items-center border rounded-md px-4 py-2 mt-1">
               <input
                 type={confirmPasswordVisible ? 'text' : 'password'}
                 id="confirmPassword"
-                placeholder="Nhap lai mat khau"
+                placeholder="Re-enter password"
                 className="w-full focus:outline-none"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -213,24 +213,24 @@ export function VerifyOtp() {
             disabled={loading || otp.length !== 6 || password.length < 8 || password !== confirmPassword}
             onClick={handleVerify}
           >
-            {loading ? 'Đang xác thực...' : 'Xác thực tài khoản'}
+            {loading ? 'Verifying...' : 'Verify account'}
           </button>
 
           <p className="text-sm text-center text-gray-500 mb-2">
-            Không nhận được mã?{' '}
+            Did not receive the code?{' '}
             <button
               type="button"
               className="text-blue-500 hover:underline disabled:text-gray-400 disabled:no-underline"
               disabled={loading || resendCooldown > 0}
               onClick={handleResend}
             >
-              {resendCooldown > 0 ? `Gửi lại sau ${resendCooldown}s` : 'Gửi lại mã OTP'}
+              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP code'}
             </button>
           </p>
 
           <p className="text-sm text-center text-gray-500">
             <Link to="/login" className="text-blue-500 hover:underline">
-              Quay lại đăng nhập
+              Back to sign in
             </Link>
           </p>
         </div>

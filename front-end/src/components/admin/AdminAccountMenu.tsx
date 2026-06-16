@@ -22,7 +22,7 @@ export function AdminAccountMenu() {
   if (!user) {
     return (
       <Button variant="ghost" size="sm" className="h-8 text-[13px]" asChild>
-        <Link to="/login">Đăng nhập</Link>
+        <Link to="/login">Sign in</Link>
       </Button>
     )
   }
@@ -57,7 +57,7 @@ export function AdminAccountMenu() {
         {/* <DropdownMenuItem asChild>
           <Link to="/" className="cursor-pointer">
             <Store />
-            Về cửa hàng
+            Back to store
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator /> */}
@@ -67,7 +67,7 @@ export function AdminAccountMenu() {
           className="cursor-pointer"
         >
           <LogOut />
-          Đăng xuất
+          Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

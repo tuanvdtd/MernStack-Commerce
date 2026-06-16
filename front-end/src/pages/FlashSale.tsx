@@ -24,7 +24,7 @@ export function FlashSale() {
   const flashSaleProducts = [
     {
       id: "1",
-      name: "iPhone 15 Pro Max 256GB - Chính hãng VN/A",
+      name: "iPhone 15 Pro Max 256GB - Official VN/A",
       image: "https://images.unsplash.com/photo-1673718424704-51d0d2ca1fd2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       price: 25990000,
       originalPrice: 34990000,
@@ -60,7 +60,7 @@ export function FlashSale() {
     },
     {
       id: "5",
-      name: "AirPods Pro 2 (USB-C) - Chính hãng",
+      name: "AirPods Pro 2 (USB-C) - Official",
       image: "https://images.unsplash.com/photo-1590658058105-af4b65f8871b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       price: 5490000,
       originalPrice: 6990000,
@@ -78,7 +78,7 @@ export function FlashSale() {
     },
     {
       id: "7",
-      name: "Sony WH-1000XM5 - Tai nghe chống ồn",
+      name: "Sony WH-1000XM5 - Noise-cancelling headphones",
       image: "https://images.unsplash.com/photo-1598900863662-da1c3e6dd9d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       price: 7990000,
       originalPrice: 9990000,
@@ -114,7 +114,7 @@ export function FlashSale() {
     },
     {
       id: "11",
-      name: "JBL Tune 230NC TWS - Tai nghe true wireless",
+      name: "JBL Tune 230NC TWS - True wireless earbuds",
       image: "https://images.unsplash.com/photo-1632835746204-22f652dac3af?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       price: 1990000,
       originalPrice: 2990000,
@@ -137,12 +137,12 @@ export function FlashSale() {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold mb-4">⚡ Flash Sale Hot</h1>
-          <p className="text-xl mb-6">Giảm giá sốc - Số lượng có hạn</p>
+          <h1 className="text-5xl font-bold mb-4">Flash Sale Hot</h1>
+          <p className="text-xl mb-6">Massive deals - limited quantities</p>
 
           {/* Countdown */}
           <div className="flex justify-center items-center space-x-4">
-            <span className="text-lg font-semibold">Kết thúc trong:</span>
+            <span className="text-lg font-semibold">Ends in:</span>
             <div className="flex space-x-2">
               <div className="bg-white text-red-500 px-4 py-3 rounded-xl font-bold text-2xl min-w-[60px]">
                 {String(timeLeft.hours).padStart(2, "0")}
@@ -166,13 +166,13 @@ export function FlashSale() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                🔥 Đừng bỏ lỡ cơ hội vàng!
+                Do not miss the golden deal!
               </h2>
-              <p className="text-gray-700">Giảm giá lên đến 70% cho các sản phẩm hot nhất</p>
+              <p className="text-gray-700">Save up to 70% on the hottest products</p>
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-red-500">70%</p>
-              <p className="text-gray-700">Giảm tối đa</p>
+              <p className="text-gray-700">Max discount</p>
             </div>
           </div>
         </div>

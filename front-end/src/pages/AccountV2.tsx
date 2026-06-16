@@ -4,7 +4,7 @@ import { AccountSidebar } from "~/components/account/AccountSidebar"
 import { useLogOutConfirm } from "~/hooks/useLogOutConfirm"
 import { userStore } from "~/stores/userStore"
 
-/** Layout trang tài khoản — sidebar + outlet cho các tab URL con. */
+/** Account page layout with sidebar and outlet for child URL tabs. */
 export function AccountV2() {
   const user = userStore((s) => s.user)
   const { open, setOpen, requestLogOut, confirmLogOut } = useLogOutConfirm()

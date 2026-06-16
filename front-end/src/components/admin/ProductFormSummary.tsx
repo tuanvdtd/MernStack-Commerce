@@ -46,8 +46,8 @@ export const ProductFormSummary = ({
     minPrice > 0 || maxPrice > 0
       ? minPrice === maxPrice
         ? formatVnd(minPrice)
-        : `${formatVnd(minPrice)} – ${formatVnd(maxPrice)}`
-      : "Chưa nhập giá"
+        : `${formatVnd(minPrice)} - ${formatVnd(maxPrice)}`
+      : "No price entered"
 
   return (
     <aside
@@ -56,9 +56,9 @@ export const ProductFormSummary = ({
         className
       )}
     >
-      <p className="text-xs font-medium text-muted-foreground">Tóm tắt</p>
+      <p className="text-xs font-medium text-muted-foreground">Summary</p>
       <h2 className="mt-1 font-heading text-base font-semibold leading-snug tracking-tight">
-        {name.trim() || "Sản phẩm mới"}
+        {name.trim() || "New product"}
       </h2>
 
       {slug ? (
@@ -76,7 +76,7 @@ export const ProductFormSummary = ({
               : undefined
           }
         >
-          {isActive ? "Đang bán" : "Ẩn"}
+          {isActive ? "Active" : "Hidden"}
         </Badge>
         {categoryName ? (
           <Badge variant="outline">{categoryName}</Badge>
@@ -92,7 +92,7 @@ export const ProductFormSummary = ({
         />
       ) : (
         <div className="mt-4 flex aspect-square w-full max-w-[140px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 text-xs text-muted-foreground">
-          Chưa có ảnh
+          No image
         </div>
       )}
 
@@ -100,7 +100,7 @@ export const ProductFormSummary = ({
 
       <dl className="space-y-3 text-sm">
         <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">Trục biến thể</dt>
+          <dt className="text-muted-foreground">Variant axes</dt>
           <dd className="font-medium">{optionAxes.length}</dd>
         </div>
         {optionAxes.length > 0 ? (
@@ -113,16 +113,16 @@ export const ProductFormSummary = ({
           </dd>
         ) : null}
         <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">Số SKU</dt>
+          <dt className="text-muted-foreground">SKU count</dt>
           <dd className="font-medium">{skuCount}</dd>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">Giá</dt>
+          <dt className="text-muted-foreground">Price</dt>
           <dd className="text-right font-medium">{priceLabel}</dd>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">Tồn kho</dt>
-          <dd className="font-medium">{totalStock.toLocaleString("vi-VN")}</dd>
+          <dt className="text-muted-foreground">Stock</dt>
+          <dd className="font-medium">{totalStock.toLocaleString("en-US")}</dd>
         </div>
       </dl>
     </aside>

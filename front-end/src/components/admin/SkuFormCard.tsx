@@ -83,7 +83,7 @@ export const SkuFormCard = ({
             (o) => getCatalogLabel(optionCatalog, o.optionName) + ": " + o.value
           )
           .join(" · ")
-      : "Chưa chọn biến thể"
+      : "No variant selected"
 
   return (
     <div
@@ -123,7 +123,7 @@ export const SkuFormCard = ({
               <p className="text-xs font-medium text-foreground">
                 {formatVnd(row.price)}
                 {row.stockQuantity > 0
-                  ? ` · Tồn ${row.stockQuantity.toLocaleString("vi-VN")}`
+                  ? ` - Stock ${row.stockQuantity.toLocaleString("en-US")}`
                   : null}
               </p>
             ) : null}
@@ -137,7 +137,7 @@ export const SkuFormCard = ({
               className="shrink-0 text-destructive hover:text-destructive"
             >
               <Trash2 className="size-4" aria-hidden />
-              Xóa
+              Remove
             </Button>
           ) : null}
         </div>
@@ -177,9 +177,9 @@ export const SkuFormCard = ({
                           )
                         }}
                         options={valueOptions}
-                        placeholder={`Chọn ${label}`}
-                        createPlaceholder="Giá trị mới…"
-                        createButtonLabel="Thêm"
+                        placeholder={`Choose ${label}`}
+                        createPlaceholder="New value..."
+                        createButtonLabel="Add"
                         onCreate={(raw) => handleCreateValue(axisName, raw)}
                       />
                     </FormControl>
@@ -197,7 +197,7 @@ export const SkuFormCard = ({
             name={`variants.${index}.sku`}
             render={({ field }) => (
               <FormItem className="lg:col-span-1">
-                <FormLabel className="text-xs font-medium">Mã SKU *</FormLabel>
+                <FormLabel className="text-xs font-medium">SKU code *</FormLabel>
                 <div className="flex gap-2">
                   <FormControl>
                     <Input
@@ -214,8 +214,8 @@ export const SkuFormCard = ({
                     variant="outline"
                     size="icon-sm"
                     onClick={handleSuggestSku}
-                    title="Gợi ý mã từ tên SPU và giá trị thuộc tính"
-                    aria-label="Gợi ý mã SKU"
+                    title="Suggest a code from the SPU name and attribute values"
+                    aria-label="Suggest SKU code"
                     className="shrink-0"
                   >
                     <Wand2 className="size-4" />
@@ -223,7 +223,7 @@ export const SkuFormCard = ({
                 </div>
                 <FormMessage />
                 <p className="text-xs text-muted-foreground">
-                  Mã unique toàn hệ thống
+                  Unique code across the system
                 </p>
               </FormItem>
             )}
@@ -235,7 +235,7 @@ export const SkuFormCard = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs font-medium">
-                  Giá bán (đ) *
+                  Sale price (VND) *
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -263,7 +263,7 @@ export const SkuFormCard = ({
             name={`variants.${index}.stockQuantity`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-medium">Tồn kho *</FormLabel>
+                <FormLabel className="text-xs font-medium">Stock *</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -288,8 +288,8 @@ export const SkuFormCard = ({
             <FormItem>
               <FormControl>
                 <ImageUploadField
-                  label="Ảnh SKU (tùy chọn)"
-                  description="Dùng khi biến thể có hình khác ảnh SPU"
+                  label="SKU image (optional)"
+                  description="Use when this variant has a different image from the SPU"
                   value={field.value ?? ""}
                   onChange={(newValue, meta) => {
                     onImageFieldChange?.(meta)

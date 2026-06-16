@@ -1,14 +1,11 @@
-/** Định dạng giá VND cho trang tài khoản. */
+/** Format VND prices on account pages. */
 export const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(price)
+  `${price.toLocaleString("en-US")} VND`
 
-/** Định dạng ngày tham gia từ ISO string. */
+/** Format the join date from an ISO string. */
 export const formatJoinDate = (isoDate: string) =>
-  new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
     year: "numeric",
   }).format(new Date(isoDate))

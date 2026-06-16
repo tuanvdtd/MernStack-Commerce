@@ -35,69 +35,69 @@ export function TrackOrder() {
     timeline: [
       {
         status: "ordered",
-        title: "Đặt hàng thành công",
-        description: "Đơn hàng đã được xác nhận",
+        title: "Order placed",
+        description: "Your order has been confirmed",
         time: "2026-04-01 10:30",
         completed: true,
       },
       {
         status: "confirmed",
-        title: "Đã xác nhận",
-        description: "Người bán đã xác nhận đơn hàng",
+        title: "Confirmed",
+        description: "The seller has confirmed the order",
         time: "2026-04-01 14:20",
         completed: true,
       },
       {
         status: "packed",
-        title: "Đã đóng gói",
-        description: "Đơn hàng đang được chuẩn bị giao",
+        title: "Packed",
+        description: "The order is being prepared for delivery",
         time: "2026-04-02 09:15",
         completed: true,
       },
       {
         status: "shipping",
-        title: "Đang giao hàng",
-        description: "Đơn hàng đang trên đường giao đến bạn",
+        title: "Shipping",
+        description: "The order is on its way to you",
         time: "2026-04-03 08:00",
         completed: true,
       },
       {
         status: "delivered",
-        title: "Đã giao hàng",
-        description: "Giao hàng thành công",
+        title: "Delivered",
+        description: "Delivery completed",
         time: "",
         completed: false,
       },
     ],
     shipping: {
-      carrier: "Giao Hàng Nhanh",
+      carrier: "GHN Express",
       trackingNumber: "GHN123456789",
       estimatedDelivery: "2026-04-05",
-      address: "123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+      address: "123 Nguyen Van Linh, District 7, Ho Chi Minh City",
     },
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+    return `${price.toLocaleString("en-US")} VND`;
   };
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Theo dõi đơn hàng</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Track order</h1>
 
         {/* Search Box */}
         <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
           <div className="max-w-2xl mx-auto">
             <label className="block text-gray-700 font-semibold mb-3">
-              Nhập mã đơn hàng của bạn
+              Enter your order code
             </label>
             <div className="flex space-x-4">
               <input
                 type="text"
                 value={orderCode}
                 onChange={(e) => setOrderCode(e.target.value)}
-                placeholder="Ví dụ: FLB2026040412345"
+                placeholder="Example: FLB2026040412345"
                 className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0ACDFF] focus:border-transparent"
                 onKeyPress={(e) => e.key === "Enter" && handleTrack()}
               />
@@ -105,11 +105,11 @@ export function TrackOrder() {
                 onClick={handleTrack}
                 className="bg-[#0ACDFF] hover:bg-[#09b8e8] text-white px-8 py-3 rounded-lg font-semibold transition-colors"
               >
-                Tra cứu
+                Track
               </button>
             </div>
             <p className="text-sm text-gray-500 mt-2">
-              Mã đơn hàng có trong email xác nhận hoặc tin nhắn SMS
+              The order code is in your confirmation email or SMS message
             </p>
           </div>
         </div>
@@ -121,12 +121,12 @@ export function TrackOrder() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-1">Đơn hàng #{orderDetails.code}</h2>
-                  <p className="text-gray-600">Đặt hàng lúc {orderDetails.createdAt}</p>
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">Order #{orderDetails.code}</h2>
+                  <p className="text-gray-600">Ordered at {orderDetails.createdAt}</p>
                 </div>
                 <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-semibold flex items-center">
                   <Truck className="w-5 h-5 mr-2" />
-                  Đang giao hàng
+                  Shipping
                 </div>
               </div>
 
@@ -172,25 +172,25 @@ export function TrackOrder() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                 <MapPin className="w-5 h-5 mr-2 text-[#0ACDFF]" />
-                Thông tin vận chuyển
+                Shipping information
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Đơn vị vận chuyển</span>
+                  <span className="text-gray-600">Carrier</span>
                   <span className="font-semibold">{orderDetails.shipping.carrier}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Mã vận đơn</span>
+                  <span className="text-gray-600">Tracking number</span>
                   <span className="font-semibold">{orderDetails.shipping.trackingNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Dự kiến giao hàng</span>
+                  <span className="text-gray-600">Estimated delivery</span>
                   <span className="font-semibold text-green-600">
                     {orderDetails.shipping.estimatedDelivery}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Địa chỉ giao hàng</span>
+                  <span className="text-gray-600">Shipping address</span>
                   <span className="font-semibold text-right max-w-md">
                     {orderDetails.shipping.address}
                   </span>
@@ -202,7 +202,7 @@ export function TrackOrder() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                 <Package className="w-5 h-5 mr-2 text-[#0ACDFF]" />
-                Sản phẩm trong đơn hàng
+                Products in order
               </h3>
               <div className="space-y-4">
                 {orderDetails.items.map((item) => (
@@ -214,7 +214,7 @@ export function TrackOrder() {
                     />
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                      <p className="text-gray-600 text-sm">Số lượng: {item.quantity}</p>
+                      <p className="text-gray-600 text-sm">Quantity: {item.quantity}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-red-500">{formatPrice(item.price)}</p>
@@ -225,7 +225,7 @@ export function TrackOrder() {
 
               <div className="border-t pt-4 mt-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-gray-900">Tổng tiền</span>
+                  <span className="text-lg font-semibold text-gray-900">Total</span>
                   <span className="text-2xl font-bold text-red-500">
                     {formatPrice(orderDetails.totalAmount)}
                   </span>

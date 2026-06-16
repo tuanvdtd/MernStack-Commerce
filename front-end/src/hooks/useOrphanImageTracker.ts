@@ -23,7 +23,7 @@ export function useOrphanImageTracker(committedUrls: string[] = []) {
     try {
       await deleteProductImage(publicId)
     } catch {
-      // Best-effort cleanup — không chặn UX
+      // Best-effort cleanup; do not block the UX.
     }
   }, [])
 

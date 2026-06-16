@@ -1,7 +1,7 @@
 import { prisma } from '~/lib/prisma'
 import { hashPassword } from '~/utils/password'
 
-const SEED_PASSWORD = 'tuan1234'
+const SEED_PASSWORD = 'tuan123456'
 
 const USERS = [
   {

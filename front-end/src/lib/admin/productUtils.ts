@@ -17,7 +17,7 @@ export const getValuesForOptionAxis = (
   catalog: OptionCatalogEntry[]
 ): string[] => getCatalogValues(catalog, optionName)
 
-/** Suy ra trục từ SPU đã lưu hoặc từ SKU (sản phẩm cũ chưa có optionAxes) */
+/** Derive option axes from saved SPU data or legacy SKUs without optionAxes. */
 export const deriveOptionAxes = (
   product: Pick<SPU, "optionAxes" | "skus">
 ): string[] => {
@@ -104,14 +104,14 @@ export interface SkuFormInput {
 
 export const validateOptionAxes = (axes: string[]): string | null => {
   if (axes.length === 0) {
-    return "SPU cần ít nhất một trục Option (VD: Màu, Bộ nhớ)"
+    return "SPU needs at least one option axis (for example: Color, Storage)"
   }
   if (new Set(axes).size !== axes.length) {
-    return "Không được trùng trục Option trên SPU"
+    return "Option axes cannot be duplicated on the SPU"
   }
   const empty = axes.find((a) => !a.trim())
   if (empty !== undefined) {
-    return "Tên trục Option không được để trống"
+    return "Option axis name is required"
   }
   return null
 }
@@ -148,7 +148,7 @@ export const validateSkuFormsDetailed = (
     return {
       ok: false,
       errors: [{}],
-      globalError: "Vui lòng thêm ít nhất 1 SKU",
+      globalError: "Please add at least 1 SKU",
     }
   }
 
@@ -160,23 +160,23 @@ export const validateSkuFormsDetailed = (
     const code = row.sku.trim()
 
     if (!code) {
-      errors[i].sku = "Mã SKU không được để trống"
+      errors[i].sku = "SKU code is required"
     } else if (code.length < 3) {
-      errors[i].sku = "Mã SKU phải có ít nhất 3 ký tự"
+      errors[i].sku = "SKU code must be at least 3 characters"
     } else {
       const list = codeIndices.get(code) ?? []
       list.push(i)
       codeIndices.set(code, list)
       if (existingCodes.includes(code)) {
-        errors[i].sku = `Mã "${code}" đã tồn tại`
+        errors[i].sku = `Code "${code}" already exists`
       }
     }
 
     if (row.price < 1000) {
-      errors[i].price = "Giá bán phải từ 1.000đ trở lên"
+      errors[i].price = "Sale price must be at least 1,000 VND"
     }
     if (row.stockQuantity < 0) {
-      errors[i].stockQuantity = "Tồn kho không được âm"
+      errors[i].stockQuantity = "Stock cannot be negative"
     }
 
     for (const axis of optionAxes) {
@@ -184,7 +184,7 @@ export const validateSkuFormsDetailed = (
       if (!match?.value.trim()) {
         errors[i].options = {
           ...errors[i].options,
-          [axis]: `Chọn giá trị cho "${getOptionCatalogLabel(axis, catalog)}"`,
+          [axis]: `Choose a value for "${getOptionCatalogLabel(axis, catalog)}"`,
         }
       }
     }
@@ -194,7 +194,7 @@ export const validateSkuFormsDetailed = (
     if (indices.length > 1) {
       for (const i of indices) {
         if (!errors[i].sku) {
-          errors[i].sku = `Mã "${code}" bị trùng trong danh sách`
+          errors[i].sku = `Code "${code}" is duplicated in the list`
         }
       }
     }
@@ -216,7 +216,7 @@ export const validateSkuFormsDetailed = (
   let globalError: string | undefined
   for (const indices of comboIndices.values()) {
     if (indices.length > 1) {
-      globalError = "Hai SKU không được có cùng tổ hợp thuộc tính"
+      globalError = "Two SKUs cannot share the same attribute combination"
       break
     }
   }
@@ -254,5 +254,5 @@ export const validateSkuForms = (
     }
   }
 
-  return "Vui lòng kiểm tra lại thông tin SKU"
+  return "Please review the SKU details"
 }

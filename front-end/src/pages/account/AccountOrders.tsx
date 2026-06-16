@@ -17,7 +17,7 @@ const orders = [
     id: "FLB2026040412345",
     date: "01/04/2026",
     status: "shipping",
-    statusText: "Đang giao hàng",
+    statusText: "Shipping",
     total: 44970000,
     items: 3,
     image:
@@ -28,7 +28,7 @@ const orders = [
     id: "FLB2026032398765",
     date: "23/03/2026",
     status: "delivered",
-    statusText: "Đã giao hàng",
+    statusText: "Delivered",
     total: 15990000,
     items: 1,
     image:
@@ -39,7 +39,7 @@ const orders = [
     id: "FLB2026031556789",
     date: "15/03/2026",
     status: "completed",
-    statusText: "Hoàn thành",
+    statusText: "Completed",
     total: 8990000,
     items: 2,
     image:
@@ -74,28 +74,28 @@ const statusConfig: Record<
   },
 }
 
-/** Tab đơn hàng của tôi. */
+/** My orders tab. */
 export function AccountOrders() {
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">Đơn hàng của tôi</CardTitle>
+          <CardTitle className="text-xl font-semibold">My orders</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="all">
             <TabsList className="w-full">
               <TabsTrigger value="all" className="cursor-pointer">
-                Tất cả
+                All
               </TabsTrigger>
               <TabsTrigger value="shipping" className="cursor-pointer">
-                Đang giao
+                Shipping
               </TabsTrigger>
               <TabsTrigger value="delivered" className="cursor-pointer">
-                Đã giao
+                Delivered
               </TabsTrigger>
               <TabsTrigger value="completed" className="cursor-pointer">
-                Hoàn thành
+                Completed
               </TabsTrigger>
             </TabsList>
 
@@ -128,12 +128,12 @@ export function AccountOrders() {
                       <div className="flex items-center gap-4">
                         <img
                           src={order.image}
-                          alt="Sản phẩm trong đơn"
+                          alt="Product in order"
                           className="w-16 h-16 rounded-xl object-cover ring-1 ring-slate-100"
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-slate-500">
-                            {order.items} sản phẩm • {order.date}
+                            {order.items} items - {order.date}
                           </p>
                           <p className="text-lg font-bold text-slate-900 mt-0.5">
                             {formatPrice(order.total)}
@@ -142,7 +142,7 @@ export function AccountOrders() {
                             <div className="mt-2">
                               <Progress value={order.progress} className="h-1.5" />
                               <p className="text-[11px] text-slate-400 mt-1">
-                                Dự kiến giao: 03/04/2026
+                                Estimated delivery: Apr 3, 2026
                               </p>
                             </div>
                           )}
@@ -154,13 +154,13 @@ export function AccountOrders() {
                             className="cursor-pointer"
                             asChild
                           >
-                            <Link to="/track-order">Theo dõi</Link>
+                            <Link to="/track-order">Track</Link>
                           </Button>
                           <Button
                             size="sm"
                             className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white cursor-pointer"
                           >
-                            Mua lại
+                            Buy again
                           </Button>
                         </div>
                       </div>
@@ -171,17 +171,17 @@ export function AccountOrders() {
             </TabsContent>
             <TabsContent value="shipping">
               <p className="text-center text-slate-400 py-12">
-                Lọc đơn đang giao...
+                Filtering shipping orders...
               </p>
             </TabsContent>
             <TabsContent value="delivered">
               <p className="text-center text-slate-400 py-12">
-                Lọc đơn đã giao...
+                Filtering delivered orders...
               </p>
             </TabsContent>
             <TabsContent value="completed">
               <p className="text-center text-slate-400 py-12">
-                Lọc đơn hoàn thành...
+                Filtering completed orders...
               </p>
             </TabsContent>
           </Tabs>

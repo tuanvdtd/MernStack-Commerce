@@ -7,7 +7,7 @@ export type UploadProductImageResponse = {
 
 function getErrorMessage(error: unknown): string {
   const err = error as { response?: { data?: { message?: string } } }
-  return err.response?.data?.message || 'Không thể tải ảnh lên'
+  return err.response?.data?.message || 'Unable to upload the image'
 }
 
 export async function deleteProductImage(publicId: string): Promise<void> {

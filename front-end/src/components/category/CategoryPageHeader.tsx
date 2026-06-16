@@ -25,9 +25,9 @@ export const CategoryPageHeader = ({
   return (
     <div className="px-4 py-5 sm:px-6 sm:py-6">
       <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-[#757575]">
-        <Link to="/">Trang chủ</Link>
+        <Link to="/">Home</Link>
         <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
-        <Link to="/category/all">Danh mục</Link>
+        <Link to="/category/all">Categories</Link>
         <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="font-medium text-[#2b2f32]">{title}</span>
       </nav>
@@ -46,7 +46,7 @@ export const CategoryPageHeader = ({
         </div>
 
         <div className={`shrink-0 rounded-lg border ${storeTokens.border} ${storeTokens.surface} px-4 py-2.5`}>
-          <span className="block text-xs text-[#757575]">Đang hiển thị</span>
+          <span className="block text-xs text-[#757575]">Showing</span>
           <p className="text-lg font-semibold text-[#2b2f32]">
             {resultCount}
             <span className="text-sm font-normal text-[#757575]"> / {totalCount}</span>
@@ -56,9 +56,9 @@ export const CategoryPageHeader = ({
 
       <ul className="mt-4 flex flex-wrap gap-2">
         {[
-          { icon: ShieldCheck, label: "Chính hãng 100%" },
-          { icon: Truck, label: "Giao nhanh 2h" },
-          { icon: Zap, label: "Flash Sale mỗi ngày" },
+          { icon: ShieldCheck, label: "100% authentic" },
+          { icon: Truck, label: "2-hour fast delivery" },
+          { icon: Zap, label: "Daily flash sales" },
         ].map(({ icon: Icon, label }) => (
           <li
             key={label}

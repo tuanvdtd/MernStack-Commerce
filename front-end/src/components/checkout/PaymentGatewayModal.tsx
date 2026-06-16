@@ -22,22 +22,22 @@ const providerMeta: Record<
   { title: string; description: string; logoSrc: string; accent: string }
 > = {
   stripe: {
-    title: "Thanh toán qua Stripe",
-    description: "Cổng Stripe sẽ mở tại đây sau khi tích hợp API.",
+    title: "Pay with Stripe",
+    description: "The Stripe gateway will open here after the API is integrated.",
     logoSrc: "https://cdn.simpleicons.org/stripe/635bff",
     accent: "border-[#635bff]/20 bg-[#635bff]/5",
   },
   vnpay: {
-    title: "Thanh toán qua VNPay",
-    description: "Cổng VNPay sẽ mở tại đây sau khi tích hợp API.",
+    title: "Pay with VNPay",
+    description: "The VNPay gateway will open here after the API is integrated.",
     logoSrc: VnPayLogo,
     accent: "border-[#0066b3]/20 bg-[#0066b3]/5",
   },
 }
 
 /**
- * Modal placeholder cho cổng thanh toán thẻ (Stripe / VNPay).
- * Sẽ được thay bằng widget hoặc redirect thật khi có API.
+ * Placeholder modal for card payment gateways (Stripe / VNPay).
+ * This will be replaced by a real widget or redirect when the API is available.
  */
 export function PaymentGatewayModal({
   provider,
@@ -74,10 +74,10 @@ export function PaymentGatewayModal({
           <div className="flex w-full flex-col items-center gap-3 rounded-lg border border-dashed border-gray-200 bg-white p-8">
             <Loader2 className="size-8 animate-spin text-[#757575]" aria-hidden="true" />
             <p className="text-center text-sm text-[#757575]">
-              Đang chờ tích hợp cổng thanh toán
+              Waiting for payment gateway integration
             </p>
             <p className="text-center text-xs text-[#aaadb0]">
-              Khu vực này sẽ hiển thị form hoặc iframe từ nhà cung cấp
+              This area will display the provider form or iframe
             </p>
           </div>
         </div>

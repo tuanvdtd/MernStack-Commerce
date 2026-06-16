@@ -93,6 +93,9 @@ const SPU_FIELDS = [
   "optionAxes",
 ] as const satisfies ReadonlyArray<keyof ProductFormValues>
 
+const classificationSelectClass =
+  "h-10 min-h-10 w-full justify-between rounded-lg border-input bg-transparent px-2.5 text-sm shadow-none"
+
 const mapSpuToFormValues = (product: SPU): ProductFormValues => {
   const optionAxes = product.optionAxes?.length
     ? product.optionAxes
@@ -166,7 +169,7 @@ const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
   variants: values.variants.map(mapVariantToPayload),
 })
 
-/** Payload bước SKU — gửi full variants, backend replace theo mã SKU. */
+/** SKU-step payload: send full variants so the backend can replace by SKU code. */
 const mapFormToVariantsPayload = (
   values: ProductFormValues
 ): UpdateProductVariantsPayload => ({
@@ -175,8 +178,8 @@ const mapFormToVariantsPayload = (
 })
 
 /**
- * Dựng payload PATCH SPU từ dirtyFields của React Hook Form.
- * Chỉ gồm field đã sửa; ảnh blob gửi qua multipart, không nhét URL tạm vào JSON.
+ * Build a PATCH SPU payload from React Hook Form dirtyFields.
+ * Include only changed fields; blob images are sent via multipart, not temporary URLs.
  */
 const buildSpuPatchPayload = (
   values: ProductFormValues,
@@ -361,7 +364,7 @@ export function ProductForm() {
 
   const handleRemoveSku = (index: number) => {
     if (fields.length <= 1) {
-      toast.error("SPU cần ít nhất 1 SKU")
+      toast.error("SPU needs at least 1 SKU")
       return
     }
     remove(index)
@@ -388,7 +391,7 @@ export function ProductForm() {
     }
   }
 
-  /** Có thay đổi SPU chưa lưu — dùng dirtyFields + file ảnh pending. */
+  /** Unsaved SPU changes based on dirtyFields plus pending image files. */
   const isSpuDirty = () => {
     if (pendingImagesRef.current.spu) return true
     return SPU_FIELDS.some((field) =>
@@ -428,7 +431,7 @@ export function ProductForm() {
   }
 
   const goToSkuStep = () => {
-    // Chặn ghost click: Tiếp và Lưu cùng vị trí, re-render có thể kích submit nhầm
+    // Guard against a ghost click when Next and Save land in the same position.
     saveClickGuardRef.current = true
     setActiveStep("skus")
     window.setTimeout(() => {
@@ -487,7 +490,7 @@ export function ProductForm() {
     }
   }
 
-  /** Đồng bộ store + reset form sau khi API trả về SPU mới nhất. */
+  /** Sync the store and reset the form after the API returns the latest SPU. */
   const applySavedProduct = (product: SPU) => {
     updateProduct(product.id, product)
     pendingImagesRef.current = { skus: {} }
@@ -498,7 +501,7 @@ export function ProductForm() {
     return product
   }
 
-  /** Lưu bước 1 (edit): PATCH partial SPU, bỏ qua nếu không có thay đổi. */
+  /** Save step 1 in edit mode: PATCH partial SPU, skipping when unchanged. */
   const persistSpuPatch = async (values: ProductFormValues) => {
     if (!id) return
 
@@ -517,7 +520,7 @@ export function ProductForm() {
     return applySavedProduct(product)
   }
 
-  /** Lưu bước 2 (edit): PUT toàn bộ variants. */
+  /** Save step 2 in edit mode: PUT all variants. */
   const persistVariants = async (values: ProductFormValues) => {
     if (!id) return
 
@@ -528,7 +531,7 @@ export function ProductForm() {
     return applySavedProduct(product)
   }
 
-  /** Tạo mới: POST full SPU + SKU, rồi chuyển sang edit mode. */
+  /** Create mode: POST full SPU plus SKUs, then switch to edit mode. */
   const persistCreate = async (values: ProductFormValues) => {
     const payload = mapFormToPayload(values)
     const imageFiles = collectPendingImageFiles()
@@ -549,7 +552,7 @@ export function ProductForm() {
     setIsSubmitting(true)
     try {
       await persistSpuPatch(form.getValues())
-      toast.success("Đã lưu thay đổi SPU")
+      toast.success("SPU changes saved")
       setSpuSaveDialogOpen(false)
       goToSkuStep()
     } catch (error) {
@@ -565,10 +568,10 @@ export function ProductForm() {
       try {
         if (id) {
           await persistVariants(values)
-          toast.success("Đã lưu sản phẩm")
+          toast.success("Product saved")
         } else {
           await persistCreate(values)
-          toast.success("Đã tạo sản phẩm")
+          toast.success("Product created")
         }
       } catch (error) {
         toast.error(getProductApiError(error))
@@ -606,7 +609,7 @@ export function ProductForm() {
     return (
       <AdminPage className="items-center justify-center gap-3 py-24">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Đang tải sản phẩm…</p>
+        <p className="text-sm text-muted-foreground">Loading product...</p>
       </AdminPage>
     )
   }
@@ -614,15 +617,15 @@ export function ProductForm() {
   return (
     <AdminPage className="gap-6">
       <AdminPageHeader
-        title={isEditMode ? "Chỉnh sửa SPU / SKU" : "Tạo SPU & SKU"}
-        description="Hoàn thành thông tin SPU, bấm Tiếp để tạo SKU. Slug URL do hệ thống tự sinh khi lưu."
+        title={isEditMode ? "Edit SPU / SKU" : "Create SPU & SKU"}
+        description="Complete the SPU information, then click Next to create SKUs. The URL slug is generated automatically on save."
         leading={
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
             onClick={() => navigate("/admin/products")}
-            aria-label="Quay lại"
+            aria-label="Back"
           >
             <ArrowLeft className="size-4" />
           </Button>
@@ -648,10 +651,10 @@ export function ProductForm() {
                 <section className="space-y-4">
                   <div>
                     <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Định danh sản phẩm
+                      Product identity
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Tên hiển thị trên cửa hàng. URL slug tự sinh khi lưu.
+                      Display name shown in the store. The URL slug is generated on save.
                     </p>
                   </div>
 
@@ -660,9 +663,9 @@ export function ProductForm() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tên sản phẩm *</FormLabel>
+                        <FormLabel>Product name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="VD: iPhone 15" {...field} />
+                          <Input placeholder="E.g. iPhone 15" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -674,10 +677,10 @@ export function ProductForm() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mô tả *</FormLabel>
+                        <FormLabel>Description *</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Mô tả chi tiết sản phẩm cho trang chi tiết..."
+                            placeholder="Detailed product description for the product page..."
                             rows={4}
                             {...field}
                           />
@@ -693,10 +696,10 @@ export function ProductForm() {
                 <section className="space-y-4">
                   <div>
                     <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Phân loại
+                      Classification
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Danh mục và thương hiệu dùng cho lọc và SEO
+                      Category and brand used for filters and SEO
                     </p>
                   </div>
 
@@ -706,19 +709,21 @@ export function ProductForm() {
                       name="categoryId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Danh mục *</FormLabel>
+                          <FormLabel>Category *</FormLabel>
                           <FormControl>
                             <CatalogCreatablePicker
                               value={field.value}
                               onChange={field.onChange}
                               options={categoryCatalog.map((c) => c.id)}
+                              className="w-full"
+                              triggerClassName={classificationSelectClass}
                               formatOption={(categoryId) =>
                                 findCategoryById(categoryCatalog, categoryId)
                                   ?.name ?? categoryId
                               }
-                              placeholder="Chọn danh mục"
-                              createPlaceholder="Tên danh mục mới (VD: Màn hình)"
-                              createButtonLabel="Thêm danh mục"
+                              placeholder="Choose category"
+                              createPlaceholder="New category name (e.g. Monitor)"
+                              createButtonLabel="Add category"
                               onCreate={async (raw) => {
                                 try {
                                   const category = await createCategory(raw)
@@ -735,9 +740,6 @@ export function ProductForm() {
                               }}
                             />
                           </FormControl>
-                          <FormDescription>
-                            Chọn từ danh sách hoặc thêm danh mục mới.
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -748,14 +750,14 @@ export function ProductForm() {
                       name="brand"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Thương hiệu *</FormLabel>
+                          <FormLabel>Brand *</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
                           >
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Chọn thương hiệu" />
+                              <SelectTrigger className={classificationSelectClass}>
+                                <SelectValue placeholder="Choose brand" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -771,6 +773,9 @@ export function ProductForm() {
                       )}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Choose from the available categories or add a new one.
+                  </p>
                 </section>
 
                 <Separator />
@@ -806,10 +811,10 @@ export function ProductForm() {
                 <section className="space-y-4">
                   <div>
                     <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Media & trạng thái
+                      Media & status
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Ảnh đại diện SPU bắt buộc. Ảnh SKU là tùy chọn.
+                      SPU cover image is required. SKU images are optional.
                     </p>
                   </div>
 
@@ -820,8 +825,8 @@ export function ProductForm() {
                       <FormItem>
                         <FormControl>
                           <ImageUploadField
-                            label="Ảnh đại diện SPU *"
-                            description="Bắt buộc để hiển thị trên storefront"
+                            label="SPU cover image *"
+                            description="Required for storefront display"
                             value={field.value}
                             onChange={(newValue, meta) => {
                               trackSpuImage(meta)
@@ -841,9 +846,9 @@ export function ProductForm() {
                     render={({ field }) => (
                       <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 px-4 py-3">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-sm">Đang bán</FormLabel>
+                          <FormLabel className="text-sm">Active</FormLabel>
                           <FormDescription className="text-xs">
-                            Tắt để ẩn toàn bộ SPU và SKU khỏi cửa hàng
+                            Turn off to hide the entire SPU and its SKUs from the store
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -871,7 +876,7 @@ export function ProductForm() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Biến thể SKU
+                      SKU variants
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {loadedSlug ? (
@@ -882,7 +887,7 @@ export function ProductForm() {
                           </span>
                         </>
                       ) : (
-                        "Mã, giá, tồn kho và giá trị theo từng trục Option"
+                        "Code, price, stock, and values for each option axis"
                       )}
                     </p>
                   </div>
@@ -894,7 +899,7 @@ export function ProductForm() {
                     onClick={handleAddSku}
                   >
                     <Plus className="size-4" aria-hidden />
-                    Thêm SKU
+                    Add SKU
                   </Button>
                 </div>
 
@@ -935,8 +940,8 @@ export function ProductForm() {
                             </span>
                             <span className="text-xs font-normal text-muted-foreground">
                               {watchVariants[index]?.price > 0
-                                ? `${watchVariants[index].price.toLocaleString("vi-VN")}đ`
-                                : "Chưa nhập giá"}
+                                ? `${watchVariants[index].price.toLocaleString("en-US")} VND`
+                                : "No price entered"}
                             </span>
                           </span>
                         </AccordionTrigger>
@@ -971,7 +976,7 @@ export function ProductForm() {
                 className="text-muted-foreground"
                 onClick={() => navigate("/admin/products")}
               >
-                Đóng
+                Close
               </Button>
               <div className="flex flex-wrap items-center gap-2">
                 {activeStep === "skus" ? (
@@ -981,7 +986,7 @@ export function ProductForm() {
                     size="sm"
                     onClick={() => setActiveStep("spu")}
                   >
-                    Quay lại SPU
+                    Back to SPU
                   </Button>
                 ) : null}
                 {activeStep === "spu" ? (
@@ -990,7 +995,7 @@ export function ProductForm() {
                     className={cn(adminBrandButtonClass, "gap-2")}
                     onClick={() => void requestNavigateToSkus()}
                   >
-                    Tiếp
+                    Next
                     <ArrowRight className="size-4" aria-hidden />
                   </Button>
                 ) : (
@@ -1006,7 +1011,7 @@ export function ProductForm() {
                     {isSubmitting ? (
                       <Loader2 className="size-4 animate-spin" aria-hidden />
                     ) : null}
-                    {id ? "Lưu sản phẩm" : "Tạo sản phẩm"}
+                    {id ? "Save product" : "Create product"}
                   </Button>
                 )}
               </div>
@@ -1020,21 +1025,21 @@ export function ProductForm() {
       <AlertDialog open={spuSaveDialogOpen} onOpenChange={setSpuSaveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Lưu thay đổi SPU?</AlertDialogTitle>
+            <AlertDialogTitle>Save SPU changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có thay đổi thông tin SPU chưa lưu. Lưu trước khi chuyển sang
-              bước SKU? Chọn Bỏ qua sẽ hoàn tác các thay đổi SPU.
+              You have unsaved SPU changes. Save before moving to the SKU step?
+              Choosing Skip will revert the SPU changes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
             <Button
               type="button"
               variant="outline"
               disabled={isSubmitting}
               onClick={continueToSkusWithoutSaving}
             >
-              Bỏ qua
+              Skip
             </Button>
             <Button
               type="button"
@@ -1045,7 +1050,7 @@ export function ProductForm() {
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
               ) : null}
-              Lưu và tiếp
+              Save and continue
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

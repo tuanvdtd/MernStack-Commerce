@@ -29,15 +29,15 @@ export function LogOutConfirmDialog({
           <AlertDialogMedia>
             <LogOut />
           </AlertDialogMedia>
-          <AlertDialogTitle>Đăng xuất?</AlertDialogTitle>
+          <AlertDialogTitle>Log out?</AlertDialogTitle>
           <AlertDialogDescription>
-            Bạn có chắc muốn đăng xuất khỏi tài khoản?
+            Are you sure you want to log out of your account?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Hủy</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={onConfirm}>
-            Đăng xuất
+            Log out
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

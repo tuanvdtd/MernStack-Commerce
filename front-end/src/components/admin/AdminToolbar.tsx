@@ -18,7 +18,7 @@ export const AdminToolbar = ({ children, className }: AdminToolbarProps) => (
 
 export const AdminToolbarSearch = ({
   children,
-  label = "Tìm kiếm",
+  label = "Search",
   className,
 }: {
   children: ReactNode

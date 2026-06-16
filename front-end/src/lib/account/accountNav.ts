@@ -16,12 +16,12 @@ export type AccountNavItem = {
   count?: number
 }
 
-/** Cấu hình sidebar tài khoản — path là segment con của /account. */
+/** Account sidebar config; path is the child segment under /account. */
 export const accountNavItems: AccountNavItem[] = [
-  { id: "profile", label: "Thông tin cá nhân", icon: User, path: "profile" },
-  { id: "orders", label: "Đơn hàng", icon: Package, path: "orders" },
-  { id: "wishlist", label: "Yêu thích", icon: Heart, path: "wishlist" },
-  { id: "addresses", label: "Địa chỉ", icon: MapPin, path: "addresses" },
-  { id: "payment", label: "Thanh toán", icon: CreditCard, path: "payment" },
-  { id: "settings", label: "Cài đặt", icon: Settings, path: "settings" },
+  { id: "profile", label: "Profile", icon: User, path: "profile" },
+  { id: "orders", label: "Orders", icon: Package, path: "orders" },
+  { id: "wishlist", label: "Wishlist", icon: Heart, path: "wishlist" },
+  { id: "addresses", label: "Addresses", icon: MapPin, path: "addresses" },
+  { id: "payment", label: "Payment", icon: CreditCard, path: "payment" },
+  { id: "settings", label: "Settings", icon: Settings, path: "settings" },
 ]

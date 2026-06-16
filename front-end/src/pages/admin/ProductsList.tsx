@@ -6,6 +6,7 @@ import {
   fetchProducts,
   getProductApiError,
 } from "~/apis/productApi"
+import { fetchCategories } from "~/apis/categoryApi"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import {
@@ -62,6 +63,7 @@ import {
 } from "~/lib/admin/ui"
 import { ADMIN_PAGE_SIZE, paginate } from "~/lib/admin/pagination"
 import { cn } from "~/lib/utils"
+import type { AdminCategory } from "~/types/admin/index"
 
 export function ProductsList() {
   const { products, setProducts, deleteProduct } = useAdminStore()
@@ -72,6 +74,7 @@ export function ProductsList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [categories, setCategories] = useState<AdminCategory[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -79,8 +82,14 @@ export function ProductsList() {
     const loadProducts = async () => {
       setIsLoading(true)
       try {
-        const data = await fetchProducts()
-        if (!cancelled) setProducts(data)
+        const [productData, categoryData] = await Promise.all([
+          fetchProducts(),
+          fetchCategories(),
+        ])
+        if (!cancelled) {
+          setProducts(productData)
+          setCategories(categoryData)
+        }
       } catch (error) {
         if (!cancelled) toast.error(getProductApiError(error))
       } finally {
@@ -94,15 +103,13 @@ export function ProductsList() {
     }
   }, [setProducts])
 
-  const categories = Array.from(new Set(products.map((p) => p.categoryName)))
-
   const filteredProducts = products.filter((product) => {
     const q = searchQuery.toLowerCase()
     const matchesSearch =
       product.name.toLowerCase().includes(q) ||
       product.brand.toLowerCase().includes(q)
     const matchesCategory =
-      categoryFilter === "all" || product.categoryName === categoryFilter
+      categoryFilter === "all" || product.categoryId === categoryFilter
     const matchesActive =
       activeFilter === "all" ||
       (activeFilter === "active" && product.isActive) ||
@@ -127,7 +134,7 @@ export function ProductsList() {
     try {
       await deleteProductApi(selectedProductId)
       deleteProduct(selectedProductId)
-      toast.success("Đã xóa sản phẩm")
+      toast.success("Product deleted")
     } catch (error) {
       toast.error(getProductApiError(error))
     } finally {
@@ -149,13 +156,13 @@ export function ProductsList() {
     <>
       <AdminWorkspace>
         <AdminWorkspaceHeader
-          title="Sản phẩm"
-          description="Danh sách SPU trong catalog cửa hàng."
+          title="Products"
+          description="SPU list in the store catalog."
           actions={
             <Link to="/admin/products/create">
               <Button size="sm" className={cn("gap-1.5", adminBrandButtonClass)}>
                 <Plus className="size-3.5" strokeWidth={2} />
-                Thêm SPU
+                Add SPU
               </Button>
             </Link>
           }
@@ -163,18 +170,18 @@ export function ProductsList() {
 
         <AdminMetricStrip
           metrics={[
-            { label: "Tổng SPU", value: products.length },
+            { label: "Total SPU", value: products.length },
             {
-              label: "Đang bán",
+              label: "Active",
               value: products.filter((p) => p.isActive).length,
               tone: "success",
             },
             {
-              label: "Đã ẩn",
+              label: "Hidden",
               value: products.filter((p) => !p.isActive).length,
             },
             {
-              label: "Sắp hết hàng",
+              label: "Low stock",
               value: products.filter((p) => p.totalStock < 10).length,
               tone: "warning",
             },
@@ -182,14 +189,14 @@ export function ProductsList() {
         />
 
         <AdminFilterRow>
-          <AdminFilterSearch label="Từ khóa">
+          <AdminFilterSearch label="Keyword">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-brand)]"
                 strokeWidth={2}
               />
               <Input
-                placeholder="Tên, thương hiệu..."
+                placeholder="Name, brand..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -199,7 +206,7 @@ export function ProductsList() {
               />
             </div>
           </AdminFilterSearch>
-          <AdminFilterField label="Danh mục">
+          <AdminFilterField label="Category">
             <Select
               value={categoryFilter}
               onValueChange={(v) => {
@@ -208,19 +215,19 @@ export function ProductsList() {
               }}
             >
               <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-                <SelectValue placeholder="Danh mục" />
+                <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả danh mục</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                <SelectItem value="all">All categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </AdminFilterField>
-          <AdminFilterField label="Trạng thái">
+          <AdminFilterField label="Status">
             <Select
               value={activeFilter}
               onValueChange={(v) => {
@@ -229,12 +236,12 @@ export function ProductsList() {
               }}
             >
               <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-                <SelectValue placeholder="Trạng thái" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="active">Đang bán</SelectItem>
-                <SelectItem value="inactive">Đã ẩn</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Hidden</SelectItem>
               </SelectContent>
             </Select>
           </AdminFilterField>
@@ -244,14 +251,14 @@ export function ProductsList() {
           <Table>
             <TableHeader>
               <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
-                <TableHead className={adminThClass}>Sản phẩm</TableHead>
-                <TableHead className={adminThClass}>Danh mục</TableHead>
+                <TableHead className={adminThClass}>Product</TableHead>
+                <TableHead className={adminThClass}>Category</TableHead>
                 <TableHead className={adminThClass}>SKU</TableHead>
-                <TableHead className={adminThClass}>Giá</TableHead>
-                <TableHead className={adminThClass}>Tồn</TableHead>
-                <TableHead className={adminThClass}>Trạng thái</TableHead>
+                <TableHead className={adminThClass}>Price</TableHead>
+                <TableHead className={adminThClass}>Stock</TableHead>
+                <TableHead className={adminThClass}>Status</TableHead>
                 <TableHead className={cn(adminThClass, "text-right")}>
-                  Thao tác
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -261,11 +268,11 @@ export function ProductsList() {
                   <TableCell colSpan={7} className="p-0">
                     <AdminEmptyState
                       icon={Package}
-                      title="Không tìm thấy sản phẩm"
+                      title="No products found"
                       description={
                         hasActiveFilters
-                          ? "Thử đổi bộ lọc hoặc từ khóa tìm kiếm."
-                          : "Catalog đang trống."
+                          ? "Try changing filters or search keywords."
+                          : "The catalog is empty."
                       }
                       action={
                         hasActiveFilters ? (
@@ -275,12 +282,12 @@ export function ProductsList() {
                             className="h-8 text-[13px]"
                             onClick={handleClearFilters}
                           >
-                            Xóa bộ lọc
+                            Clear filters
                           </Button>
                         ) : (
                           <Link to="/admin/products/create">
                             <Button size="sm" className={adminBrandButtonClass}>
-                              Thêm SPU
+                              Add SPU
                             </Button>
                           </Link>
                         )
@@ -327,7 +334,7 @@ export function ProductsList() {
                       </span>
                       {product.minPrice !== product.maxPrice && (
                         <p className="text-[12px] text-muted-foreground">
-                          đến {formatVnd(product.maxPrice)}
+                          to {formatVnd(product.maxPrice)}
                         </p>
                       )}
                     </TableCell>
@@ -352,7 +359,7 @@ export function ProductsList() {
                             : "bg-muted text-muted-foreground"
                         )}
                       >
-                        {product.isActive ? "Đang bán" : "Ẩn"}
+                        {product.isActive ? "Active" : "Hidden"}
                       </span>
                     </TableCell>
                     <TableCell className={cn(adminTdClass, "text-right")}>
@@ -362,7 +369,7 @@ export function ProductsList() {
                             variant="outline"
                             size="icon-sm"
                             className={cn("size-8 bg-background", adminGhostButtonClass)}
-                            aria-label="Sửa"
+                            aria-label="Edit"
                           >
                             <Pencil className="size-3.5" strokeWidth={1.75} />
                           </Button>
@@ -375,7 +382,7 @@ export function ProductsList() {
                             "size-8 border-destructive/30 bg-background text-destructive hover:bg-destructive/5",
                             adminGhostButtonClass
                           )}
-                          aria-label="Xóa"
+                          aria-label="Delete"
                           onClick={() => {
                             setSelectedProductId(product.id)
                             setDeleteDialogOpen(true)
@@ -399,7 +406,7 @@ export function ProductsList() {
             totalItems={filteredProducts.length}
             pageSize={ADMIN_PAGE_SIZE}
             onPageChange={setCurrentPage}
-            itemLabel="sản phẩm"
+            itemLabel="products"
           />
         </AdminWorkspaceFooter>
       </AdminWorkspace>
@@ -407,18 +414,18 @@ export function ProductsList() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xóa sản phẩm?</AlertDialogTitle>
+            <AlertDialogTitle>Delete product?</AlertDialogTitle>
             <AlertDialogDescription>
-              SPU và toàn bộ SKU liên quan sẽ bị xóa. Thao tác không hoàn tác.
+              The SPU and all related SKUs will be deleted. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Xóa
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

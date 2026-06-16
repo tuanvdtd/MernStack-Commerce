@@ -54,12 +54,12 @@ export function Login() {
   const handleSignIn = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError('Vui lòng nhập đúng định dạng email');
+      setError('Please enter a valid email address');
       return;
     }
 
     if (!formData.password) {
-      setError('Vui lòng nhập mật khẩu');
+      setError('Please enter your password');
       return;
     }
 
@@ -94,10 +94,10 @@ export function Login() {
                 FlashBuy
               </Link>
               <div className="bg-[#d8dee2] w-px h-6" />
-              <h1 className="text-[#2b2f32] text-lg">Đăng nhập</h1>
+              <h1 className="text-[#2b2f32] text-lg">Sign in</h1>
             </div>
             <Link to="/login" className="text-[#00647e] text-sm hover:underline">
-              Cần trợ giúp?
+              Need help?
             </Link>
           </div>
         </div>
@@ -106,15 +106,15 @@ export function Login() {
       {/* Main Content */}
       <div className="flex h-[700px] items-center justify-center bg-gray-100">
       <div className="bg-white w-[400px] p-8 rounded-lg shadow-md">
-        {/* Tiêu đề */}
-        <h1 className="text-2xl font-bold mb-6 text-center">Đăng nhập vào tài khoản</h1>
+        {/* Title */}
+        <h1 className="text-2xl font-bold mb-6 text-center">Sign in to your account</h1>
 
         {/* Verified Email Alert */}
         {verifiedEmail && (
           <Alert variant="success" className="mb-4">
             <CheckCircle className="size-4" />
             <AlertDescription>
-              Email <strong>{verifiedEmail}</strong> đã được xác thực. Bạn có thể đăng nhập ngay.
+              Email <strong>{verifiedEmail}</strong> has been verified. You can sign in now.
             </AlertDescription>
           </Alert>
         )}
@@ -123,12 +123,12 @@ export function Login() {
           <Alert variant="info" className="mb-4">
             <Info className="size-4" />
             <AlertDescription>
-              Vui lòng xác thực email <strong>{registeredEmail}</strong>.{' '}
+              Please verify email <strong>{registeredEmail}</strong>.{' '}
               <Link
                 to={`/verify-otp?email=${encodeURIComponent(registeredEmail)}`}
                 className="font-medium underline"
               >
-                Nhập mã OTP
+                Enter OTP
               </Link>
             </AlertDescription>
           </Alert>
@@ -144,7 +144,7 @@ export function Login() {
                   to={`/verify-otp?email=${encodeURIComponent(formData.email)}`}
                   className="font-medium underline"
                 >
-                  Xác thực tài khoản bằng OTP
+                  Verify account with OTP
                 </Link>
               </p>
             )}
@@ -170,13 +170,13 @@ export function Login() {
         {/* Password Field */}
         <div className="mb-4">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Mật khẩu
+            Password
           </label>
           <div className="flex items-center border rounded-md px-4 py-2 mt-1">
             <input
               type={passwordVisible ? 'text' : 'password'}
               id="password"
-              placeholder="Nhập mật khẩu"
+              placeholder="Enter password"
               className="w-full focus:outline-none"
               value={formData.password}
               onChange={(e) => handleInputChange('password', e.target.value)}
@@ -185,14 +185,14 @@ export function Login() {
             <button
               className="text-gray-500 hover:text-gray-700 ml-2"
               onClick={togglePasswordVisibility}
-              aria-label={passwordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              aria-label={passwordVisible ? "Hide password" : "Show password"}
             >
               {passwordVisible ? <EyeOff /> : <Eye />}
             </button>
           </div>
           <button className="text-sm text-blue-500 hover:underline mt-1 block text-right"
             onClick={handleForgetPasswordClick}>
-            Quên mật khẩu?
+            Forgot password?
           </button>
         </div>
 
@@ -202,24 +202,24 @@ export function Login() {
           disabled={loading}
           onClick={handleSignIn}
         >
-          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          {loading ? 'Signing in...' : 'Sign in'}
         </button>
 
         {/* Continue with Google */}
         <button className="w-full bg-gray-100 flex items-center justify-center py-2 rounded-md font-medium hover:bg-gray-200 transition mb-4"
           onClick={handleGoogleSignIn}>
           <img src={imgGoogleIcon} alt="Google Logo" className="w-5 h-5 mr-2" />
-          Đăng nhập với Google
+          Sign in with Google
         </button>
 
         {/* Footer */}
         <p className="text-sm text-center text-gray-500">
-          Bạn chưa có tài khoản?{' '}
+          Do not have an account?{' '}
           <button
             onClick={handleSignupClick}
             className="text-blue-500 hover:underline"
           >
-            Đăng ký
+            Sign up
           </button>
         </p>
       </div>

@@ -13,7 +13,7 @@ type AccountSidebarProps = {
   onLogOut: () => void
 }
 
-/** Sidebar điều hướng tab tài khoản — dùng NavLink tới URL con /account/*. */
+/** Account tab sidebar using NavLink to child /account/* URLs. */
 export function AccountSidebar({ user, onLogOut }: AccountSidebarProps) {
   const avatarSrc =
     user.profilePic ??
@@ -32,7 +32,7 @@ export function AccountSidebar({ user, onLogOut }: AccountSidebarProps) {
             </Avatar>
             <button
               type="button"
-              aria-label="Đổi ảnh đại diện"
+              aria-label="Change avatar"
               className="absolute -bottom-1 -right-1 bg-white rounded-full p-1.5 shadow-md border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
             >
               <Camera className="w-3.5 h-3.5 text-slate-600" />
@@ -42,14 +42,14 @@ export function AccountSidebar({ user, onLogOut }: AccountSidebarProps) {
           <p className="text-slate-500 text-sm mb-3">{user.email}</p>
           <Badge className="bg-gradient-to-r from-amber-400 to-yellow-500 text-white border-0 px-3 py-0.5 text-xs font-semibold shadow-sm">
             <Star className="w-3 h-3 mr-1 fill-current" />
-            Thành viên Gold
+            Gold member
           </Badge>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="p-2">
-          <nav className="space-y-0.5" aria-label="Menu tài khoản">
+          <nav className="space-y-0.5" aria-label="Account menu">
             {accountNavItems.map((item) => {
               const Icon = item.icon
               return (
@@ -85,7 +85,7 @@ export function AccountSidebar({ user, onLogOut }: AccountSidebarProps) {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-all cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-              <span>Đăng xuất</span>
+              <span>Log out</span>
             </button>
           </nav>
         </CardContent>

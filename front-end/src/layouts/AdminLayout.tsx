@@ -33,18 +33,18 @@ const SIDEBAR_COLLAPSED_KEY = "admin-sidebar-collapsed"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
-  { icon: Package, label: "Sản phẩm", path: "/admin/products" },
-  { icon: Warehouse, label: "Kho hàng", path: "/admin/inventory" },
-  { icon: ShoppingCart, label: "Đơn hàng", path: "/admin/orders" },
-  { icon: Ticket, label: "Mã giảm giá", path: "/admin/discounts" },
+  { icon: Package, label: "Products", path: "/admin/products" },
+  { icon: Warehouse, label: "Inventory", path: "/admin/inventory" },
+  { icon: ShoppingCart, label: "Orders", path: "/admin/orders" },
+  { icon: Ticket, label: "Discounts", path: "/admin/discounts" },
 ] as const
 
 const routeTitles: Record<string, string> = {
   "/admin": "Dashboard",
-  "/admin/products": "Sản phẩm",
-  "/admin/inventory": "Kho hàng",
-  "/admin/orders": "Đơn hàng",
-  "/admin/discounts": "Mã giảm giá",
+  "/admin/products": "Products",
+  "/admin/inventory": "Inventory",
+  "/admin/orders": "Orders",
+  "/admin/discounts": "Discounts",
 }
 
 const isNavActive = (pathname: string, path: string) => {
@@ -53,10 +53,10 @@ const isNavActive = (pathname: string, path: string) => {
 }
 
 const getPageTitle = (pathname: string) => {
-  if (pathname.startsWith("/admin/products/")) return "Sản phẩm"
-  if (pathname.startsWith("/admin/orders/")) return "Đơn hàng"
-  if (pathname.startsWith("/admin/discounts/")) return "Mã giảm giá"
-  return routeTitles[pathname] ?? "Quản trị"
+  if (pathname.startsWith("/admin/products/")) return "Products"
+  if (pathname.startsWith("/admin/orders/")) return "Orders"
+  if (pathname.startsWith("/admin/discounts/")) return "Discounts"
+  return routeTitles[pathname] ?? "Admin"
 }
 
 function SidebarTooltip({
@@ -112,7 +112,7 @@ export function AdminLayout() {
           <button
             type="button"
             className="fixed inset-0 z-40 bg-zinc-900/20 backdrop-blur-[1px] lg:hidden"
-            aria-label="Đóng menu"
+            aria-label="Close menu"
             onClick={handleCloseSidebar}
           />
         )}
@@ -153,7 +153,7 @@ export function AdminLayout() {
                 size="icon-sm"
                 className="hidden shrink-0 text-muted-foreground hover:bg-zinc-100 hover:text-foreground lg:inline-flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                 onClick={toggleSidebarCollapsed}
-                aria-label="Thu nhỏ sidebar"
+                aria-label="Collapse sidebar"
               >
                 <PanelLeftClose className="size-4" strokeWidth={1.75} />
               </Button>
@@ -162,7 +162,7 @@ export function AdminLayout() {
 
           <nav
             className="flex-1 space-y-1 overflow-y-auto px-2 py-3"
-            aria-label="Menu quản trị"
+            aria-label="Admin menu"
           >
             {menuItems.map((item) => {
               const Icon = item.icon
@@ -232,7 +232,7 @@ export function AdminLayout() {
                 </div>
               </SidebarTooltip>
             )}
-            {/* <SidebarTooltip label="Về cửa hàng" collapsed={sidebarCollapsed}>
+            {/* <SidebarTooltip label="Back to store" collapsed={sidebarCollapsed}>
               <Link to="/" onClick={handleCloseSidebar}>
                 <Button
                   variant="ghost"
@@ -245,12 +245,12 @@ export function AdminLayout() {
                   )}
                 >
                   <Home className="size-3.5 shrink-0" aria-hidden strokeWidth={1.75} />
-                  {!sidebarCollapsed && "Về cửa hàng"}
+                  {!sidebarCollapsed && "Back to store"}
                 </Button>
               </Link>
             </SidebarTooltip> */}
             {user && (
-              <SidebarTooltip label="Đăng xuất" collapsed={sidebarCollapsed}>
+              <SidebarTooltip label="Log out" collapsed={sidebarCollapsed}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -266,7 +266,7 @@ export function AdminLayout() {
                   }}
                 >
                   <LogOut className="size-3.5 shrink-0" aria-hidden strokeWidth={1.75} />
-                  {!sidebarCollapsed && "Đăng xuất"}
+                  {!sidebarCollapsed && "Log out"}
                 </Button>
               </SidebarTooltip>
             )}
@@ -277,7 +277,7 @@ export function AdminLayout() {
                 size="sm"
                 className="hidden h-8 w-full justify-center px-2 text-muted-foreground hover:bg-zinc-100 hover:text-foreground lg:inline-flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                 onClick={toggleSidebarCollapsed}
-                aria-label="Mở rộng sidebar"
+                aria-label="Expand sidebar"
               >
                 <PanelLeftOpen className="size-3.5" strokeWidth={1.75} />
               </Button>
@@ -294,7 +294,7 @@ export function AdminLayout() {
                 size="icon-sm"
                 className="lg:hidden"
                 onClick={() => setSidebarOpen((open) => !open)}
-                aria-label={sidebarOpen ? "Đóng menu" : "Mở menu"}
+                aria-label={sidebarOpen ? "Close menu" : "Open menu"}
               >
                 {sidebarOpen ? (
                   <X className="size-4" strokeWidth={1.75} />
@@ -308,7 +308,7 @@ export function AdminLayout() {
                 size="icon-sm"
                 className="hidden text-muted-foreground lg:inline-flex"
                 onClick={toggleSidebarCollapsed}
-                aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 {sidebarCollapsed ? (
                   <PanelLeftOpen className="size-4" strokeWidth={1.75} />
@@ -317,7 +317,7 @@ export function AdminLayout() {
                 )}
               </Button>
               <p className="truncate text-[13px] text-muted-foreground">
-                <span className="hidden sm:inline">Quản trị / </span>
+                <span className="hidden sm:inline">Admin / </span>
                 <span className="font-medium text-foreground">{pageTitle}</span>
               </p>
             </div>

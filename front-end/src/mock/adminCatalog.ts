@@ -1,6 +1,6 @@
 import type { AdminCategory } from "~/types/admin/index"
 
-/** Danh mục mock — khớp model Category (id, name, slug) */
+/** Mock categories matching the Category model (id, name, slug). */
 export const ADMIN_CATEGORIES: AdminCategory[] = [
   { id: "cat-smartphone", name: "Smartphone", slug: "smartphone" },
   { id: "cat-laptop", name: "Laptop", slug: "laptop" },
@@ -12,8 +12,8 @@ export const ADMIN_CATEGORIES: AdminCategory[] = [
 ]
 
 /**
- * Tùy chọn biến thể — khớp Option + OptionValue trong seed/backend
- * Admin chọn từ catalog thay vì nhập tự do
+ * Variant options matching Option + OptionValue from the seed/backend.
+ * Admins choose from the catalog instead of typing every value manually.
  */
 export const PRODUCT_OPTION_CATALOG: Array<{
   name: string
@@ -22,12 +22,12 @@ export const PRODUCT_OPTION_CATALOG: Array<{
 }> = [
   {
     name: "Color",
-    label: "Màu sắc",
-    values: ["Black", "White", "Silver", "Space Gray", "Titan Đen", "Titan Trắng", "Đen", "Xám", "Bạc"],
+    label: "Color",
+    values: ["Black", "White", "Silver", "Space Gray", "Black Titanium", "White Titanium", "Gray"],
   },
   {
     name: "Storage",
-    label: "Bộ nhớ",
+    label: "Storage",
     values: ["128GB", "256GB", "512GB", "1TB"],
   },
   {
@@ -37,7 +37,7 @@ export const PRODUCT_OPTION_CATALOG: Array<{
   },
   {
     name: "Connectivity",
-    label: "Kết nối",
+    label: "Connectivity",
     values: ["WiFi", "WiFi + 5G"],
   },
 ]

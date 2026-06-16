@@ -10,8 +10,8 @@ type ProductFormStepperProps = {
 }
 
 const STEPS: { id: StepId; label: string; hint: string }[] = [
-  { id: "spu", label: "Thông tin SPU", hint: "Tên, danh mục, trục biến thể" },
-  { id: "skus", label: "Biến thể SKU", hint: "Mã, giá, tồn kho" },
+  { id: "spu", label: "SPU information", hint: "Name, category, variant axes" },
+  { id: "skus", label: "SKU variants", hint: "Code, price, stock" },
 ]
 
 export const ProductFormStepper = ({
@@ -19,7 +19,7 @@ export const ProductFormStepper = ({
   skuCount,
   onStepClick,
 }: ProductFormStepperProps) => (
-  <nav aria-label="Khu vực chỉnh sửa sản phẩm" className="w-full">
+  <nav aria-label="Product editing steps" className="w-full">
     <ol className="grid grid-cols-2 gap-3 sm:gap-4">
       {STEPS.map((step, index) => {
         const isActive = step.id === activeStep

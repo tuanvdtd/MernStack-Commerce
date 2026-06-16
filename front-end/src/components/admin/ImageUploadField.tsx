@@ -142,14 +142,14 @@ export const ImageUploadField = ({
         >
           <img
             src={value}
-            alt="Xem trước"
+            alt="Preview"
             className="size-24 shrink-0 rounded-lg border border-border object-cover"
           />
           <div className="flex flex-col gap-2">
             <p className="text-xs text-muted-foreground">
               {isDragging
-                ? "Thả ảnh để thay thế"
-                : "Ảnh sẽ được tải lên khi bạn lưu sản phẩm"}
+                ? "Drop image to replace"
+                : "The image will be uploaded when you save the product"}
             </p>
             <Button
               type="button"
@@ -157,7 +157,7 @@ export const ImageUploadField = ({
               size="sm"
               onClick={() => inputRef.current?.click()}
             >
-              Đổi ảnh
+              Change image
             </Button>
             <Button
               type="button"
@@ -167,7 +167,7 @@ export const ImageUploadField = ({
               onClick={handleRemove}
             >
               <Trash2 className="size-4" aria-hidden />
-              Xóa ảnh
+              Remove image
             </Button>
           </div>
         </div>
@@ -192,10 +192,10 @@ export const ImageUploadField = ({
             aria-hidden
           />
           <span className="font-medium text-foreground">
-            {isDragging ? "Thả ảnh vào đây" : "Chọn hoặc kéo thả ảnh"}
+            {isDragging ? "Drop the image here" : "Choose or drag and drop an image"}
           </span>
           <span className="text-xs">
-            JPG, JPEG, PNG — tối đa {maxMb}MB. Tải lên Cloudinary khi lưu.
+            JPG, JPEG, PNG - up to {maxMb}MB. Uploaded to Cloudinary on save.
           </span>
         </button>
       )}

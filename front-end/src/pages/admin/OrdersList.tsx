@@ -21,7 +21,7 @@ import {
 } from "~/components/ui/select"
 import { Search, ArrowUpRight, ShoppingCart } from "lucide-react"
 import { format } from "date-fns"
-import { vi } from "date-fns/locale"
+import { enUS } from "date-fns/locale"
 import {
   AdminWorkspace,
   AdminWorkspaceHeader,
@@ -52,13 +52,13 @@ import { cn } from "~/lib/utils"
 
 const paymentLabels: Record<string, string> = {
   cod: "COD",
-  card: "Thẻ",
-  ewallet: "Ví điện tử",
+  card: "Card",
+  ewallet: "E-wallet",
 }
 
 const paymentStatusLabels: Record<string, string> = {
-  paid: "Đã thanh toán",
-  pending: "Chưa thanh toán",
+  paid: "Paid",
+  pending: "Unpaid",
 }
 
 export function OrdersList() {
@@ -112,27 +112,27 @@ export function OrdersList() {
   return (
     <AdminWorkspace>
       <AdminWorkspaceHeader
-        title="Đơn hàng"
-        description="Theo dõi trạng thái và thanh toán từng đơn."
+        title="Orders"
+        description="Track status and payment for each order."
       />
 
       <AdminMetricStrip
         metrics={[
-          { label: "Tổng đơn", value: orders.length },
+          { label: "Total orders", value: orders.length },
           {
-            label: "Chờ xử lý",
+            label: "Pending",
             value: orders.filter((o) => o.status === "pending").length,
             tone: "warning",
           },
           {
-            label: "Đang xử lý",
+            label: "In progress",
             value: orders.filter(
               (o) => o.status === "processing" || o.status === "confirmed"
             ).length,
             tone: "brand",
           },
           {
-            label: "Hoàn thành",
+            label: "Completed",
             value: orders.filter((o) => o.status === "delivered").length,
             tone: "success",
           },
@@ -140,14 +140,14 @@ export function OrdersList() {
       />
 
       <AdminFilterRow>
-        <AdminFilterSearch label="Từ khóa">
+        <AdminFilterSearch label="Keyword">
           <div className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-brand)]"
               strokeWidth={2}
             />
             <Input
-              placeholder="Mã đơn, tên, email..."
+              placeholder="Order code, name, email..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
@@ -157,7 +157,7 @@ export function OrdersList() {
             />
           </div>
         </AdminFilterSearch>
-        <AdminFilterField label="Trạng thái đơn">
+        <AdminFilterField label="Order status">
           <Select
             value={statusFilter}
             onValueChange={(v) => {
@@ -166,21 +166,21 @@ export function OrdersList() {
             }}
           >
             <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-              <SelectValue placeholder="Trạng thái" />
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Mọi trạng thái</SelectItem>
-              <SelectItem value="pending">Chờ xử lý</SelectItem>
-              <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-              <SelectItem value="processing">Đang xử lý</SelectItem>
-              <SelectItem value="shipped">Đã giao vận</SelectItem>
-              <SelectItem value="delivered">Đã giao</SelectItem>
-              <SelectItem value="cancelled">Đã hủy</SelectItem>
-              <SelectItem value="refunded">Hoàn tiền</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="shipped">Shipped</SelectItem>
+              <SelectItem value="delivered">Delivered</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="refunded">Refunded</SelectItem>
             </SelectContent>
           </Select>
         </AdminFilterField>
-        <AdminFilterField label="Thanh toán">
+        <AdminFilterField label="Payment">
           <Select
             value={paymentFilter}
             onValueChange={(v) => {
@@ -189,13 +189,13 @@ export function OrdersList() {
             }}
           >
             <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-              <SelectValue placeholder="Thanh toán" />
+              <SelectValue placeholder="Payment" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Mọi hình thức</SelectItem>
+              <SelectItem value="all">All methods</SelectItem>
               <SelectItem value="cod">COD</SelectItem>
-              <SelectItem value="card">Thẻ</SelectItem>
-              <SelectItem value="ewallet">Ví điện tử</SelectItem>
+              <SelectItem value="card">Card</SelectItem>
+              <SelectItem value="ewallet">E-wallet</SelectItem>
             </SelectContent>
           </Select>
         </AdminFilterField>
@@ -205,14 +205,14 @@ export function OrdersList() {
         <Table>
           <TableHeader>
             <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
-              <TableHead className={adminThClass}>Mã đơn</TableHead>
-              <TableHead className={adminThClass}>Khách hàng</TableHead>
-              <TableHead className={adminThClass}>Ngày đặt</TableHead>
-              <TableHead className={adminThClass}>Sản phẩm</TableHead>
-              <TableHead className={adminThClass}>Tổng</TableHead>
-              <TableHead className={adminThClass}>Thanh toán</TableHead>
-              <TableHead className={adminThClass}>Trạng thái</TableHead>
-              <TableHead className={cn(adminThClass, "text-right")}>Chi tiết</TableHead>
+              <TableHead className={adminThClass}>Order code</TableHead>
+              <TableHead className={adminThClass}>Customer</TableHead>
+              <TableHead className={adminThClass}>Order date</TableHead>
+              <TableHead className={adminThClass}>Products</TableHead>
+              <TableHead className={adminThClass}>Total</TableHead>
+              <TableHead className={adminThClass}>Payment</TableHead>
+              <TableHead className={adminThClass}>Status</TableHead>
+              <TableHead className={cn(adminThClass, "text-right")}>Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -221,11 +221,11 @@ export function OrdersList() {
                 <TableCell colSpan={8} className="p-0">
                   <AdminEmptyState
                     icon={ShoppingCart}
-                    title="Không có đơn hàng"
+                    title="No orders"
                     description={
                       hasActiveFilters
-                        ? "Thử đổi bộ lọc hoặc từ khóa."
-                        : "Chưa có đơn trong hệ thống."
+                        ? "Try changing filters or keywords."
+                        : "There are no orders in the system yet."
                     }
                     action={
                       hasActiveFilters ? (
@@ -235,7 +235,7 @@ export function OrdersList() {
                           className="h-8 text-[13px]"
                           onClick={handleClearFilters}
                         >
-                          Xóa bộ lọc
+                          Clear filters
                         </Button>
                       ) : undefined
                     }
@@ -252,7 +252,7 @@ export function OrdersList() {
                     <p className="font-medium">{order.orderNumber}</p>
                     {order.trackingNumber && (
                       <p className={cn(adminMonoClass, "text-[12px]")}>
-                        MVĐ: {order.trackingNumber}
+                        Tracking: {order.trackingNumber}
                       </p>
                     )}
                   </TableCell>
@@ -265,7 +265,7 @@ export function OrdersList() {
                   <TableCell className={adminTdClass}>
                     <p>
                       {format(new Date(order.createdAt), "dd/MM/yyyy", {
-                        locale: vi,
+                        locale: enUS,
                       })}
                     </p>
                     <p className={cn(adminMonoClass, "text-[12px]")}>
@@ -310,7 +310,7 @@ export function OrdersList() {
                           variant="outline"
                           size="icon-sm"
                           className={cn("size-8 bg-background", adminGhostButtonClass)}
-                          aria-label="Xem chi tiết"
+                          aria-label="View details"
                         >
                           <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
                         </Button>
@@ -331,7 +331,7 @@ export function OrdersList() {
           totalItems={filteredOrders.length}
           pageSize={ADMIN_PAGE_SIZE}
           onPageChange={setCurrentPage}
-          itemLabel="đơn hàng"
+          itemLabel="orders"
         />
       </AdminWorkspaceFooter>
     </AdminWorkspace>

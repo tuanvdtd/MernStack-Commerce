@@ -24,46 +24,46 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     id: "dong-ho",
     image: "/hero/dongho1.png",
-    imageAlt: "Đồng hồ thông minh",
-    headline: ["Đồng hồ", "thông minh"],
-    tagline: "Theo dõi sức khỏe mọi lúc, mọi nơi",
+    imageAlt: "Smartwatch",
+    headline: ["Smart", "watches"],
+    tagline: "Track your health anytime, anywhere",
     subtext:
-      "Apple Watch, Galaxy Watch chính hãng VN/A. Bảo hành 12 tháng, giao nhanh 2h nội thành.",
-    highlights: ["Chính hãng VN/A", "Giao 2h", "Bảo hành 12 tháng"],
-    cta: { label: "Mua ngay", href: "/category/dong-ho" },
+      "Official VN/A Apple Watch and Galaxy Watch. 12-month warranty with 2-hour city delivery.",
+    highlights: ["Official VN/A", "2-hour delivery", "12-month warranty"],
+    cta: { label: "Buy now", href: "/category/dong-ho" },
   },
   {
     id: "dien-thoai",
     image: "/hero/phone1.png",
-    imageAlt: "Điện thoại flagship",
-    headline: ["Điện thoại", "flagship"],
-    tagline: "Hiệu năng đỉnh cao, camera xuất sắc",
+    imageAlt: "Flagship phone",
+    headline: ["Flagship", "phones"],
+    tagline: "Peak performance and outstanding cameras",
     subtext:
-      "iPhone, Samsung Galaxy giá tốt. Trả góp 0%, đổi cũ lấy mới hỗ trợ tận nơi.",
-    highlights: ["Trả góp 0%", "Đổi cũ lấy mới", "Freeship"],
-    cta: { label: "Khám phá", href: "/category/dien-thoai" },
+      "Great prices on iPhone and Samsung Galaxy. 0% installment plans and trade-in support.",
+    highlights: ["0% installments", "Trade-in support", "Free shipping"],
+    cta: { label: "Explore", href: "/category/dien-thoai" },
   },
   {
     id: "laptop",
     image: "/hero/laptop1.png",
-    imageAlt: "Laptop cao cấp",
-    headline: ["Laptop", "cao cấp"],
-    tagline: "Làm việc, sáng tạo và giải trí",
+    imageAlt: "Premium laptop",
+    headline: ["Premium", "laptops"],
+    tagline: "Work, create, and unwind",
     subtext:
-      "MacBook, Dell XPS chính hãng. Giảm đến 20% trong tuần lễ công nghệ.",
-    highlights: ["Giảm 20%", "Tặng balo", "Bảo hành 24 tháng"],
-    cta: { label: "Xem ưu đãi", href: "/category/laptop" },
+      "Official MacBook and Dell XPS models. Save up to 20% during tech week.",
+    highlights: ["Save 20%", "Free backpack", "24-month warranty"],
+    cta: { label: "View deals", href: "/category/laptop" },
   },
   {
     id: "tai-nghe",
     image: "/hero/tainghe1.png",
-    imageAlt: "Tai nghe chống ồn",
-    headline: ["Tai nghe", "chống ồn"],
-    tagline: "Âm thanh sống động, tập trung tuyệt đối",
+    imageAlt: "Noise-cancelling headphones",
+    headline: ["Noise-cancelling", "headphones"],
+    tagline: "Immersive sound and deep focus",
     subtext:
-      "AirPods, Sony WH-1000XM5 chính hãng. Freeship toàn quốc, đổi trả 7 ngày.",
-    highlights: ["Chống ồn ANC", "Đổi trả 7 ngày", "Freeship"],
-    cta: { label: "Mua ngay", href: "/category/tai-nghe" },
+      "Official AirPods and Sony WH-1000XM5. Nationwide free shipping with 7-day returns.",
+    highlights: ["ANC noise cancelling", "7-day returns", "Free shipping"],
+    cta: { label: "Buy now", href: "/category/tai-nghe" },
   },
 ]
 
@@ -71,9 +71,9 @@ const AUTOPLAY_MS = 3000
 
 const getGreeting = () => {
   const hour = new Date().getHours()
-  if (hour < 12) return "Chào buổi sáng"
-  if (hour < 18) return "Chào buổi chiều"
-  return "Chào buổi tối"
+  if (hour < 12) return "Good morning"
+  if (hour < 18) return "Good afternoon"
+  return "Good evening"
 }
 
 type HomeHeroSectionProps = {
@@ -102,7 +102,7 @@ const HeroSlideContent = ({
         {showGreeting && (
           <p className="text-sm text-[#757575] sm:text-base">
             {getGreeting()},{" "}
-            <span className="font-semibold text-[#2b2f32]">{userName || "bạn"}</span>
+            <span className="font-semibold text-[#2b2f32]">{userName || "there"}</span>
           </p>
         )}
 
@@ -117,7 +117,7 @@ const HeroSlideContent = ({
 
         <p className="hero-slide__body">{slide.subtext}</p>
 
-        <ul className="hero-slide__chips" aria-label="Ưu đãi nổi bật">
+        <ul className="hero-slide__chips" aria-label="Featured offers">
           {slide.highlights.map((item) => (
             <li key={item} className="hero-slide__chip">
               {item}
@@ -187,7 +187,7 @@ export const HomeHeroSection = ({ variant, userName }: HomeHeroSectionProps) => 
   return (
     <section
       className="hero-apple hero-gradient relative isolate w-full overflow-x-clip"
-      aria-label="Banner khuyến mãi"
+      aria-label="Promotional banner"
       aria-roledescription="carousel"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}

@@ -44,7 +44,7 @@ export function CartLineItem({
         <Checkbox
           checked={item.selected}
           onCheckedChange={() => onToggleSelect(item.id)}
-          aria-label={`Chọn ${item.name}`}
+          aria-label={`Select ${item.name}`}
           className="mt-1 size-[18px] shrink-0 border-gray-300 data-checked:border-[#00cbfd] data-checked:bg-[#00cbfd] sm:mt-0"
         />
 
@@ -71,7 +71,7 @@ export function CartLineItem({
                 size="icon-sm"
                 onClick={() => onUpdateQuantity(item.id, -1)}
                 disabled={item.quantity <= 1}
-                aria-label="Giảm số lượng"
+                aria-label="Decrease quantity"
                 className="size-8 rounded-none text-[#757575] hover:bg-white disabled:opacity-40"
               >
                 <Minus className="size-3.5" />
@@ -84,7 +84,7 @@ export function CartLineItem({
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => onUpdateQuantity(item.id, 1)}
-                aria-label="Tăng số lượng"
+                aria-label="Increase quantity"
                 className="size-8 rounded-none text-[#757575] hover:bg-white"
               >
                 <Plus className="size-3.5" />
@@ -99,7 +99,7 @@ export function CartLineItem({
               className="h-8 px-2 text-[#757575] hover:text-[#ee4d2d] sm:hidden"
             >
               <Trash2 className="mr-1 size-3.5" />
-              Xóa
+              Remove
             </Button>
           </div>
         </div>
@@ -113,7 +113,7 @@ export function CartLineItem({
           <p className="mt-0.5 text-xs text-[#757575] sm:hidden">x{item.quantity}</p>
         </div>
         <div className="text-right">
-          <span className="hidden text-xs text-[#757575] sm:block">Thành tiền</span>
+          <span className="hidden text-xs text-[#757575] sm:block">Line total</span>
           <p className={cn("text-sm font-semibold sm:text-base", storeTokens.price)}>
             {formatPrice(lineTotal)}
           </p>
@@ -123,7 +123,7 @@ export function CartLineItem({
           variant="ghost"
           size="icon-sm"
           onClick={() => onRemove(item.id)}
-          aria-label={`Xóa ${item.name}`}
+          aria-label={`Remove ${item.name}`}
           className="hidden size-8 text-[#757575] hover:text-[#ee4d2d] sm:inline-flex"
         >
           <Trash2 className="size-4" />

@@ -80,14 +80,14 @@ export const router = createBrowserRouter([
     path: "/",
     Component: RootLayout,
     children: [
-      // Public routes - ai cũng truy cập được
+      // Public routes: everyone can access these.
       { index: true, Component: Home },
       { path: "product/:id", Component: ProductDetail },
       { path: "category/:slug", Component: Category },
       { path: "flash-sale", Component: FlashSale },
       { path: "*", Component: NotFound },
 
-      // Protected routes - chỉ role user mới truy cập được
+      // Protected routes: only the user role can access these.
       {
         Component: UserRoute,
         children: [
@@ -112,7 +112,7 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  // Đã đăng nhập rồi thì redirect đi, không cho vào login/register
+  // Redirect signed-in users away from login/register.
   {
     Component: LoginedRedirect,
     children: [

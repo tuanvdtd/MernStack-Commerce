@@ -33,33 +33,33 @@ export function Dashboard() {
       <AdminWorkspace>
         <AdminWorkspaceHeader
           title="Dashboard"
-          description="Tổng quan đơn hàng, doanh thu và tồn kho."
+          description="Overview of orders, revenue, and inventory."
         />
         <AdminMetricStrip
           columns={3}
           metrics={[
             {
-              label: "Tổng đơn hàng",
-              value: stats.totalOrders.toLocaleString("vi-VN"),
+              label: "Total orders",
+              value: stats.totalOrders.toLocaleString("en-US"),
             },
             {
-              label: "Doanh thu",
+              label: "Revenue",
               value: `${(stats.totalRevenue / 1_000_000_000).toFixed(2)}B`,
               tone: "success",
             },
-            { label: "Tổng SPU", value: stats.totalProducts },
+            { label: "Total SPU", value: stats.totalProducts },
             {
-              label: "SPU sắp hết",
+              label: "Low-stock SPU",
               value: stats.lowStockProducts,
               tone: "warning",
             },
             {
-              label: "Đơn chờ xử lý",
+              label: "Pending orders",
               value: stats.pendingOrders,
               tone: "warning",
             },
             {
-              label: "Đơn hôm nay",
+              label: "Orders today",
               value: stats.todayOrders,
               tone: "brand",
             },
@@ -76,11 +76,11 @@ export function Dashboard() {
             )}
           >
             <h2 className="text-[13px] font-medium text-foreground">
-              Đơn hàng gần đây
+              Recent orders
             </h2>
             <Link to="/admin/orders">
               <Button variant="ghost" size="sm" className="h-8 text-[13px]">
-                Xem tất cả
+                View all
               </Button>
             </Link>
           </div>
@@ -125,18 +125,18 @@ export function Dashboard() {
             )}
           >
             <h2 className="text-[13px] font-medium text-foreground">
-              Sản phẩm sắp hết hàng
+              Low-stock products
             </h2>
             <Link to="/admin/inventory">
               <Button variant="ghost" size="sm" className="h-8 text-[13px]">
-                Xem kho
+                View inventory
               </Button>
             </Link>
           </div>
           <AdminWorkspaceBody>
             {lowStockProducts.length === 0 ? (
               <p className="px-5 py-12 text-center text-[13px] text-muted-foreground lg:px-6">
-                Không có SPU nào dưới ngưỡng tồn kho
+                No SPUs are below the stock threshold
               </p>
             ) : (
               <div className={cn("divide-y", adminDividerClass)}>

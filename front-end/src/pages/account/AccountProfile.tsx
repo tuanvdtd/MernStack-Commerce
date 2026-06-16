@@ -31,7 +31,7 @@ import {
   FormMessage,
 } from "~/components/ui/form"
 
-/** Dựng payload PATCH chỉ gồm field dirty (name, phone). */
+/** Build a PATCH payload containing only dirty fields (name, phone). */
 const buildProfilePatchPayload = (
   values: ProfileFormValues,
   dirtyFields: Record<string, unknown>
@@ -47,7 +47,7 @@ const buildProfilePatchPayload = (
   return payload
 }
 
-/** Tab thông tin cá nhân — load GET /user/me, lưu PATCH partial qua react-hook-form. */
+/** Profile tab: load GET /user/me and save PATCH partials through react-hook-form. */
 export function AccountProfile() {
   const setUser = userStore((s) => s.setUser)
   const storedUser = userStore((s) => s.user)
@@ -98,7 +98,7 @@ export function AccountProfile() {
     const payload = buildProfilePatchPayload(values, form.formState.dirtyFields)
 
     if (Object.keys(payload).length === 0) {
-      toast.message("Không có thay đổi để lưu")
+      toast.message("No changes to save")
       return
     }
 
@@ -112,7 +112,7 @@ export function AccountProfile() {
         phone: profile.phone ?? "",
       })
       setUser(mapProfileToUser(profile, storedUser))
-      toast.success("Đã cập nhật thông tin cá nhân")
+      toast.success("Profile updated")
     } catch (error) {
       toast.error(getUserApiError(error))
     } finally {
@@ -124,7 +124,7 @@ export function AccountProfile() {
     return (
       <div className="flex items-center justify-center py-24 text-slate-400">
         <Loader2 className="w-6 h-6 animate-spin mr-2" />
-        Đang tải thông tin...
+        Loading profile...
       </div>
     )
   }
@@ -135,8 +135,8 @@ export function AccountProfile() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl font-semibold">Thông tin cá nhân</CardTitle>
-              <CardDescription>Cập nhật thông tin cá nhân của bạn</CardDescription>
+              <CardTitle className="text-xl font-semibold">Profile</CardTitle>
+              <CardDescription>Update your personal information</CardDescription>
             </div>
             <Shield className="w-5 h-5 text-emerald-500" />
           </div>
@@ -151,7 +151,7 @@ export function AccountProfile() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Họ và tên</FormLabel>
+                      <FormLabel>Full name</FormLabel>
                       <FormControl>
                         <Input {...field} autoComplete="name" />
                       </FormControl>
@@ -178,7 +178,7 @@ export function AccountProfile() {
                           variant="outline"
                           className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-600 border-emerald-200 bg-emerald-50 text-[10px]"
                         >
-                          Đã xác thực
+                          Verified
                         </Badge>
                       </div>
                     </FormItem>
@@ -189,7 +189,7 @@ export function AccountProfile() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Số điện thoại</FormLabel>
+                      <FormLabel>Phone number</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -203,10 +203,10 @@ export function AccountProfile() {
                   )}
                 />
                 <div className="space-y-2">
-                  <FormLabel>Ngày tham gia</FormLabel>
+                  <FormLabel>Join date</FormLabel>
                   <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/50 text-sm text-slate-500">
                     <Calendar className="w-4 h-4" />
-                    {joinAt ? formatJoinDate(joinAt) : "Chưa có"}
+                    {joinAt ? formatJoinDate(joinAt) : "Not available"}
                   </div>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export function AccountProfile() {
                   className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 shadow-md shadow-cyan-500/25 cursor-pointer"
                 >
                   {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Lưu thay đổi
+                  Save changes
                 </Button>
               </div>
             </form>
@@ -227,7 +227,7 @@ export function AccountProfile() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Bảo mật</CardTitle>
+          <CardTitle className="text-base font-semibold">Security</CardTitle>
         </CardHeader>
         <Separator />
         <CardContent className="pt-4">
@@ -237,12 +237,12 @@ export function AccountProfile() {
                 <Shield className="w-4 h-4 text-slate-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-900">Mật khẩu</p>
-                <p className="text-xs text-slate-500">Cập nhật lần cuối: 2 tháng trước</p>
+                <p className="text-sm font-medium text-slate-900">Password</p>
+                <p className="text-xs text-slate-500">Last updated: 2 months ago</p>
               </div>
             </div>
             <Button variant="outline" size="sm" className="cursor-pointer">
-              Đổi mật khẩu
+              Change password
             </Button>
           </div>
         </CardContent>

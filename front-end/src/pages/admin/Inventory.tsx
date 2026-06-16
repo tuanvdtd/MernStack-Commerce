@@ -53,9 +53,9 @@ import { ADMIN_PAGE_SIZE, paginate } from "~/lib/admin/pagination"
 import { cn } from "~/lib/utils"
 
 const getStockLabel = (qty: number) => {
-  if (qty === 0) return { text: "Hết hàng", className: "bg-red-500/10 text-red-700 dark:text-red-300" }
-  if (qty < 10) return { text: "Sắp hết", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300" }
-  return { text: "Ổn định", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" }
+  if (qty === 0) return { text: "Out of stock", className: "bg-red-500/10 text-red-700 dark:text-red-300" }
+  if (qty < 10) return { text: "Low stock", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300" }
+  return { text: "Stable", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" }
 }
 
 export function Inventory() {
@@ -118,7 +118,7 @@ export function Inventory() {
     const product = products.find((p) => p.id === selectedSKU.productId)
     if (!product) return
     if (stockQuantity < 0) {
-      toast.error("Tồn kho không được âm")
+      toast.error("Stock cannot be negative")
       return
     }
 
@@ -133,7 +133,7 @@ export function Inventory() {
       ...computeProductStats(updatedSKUs),
     })
 
-    toast.success("Đã cập nhật tồn kho")
+    toast.success("Stock updated")
     setEditDialogOpen(false)
     setSelectedSKU(null)
   }
@@ -144,32 +144,32 @@ export function Inventory() {
     <>
       <AdminWorkspace>
         <AdminWorkspaceHeader
-          title="Kho hàng"
-          description="Tồn kho theo từng biến thể SKU."
+          title="Inventory"
+          description="Stock by SKU variant."
         />
 
         <AdminMetricStrip
           metrics={[
-            { label: "Tổng SKU", value: stats.totalItems },
-            { label: "Sắp hết", value: stats.lowStock, tone: "warning" },
-            { label: "Hết hàng", value: stats.outOfStock, tone: "danger" },
+            { label: "Total SKU", value: stats.totalItems },
+            { label: "Low stock", value: stats.lowStock, tone: "warning" },
+            { label: "Out of stock", value: stats.outOfStock, tone: "danger" },
             {
-              label: "Giá trị kho",
+              label: "Inventory value",
               value: `${(stats.totalValue / 1_000_000_000).toFixed(2)}B`,
               tone: "brand",
             },
           ]}
         />
 
-        <AdminFilterRow title="Tìm kiếm SKU">
-          <AdminFilterSearch label="Từ khóa" className="lg:max-w-lg">
+        <AdminFilterRow title="Search SKU">
+          <AdminFilterSearch label="Keyword" className="lg:max-w-lg">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-brand)]"
                 strokeWidth={2}
               />
               <Input
-                placeholder="Mã SKU, tên SPU, thuộc tính..."
+                placeholder="SKU code, SPU name, attributes..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -185,13 +185,13 @@ export function Inventory() {
           <Table>
             <TableHeader>
               <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
-                <TableHead className={adminThClass}>Mã SKU</TableHead>
+                <TableHead className={adminThClass}>SKU code</TableHead>
                 <TableHead className={adminThClass}>SPU</TableHead>
-                <TableHead className={adminThClass}>Thuộc tính</TableHead>
-                <TableHead className={adminThClass}>Giá</TableHead>
-                <TableHead className={adminThClass}>Tồn</TableHead>
-                <TableHead className={adminThClass}>Trạng thái</TableHead>
-                <TableHead className={cn(adminThClass, "text-right")}>Sửa</TableHead>
+                <TableHead className={adminThClass}>Attributes</TableHead>
+                <TableHead className={adminThClass}>Price</TableHead>
+                <TableHead className={adminThClass}>Stock</TableHead>
+                <TableHead className={adminThClass}>Status</TableHead>
+                <TableHead className={cn(adminThClass, "text-right")}>Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -200,11 +200,11 @@ export function Inventory() {
                   <TableCell colSpan={7} className="p-0">
                     <AdminEmptyState
                       icon={Package}
-                      title="Không có SKU"
+                      title="No SKUs"
                       description={
                         searchQuery
-                          ? "Thử đổi từ khóa tìm kiếm."
-                          : "Chưa có biến thể trong kho."
+                          ? "Try changing the search keyword."
+                          : "No variants in inventory yet."
                       }
                       action={
                         searchQuery ? (
@@ -214,12 +214,12 @@ export function Inventory() {
                             className="h-8 text-[13px]"
                             onClick={() => setSearchQuery("")}
                           >
-                            Xóa tìm kiếm
+                            Clear search
                           </Button>
                         ) : (
                           <Link to="/admin/products">
                             <Button size="sm" className={adminBrandButtonClass}>
-                              Đến sản phẩm
+                              Go to products
                             </Button>
                           </Link>
                         )
@@ -287,7 +287,7 @@ export function Inventory() {
                             variant="outline"
                             size="icon-sm"
                             className={cn("size-8 bg-background", adminGhostButtonClass)}
-                            aria-label="Sửa tồn kho"
+                            aria-label="Edit stock"
                             onClick={() => {
                               setSelectedSKU({
                                 productId: product.id,
@@ -325,7 +325,7 @@ export function Inventory() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cập nhật tồn kho</DialogTitle>
+            <DialogTitle>Update stock</DialogTitle>
             <DialogDescription className={cn(adminMonoClass, "text-foreground")}>
               {selectedSKU?.sku.sku}
             </DialogDescription>
@@ -338,7 +338,7 @@ export function Inventory() {
             )}
             <div className="space-y-2">
               <Label htmlFor="stockQuantity" className="text-[13px]">
-                Số lượng tồn
+                Stock quantity
               </Label>
               <Input
                 id="stockQuantity"
@@ -356,10 +356,10 @@ export function Inventory() {
               className={adminGhostButtonClass}
               onClick={() => setEditDialogOpen(false)}
             >
-              Hủy
+              Cancel
             </Button>
             <Button className={adminBrandButtonClass} onClick={handleUpdateStock}>
-              Lưu
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

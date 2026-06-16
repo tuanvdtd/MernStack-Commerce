@@ -1,4 +1,4 @@
-/** Khớp model Category trong Prisma */
+/** Matches the Category model in Prisma. */
 export interface AdminCategory {
   id: string
   name: string
@@ -6,15 +6,15 @@ export interface AdminCategory {
 }
 
 /**
- * Biến thể SKU — khớp Option.name + OptionValue.value
- * qua bảng ProductVariantOptionValue
+ * SKU variant option matching Option.name + OptionValue.value
+ * through ProductVariantOptionValue.
  */
 export interface VariantOption {
   optionName: string
   value: string
 }
 
-/** SKU — khớp model ProductVariant */
+/** SKU matching the ProductVariant model. */
 export interface SKU {
   id: string
   productId: string
@@ -27,7 +27,7 @@ export interface SKU {
   updatedAt: string
 }
 
-/** SPU — khớp model Product */
+/** SPU matching the Product model. */
 export interface SPU {
   id: string
   name: string
@@ -36,7 +36,7 @@ export interface SPU {
   categoryId: string
   categoryName: string
   brand: string
-  /** Tên Option (trục biến thể) — mọi SKU cùng SPU dùng chung bộ trục này */
+  /** Option names (variant axes); all SKUs in one SPU share this axis set. */
   optionAxes: string[]
   imgUrl?: string
   isActive: boolean
@@ -99,13 +99,13 @@ export interface DashboardStats {
   todayOrders: number
 }
 
-/** Khớp enum DiscountType trong Prisma */
+/** Matches the DiscountType enum in Prisma. */
 export type DiscountType = "FIXED_AMOUNT" | "PERCENTAGE"
 
-/** Khớp enum DiscountAppliesTo trong Prisma */
+/** Matches the DiscountAppliesTo enum in Prisma. */
 export type DiscountAppliesTo = "ALL" | "SPECIFIC"
 
-/** Trạng thái hiển thị tính từ isActive + thời gian + lượt dùng */
+/** Display status calculated from isActive, time, and usage count. */
 export type DiscountDisplayStatus =
   | "active"
   | "inactive"
@@ -113,7 +113,7 @@ export type DiscountDisplayStatus =
   | "expired"
   | "exhausted"
 
-/** Khớp model Discount + quan hệ DiscountProduct */
+/** Matches the Discount model plus the DiscountProduct relation. */
 export interface AdminDiscount {
   id: string
   name: string

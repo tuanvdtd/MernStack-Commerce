@@ -16,7 +16,7 @@ const findCategoryByName = (
 ): AdminCategory | undefined =>
   catalog.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
 
-/** Đảm bảo danh mục của SPU đang sửa có trong catalog (kể cả custom) */
+/** Ensure the edited SPU category exists in the catalog, including custom categories. */
 export const mergeProductCategoryIntoCatalog = (
   catalog: AdminCategory[],
   categoryId: string,
@@ -39,9 +39,9 @@ export const addCategory = (
   rawName: string
 ): { catalog: AdminCategory[]; category: AdminCategory } | { error: string } => {
   const name = rawName.trim()
-  if (!name) return { error: "Tên danh mục không được để trống" }
+  if (!name) return { error: "Category name is required" }
   if (name.length < 2) {
-    return { error: "Tên danh mục phải có ít nhất 2 ký tự" }
+    return { error: "Category name must be at least 2 characters" }
   }
 
   const existing = findCategoryByName(catalog, name)

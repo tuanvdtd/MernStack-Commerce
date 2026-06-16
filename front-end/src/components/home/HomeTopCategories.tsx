@@ -11,7 +11,7 @@ export const HomeTopCategories = ({ onCategoryClick }: HomeTopCategoriesProps) =
     <section className="bg-[#f5f5f5] py-12 sm:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <h2 className="mb-8 text-center text-xl font-bold tracking-tight text-[#2b2f32] sm:text-2xl">
-          Danh mục nổi bật
+          Featured categories
         </h2>
 
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6 sm:gap-6">
@@ -64,7 +64,7 @@ export const HomeTopCategories = ({ onCategoryClick }: HomeTopCategoriesProps) =
             to="/category/all"
             className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#2b2f32]/15 bg-white px-5 text-sm font-medium text-[#2b2f32] transition-transform active:scale-[0.98] hover:border-[#00cbfd] hover:text-[#00cbfd]"
           >
-            Xem tất cả danh mục
+            View all categories
             <ChevronRight className="size-4" aria-hidden="true" />
           </Link>
         </div>

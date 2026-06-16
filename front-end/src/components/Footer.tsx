@@ -12,7 +12,7 @@ export function Footer() {
           <div>
             <h3 className="text-white text-lg font-semibold mb-4">FlashBuy</h3>
             <p className="text-sm mb-4">
-              Mua sắm thông minh, giá tốt mỗi ngày. Nền tảng thương mại điện tử uy tín tại Việt Nam.
+              Smart shopping and better prices every day. A trusted ecommerce platform for modern tech.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="hover:text-[#0ACDFF] transition-colors">
@@ -29,11 +29,11 @@ export function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Liên kết nhanh</h4>
+            <h4 className="text-white font-semibold mb-4">Quick links</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link to="/category/all" className="hover:text-[#0ACDFF] transition-colors">
-                  Danh mục sản phẩm
+                  Product categories
                 </Link>
               </li>
               <li>
@@ -43,12 +43,12 @@ export function Footer() {
               </li>
               <li>
                 <Link to="/track-order" className="hover:text-[#0ACDFF] transition-colors">
-                  Theo dõi đơn hàng
+                  Track order
                 </Link>
               </li>
               <li>
                 <Link to="/account" className="hover:text-[#0ACDFF] transition-colors">
-                  Tài khoản
+                  Account
                 </Link>
               </li>
             </ul>
@@ -56,26 +56,26 @@ export function Footer() {
 
           {/* Policies */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Chính sách</h4>
+            <h4 className="text-white font-semibold mb-4">Policies</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <a href="#" className="hover:text-[#0ACDFF] transition-colors">
-                  Chính sách đổi trả
+                  Return policy
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-[#0ACDFF] transition-colors">
-                  Chính sách bảo mật
+                  Privacy policy
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-[#0ACDFF] transition-colors">
-                  Chính sách vận chuyển
+                  Shipping policy
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-[#0ACDFF] transition-colors">
-                  Điều khoản sử dụng
+                  Terms of use
                 </a>
               </li>
             </ul>
@@ -83,11 +83,11 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Liên hệ</h4>
+            <h4 className="text-white font-semibold mb-4">Contact</h4>
             <ul className="space-y-3 text-sm">
               <li className="flex items-start space-x-2">
                 <MapPin className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <span>123 Nguyễn Văn Linh, Q.7, TP.HCM</span>
+                <span>123 Nguyen Van Linh, District 7, Ho Chi Minh City</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Phone className="w-5 h-5 flex-shrink-0" />
@@ -103,7 +103,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
-          <p>&copy; 2026 FlashBuy. Tất cả quyền được bảo lưu.</p>
+          <p>&copy; 2026 FlashBuy. All rights reserved.</p>
         </div>
       </div>
     </footer>

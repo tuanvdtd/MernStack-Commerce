@@ -7,14 +7,14 @@ export function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedTab, setSelectedTab] = useState<"description" | "specifications" | "reviews">("description");
-  const [selectedColor, setSelectedColor] = useState("Titan Đen");
+  const [selectedColor, setSelectedColor] = useState("Black Titanium");
   const [selectedStorage, setSelectedStorage] = useState("256GB");
 
   const colors = [
-    { name: "Titan Đen", hex: "#1a1a1a", stock: 156, imageIndex: 0 },
-    { name: "Titan Trắng", hex: "#f5f5f5", stock: 89, imageIndex: 1 },
-    { name: "Titan Tự Nhiên", hex: "#dcc5a8", stock: 124, imageIndex: 2 },
-    { name: "Titan Xanh", hex: "#4a7c9e", stock: 67, imageIndex: 3 },
+    { name: "Black Titanium", hex: "#1a1a1a", stock: 156, imageIndex: 0 },
+    { name: "White Titanium", hex: "#f5f5f5", stock: 89, imageIndex: 1 },
+    { name: "Natural Titanium", hex: "#dcc5a8", stock: 124, imageIndex: 2 },
+    { name: "Blue Titanium", hex: "#4a7c9e", stock: 67, imageIndex: 3 },
   ];
 
   const storageOptions = [
@@ -27,11 +27,11 @@ export function ProductDetail() {
   const reviews = [
     {
       id: 1,
-      userName: "Nguyễn Văn A",
+      userName: "Alex Nguyen",
       verified: true,
       rating: 5,
       date: "2026-03-15",
-      content: "Sản phẩm rất tuyệt vời, đóng gói cẩn thận, giao hàng nhanh. Máy chính hãng, đầy đủ phụ kiện. Màn hình đẹp, hiệu năng mạnh mẽ. Rất hài lòng với sản phẩm này!",
+      content: "Excellent product, carefully packaged, and delivered quickly. The device is official, includes all accessories, has a beautiful display, and delivers powerful performance. Very happy with this purchase!",
       helpful: 124,
       images: [
         "https://images.unsplash.com/photo-1673718424704-51d0d2ca1fd2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
@@ -40,21 +40,21 @@ export function ProductDetail() {
     },
     {
       id: 2,
-      userName: "Trần Thị B",
+      userName: "Bella Tran",
       verified: true,
       rating: 5,
       date: "2026-03-10",
-      content: "Máy đẹp, hoạt động mượt mà. Camera chụp ảnh cực kỳ sắc nét. Pin trâu, dùng cả ngày vẫn còn. Shop giao hàng nhanh, đóng gói kỹ càng. Rất đáng mua!",
+      content: "Beautiful phone and very smooth performance. The camera is extremely sharp, the battery lasts all day, and the shop delivered quickly with careful packaging. Worth buying!",
       helpful: 89,
       images: [],
     },
     {
       id: 3,
-      userName: "Lê Văn C",
+      userName: "Chris Le",
       verified: false,
       rating: 4,
       date: "2026-03-05",
-      content: "Sản phẩm tốt, chất lượng ổn. Chỉ có giá hơi cao một chút. Nhưng nhìn chung vẫn đáng tiền. Giao hàng đúng hẹn.",
+      content: "Good product and solid quality. The price is a bit high, but overall it is still worth the money. Delivery was on time.",
       helpful: 45,
       images: [
         "https://images.unsplash.com/photo-1673718423886-ba603e698efd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
@@ -62,11 +62,11 @@ export function ProductDetail() {
     },
     {
       id: 4,
-      userName: "Phạm Thị D",
+      userName: "Diana Pham",
       verified: true,
       rating: 5,
       date: "2026-02-28",
-      content: "Lần đầu mua iPhone và rất hài lòng. Máy đẹp, sang trọng. Màn hình hiển thị rất sắc nét. Cảm ơn shop đã tư vấn nhiệt tình!",
+      content: "My first iPhone purchase and I am very satisfied. The phone looks premium, the display is sharp, and the support team was very helpful.",
       helpful: 67,
       images: [],
     },
@@ -96,39 +96,39 @@ export function ProductDetail() {
     sold: 234,
     stock: currentColor?.stock || 156,
     description: `
-      <h3>Thông tin sản phẩm</h3>
-      <p>iPhone 15 Pro Max là dòng sản phẩm cao cấp nhất của Apple với nhiều tính năng vượt trội:</p>
+      <h3>Product information</h3>
+      <p>iPhone 15 Pro Max is Apple's top-tier lineup with standout features:</p>
       <ul>
-        <li>Chip A17 Pro mạnh mẽ nhất từ trước đến nay</li>
-        <li>Màn hình Super Retina XDR 6.7 inch</li>
-        <li>Camera chính 48MP với zoom quang học 5x</li>
-        <li>Khung titan cấp hàng không vũ trụ</li>
-        <li>Pin sử dụng cả ngày dài</li>
-        <li>Hỗ trợ 5G</li>
+        <li>The most powerful A17 Pro chip yet</li>
+        <li>6.7-inch Super Retina XDR display</li>
+        <li>48MP main camera with 5x optical zoom</li>
+        <li>Aerospace-grade titanium frame</li>
+        <li>All-day battery life</li>
+        <li>5G support</li>
       </ul>
     `,
     specifications: [
-      { label: "Màn hình", value: "6.7 inch, Super Retina XDR" },
+      { label: "Display", value: "6.7 inch, Super Retina XDR" },
       { label: "Chip", value: "A17 Pro" },
-      { label: "Camera sau", value: "48MP + 12MP + 12MP" },
-      { label: "Camera trước", value: "12MP" },
+      { label: "Rear camera", value: "48MP + 12MP + 12MP" },
+      { label: "Front camera", value: "12MP" },
       { label: "RAM", value: "8GB" },
-      { label: "Bộ nhớ", value: "256GB" },
-      { label: "Pin", value: "4422 mAh" },
-      { label: "Hệ điều hành", value: "iOS 17" },
+      { label: "Storage", value: "256GB" },
+      { label: "Battery", value: "4422 mAh" },
+      { label: "Operating system", value: "iOS 17" },
     ],
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+    return `${price.toLocaleString("en-US")} VND`;
   };
 
   const handleAddToCart = () => {
-    alert(`Đã thêm ${quantity} sản phẩm vào giỏ hàng!`);
+    alert(`Added ${quantity} item(s) to cart!`);
   };
 
   const handleBuyNow = () => {
-    alert("Chuyển đến trang thanh toán...");
+    alert("Redirecting to checkout...");
   };
 
   return (
@@ -138,7 +138,7 @@ export function ProductDetail() {
         <div className="mb-6">
           <Link to="/" className="inline-flex items-center text-[#0ACDFF] hover:text-[#09b8e8]">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Quay lại
+            Back
           </Link>
         </div>
 
@@ -179,9 +179,9 @@ export function ProductDetail() {
                   <span className="ml-1 font-semibold">{product.rating}</span>
                 </div>
                 <span className="text-gray-500">|</span>
-                <span className="text-gray-600">{product.reviews} đánh giá</span>
+                <span className="text-gray-600">{product.reviews.toLocaleString("en-US")} reviews</span>
                 <span className="text-gray-500">|</span>
-                <span className="text-gray-600">Đã bán {product.sold}</span>
+                <span className="text-gray-600">Sold {product.sold}</span>
               </div>
 
               {/* Price */}
@@ -193,12 +193,12 @@ export function ProductDetail() {
                     -{product.discount}%
                   </span>
                 </div>
-                <p className="text-sm text-gray-600">Tiết kiệm {formatPrice(product.originalPrice - product.price)}</p>
+                <p className="text-sm text-gray-600">Save {formatPrice(product.originalPrice - product.price)}</p>
               </div>
 
               {/* Color Selection */}
               <div className="mb-6">
-                <label className="block text-gray-700 font-semibold mb-3">Màu sắc: {selectedColor}</label>
+                <label className="block text-gray-700 font-semibold mb-3">Color: {selectedColor}</label>
                 <div className="flex gap-3">
                   {colors.map((color) => (
                     <button
@@ -229,7 +229,7 @@ export function ProductDetail() {
 
               {/* Storage Selection */}
               <div className="mb-6">
-                <label className="block text-gray-700 font-semibold mb-3">Dung lượng</label>
+                <label className="block text-gray-700 font-semibold mb-3">Storage</label>
                 <div className="grid grid-cols-4 gap-3">
                   {storageOptions.map((option) => (
                     <button
@@ -249,7 +249,7 @@ export function ProductDetail() {
 
               {/* Quantity */}
               <div className="mb-6">
-                <label className="block text-gray-700 font-semibold mb-2">Số lượng</label>
+                <label className="block text-gray-700 font-semibold mb-2">Quantity</label>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center border-2 border-gray-300 rounded-lg">
                     <button
@@ -268,7 +268,7 @@ export function ProductDetail() {
                       <Plus className="w-5 h-5" />
                     </button>
                   </div>
-                  <span className="text-gray-600">{product.stock} sản phẩm có sẵn</span>
+                  <span className="text-gray-600">{product.stock} items available</span>
                 </div>
               </div>
 
@@ -278,13 +278,13 @@ export function ProductDetail() {
                   onClick={handleAddToCart}
                   className="flex-1 border-2 border-[#0ACDFF] text-[#0ACDFF] hover:bg-[#0ACDFF] hover:text-white py-4 rounded-xl font-semibold transition-all duration-200"
                 >
-                  Thêm vào giỏ
+                  Add to cart
                 </button>
                 <button
                   onClick={handleBuyNow}
                   className="flex-1 bg-[#0ACDFF] hover:bg-[#09b8e8] text-white py-4 rounded-xl font-semibold transition-all duration-200"
                 >
-                  Mua ngay
+                  Buy now
                 </button>
               </div>
 
@@ -292,15 +292,15 @@ export function ProductDetail() {
               <div className="space-y-3 border-t pt-6">
                 <div className="flex items-center space-x-3 text-gray-700">
                   <Truck className="w-5 h-5 text-[#0ACDFF]" />
-                  <span>Miễn phí vận chuyển toàn quốc</span>
+                  <span>Free nationwide shipping</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-700">
                   <ShieldCheck className="w-5 h-5 text-[#0ACDFF]" />
-                  <span>Bảo hành chính hãng 12 tháng</span>
+                  <span>12-month official warranty</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-700">
                   <ShieldCheck className="w-5 h-5 text-[#0ACDFF]" />
-                  <span>Đổi trả trong 7 ngày nếu có lỗi</span>
+                  <span>7-day returns for defective items</span>
                 </div>
               </div>
             </div>
@@ -318,7 +318,7 @@ export function ProductDetail() {
                       : "border-transparent text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  Mô tả sản phẩm
+                  Product description
                 </button>
                 <button
                   onClick={() => setSelectedTab("specifications")}
@@ -328,7 +328,7 @@ export function ProductDetail() {
                       : "border-transparent text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  Thông số kỹ thuật
+                  Specifications
                 </button>
                 <button
                   onClick={() => setSelectedTab("reviews")}
@@ -338,7 +338,7 @@ export function ProductDetail() {
                       : "border-transparent text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  Đánh giá ({product.reviews})
+                  Reviews ({product.reviews.toLocaleString("en-US")})
                 </button>
               </div>
             </div>
@@ -353,7 +353,7 @@ export function ProductDetail() {
             {/* Specifications Tab */}
             {selectedTab === "specifications" && (
               <div>
-                <h3 className="text-xl font-bold mb-4">Thông số kỹ thuật</h3>
+                <h3 className="text-xl font-bold mb-4">Specifications</h3>
                 <div className="bg-gray-50 rounded-xl p-6">
                   <table className="w-full">
                     <tbody>
@@ -389,12 +389,12 @@ export function ProductDetail() {
                           />
                         ))}
                       </div>
-                      <p className="text-gray-600">{product.reviews} đánh giá</p>
+                      <p className="text-gray-600">{product.reviews.toLocaleString("en-US")} reviews</p>
                     </div>
                     <div className="space-y-2">
                       {[5, 4, 3, 2, 1].map((rating) => (
                         <div key={rating} className="flex items-center gap-3">
-                          <span className="text-sm text-gray-600 w-12">{rating} sao</span>
+                          <span className="text-sm text-gray-600 w-12">{rating} stars</span>
                           <div className="flex-1 bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-yellow-400 h-2 rounded-full"
@@ -415,20 +415,20 @@ export function ProductDetail() {
                 {/* Filter Options */}
                 <div className="flex items-center gap-4 mb-6">
                   <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0ACDFF]">
-                    <option>Tất cả đánh giá</option>
-                    <option>5 sao</option>
-                    <option>4 sao</option>
-                    <option>3 sao</option>
-                    <option>2 sao</option>
-                    <option>1 sao</option>
+                    <option>All reviews</option>
+                    <option>5 stars</option>
+                    <option>4 stars</option>
+                    <option>3 stars</option>
+                    <option>2 stars</option>
+                    <option>1 star</option>
                   </select>
                   <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0ACDFF]">
-                    <option>Mới nhất</option>
-                    <option>Cũ nhất</option>
-                    <option>Hữu ích nhất</option>
+                    <option>Newest</option>
+                    <option>Oldest</option>
+                    <option>Most helpful</option>
                   </select>
                   <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    Có hình ảnh
+                    With photos
                   </button>
                 </div>
 
@@ -447,7 +447,7 @@ export function ProductDetail() {
                               <span className="font-semibold text-gray-900">{review.userName}</span>
                               {review.verified && (
                                 <span className="bg-[#00647e] text-white text-xs px-2 py-0.5 rounded-full">
-                                  ✓ Đã mua hàng
+                                  Verified purchase
                                 </span>
                               )}
                             </div>
@@ -465,7 +465,7 @@ export function ProductDetail() {
                                 ))}
                               </div>
                               <span className="text-sm text-gray-500">
-                                {new Date(review.date).toLocaleDateString("vi-VN")}
+                                {new Date(review.date).toLocaleDateString("en-US")}
                               </span>
                             </div>
                           </div>
@@ -492,7 +492,7 @@ export function ProductDetail() {
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                           </svg>
-                          <span className="text-sm">Hữu ích ({review.helpful})</span>
+                          <span className="text-sm">Helpful ({review.helpful})</span>
                         </button>
                       </div>
                     </div>

@@ -50,7 +50,7 @@ export function OtpInput({ value, onChange, disabled }: OtpInputProps) {
   }
 
   return (
-    <div className="flex justify-center gap-2" role="group" aria-label="Mã OTP 6 chữ số">
+    <div className="flex justify-center gap-2" role="group" aria-label="6-digit OTP code">
       {Array.from({ length: OTP_LENGTH }).map((_, index) => (
         <input
           key={index}
@@ -67,7 +67,7 @@ export function OtpInput({ value, onChange, disabled }: OtpInputProps) {
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={handlePaste}
           className="h-12 w-11 rounded-md border border-gray-300 text-center text-lg font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-          aria-label={`Chữ số OTP ${index + 1}`}
+          aria-label={`OTP digit ${index + 1}`}
         />
       ))}
     </div>

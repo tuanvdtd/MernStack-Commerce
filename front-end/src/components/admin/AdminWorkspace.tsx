@@ -112,7 +112,7 @@ export const AdminMetricStrip = ({
 export const AdminFilterRow = ({
   children,
   className,
-  title = "Tìm kiếm & lọc",
+  title = "Search & filters",
 }: {
   children: ReactNode
   className?: string
@@ -141,7 +141,7 @@ export const AdminFilterRow = ({
 
 export const AdminFilterSearch = ({
   children,
-  label = "Tìm kiếm",
+  label = "Search",
   className,
 }: {
   children: ReactNode

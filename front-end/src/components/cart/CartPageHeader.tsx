@@ -15,10 +15,10 @@ export function CartPageHeader({ itemCount, selectedCount }: CartPageHeaderProps
         className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-[#757575]"
       >
         <Link to="/" className="hover:text-[#2b2f32]">
-          Trang chủ
+          Home
         </Link>
         <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="font-medium text-[#2b2f32]">Giỏ hàng</span>
+        <span className="font-medium text-[#2b2f32]">Cart</span>
       </nav>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -29,11 +29,11 @@ export function CartPageHeader({ itemCount, selectedCount }: CartPageHeaderProps
             <ShoppingBag className="size-5" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-[#2b2f32] sm:text-2xl">Giỏ hàng</h1>
+            <h1 className="text-xl font-semibold text-[#2b2f32] sm:text-2xl">Cart</h1>
             <p className="mt-1 text-sm leading-relaxed text-[#757575]">
               {itemCount > 0
-                ? `${itemCount} sản phẩm · ${selectedCount} đã chọn để thanh toán`
-                : "Chưa có sản phẩm nào trong giỏ"}
+                ? `${itemCount} items - ${selectedCount} selected for checkout`
+                : "No products in your cart yet"}
             </p>
           </div>
         </div>
@@ -42,10 +42,10 @@ export function CartPageHeader({ itemCount, selectedCount }: CartPageHeaderProps
           <div
             className={`shrink-0 rounded-lg border ${storeTokens.border} ${storeTokens.surface} px-4 py-2.5`}
           >
-            <span className="block text-xs text-[#757575]">Tạm tính</span>
+            <span className="block text-xs text-[#757575]">Selected</span>
             <p className="text-lg font-semibold text-[#2b2f32]">
               {selectedCount}
-              <span className="text-sm font-normal text-[#757575]"> / {itemCount} mục</span>
+              <span className="text-sm font-normal text-[#757575]"> / {itemCount} items</span>
             </p>
           </div>
         )}

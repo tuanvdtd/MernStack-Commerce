@@ -59,7 +59,7 @@ export const userStore = create<UserState>()(
           set({ loading: false });
           return true;
         } else {
-          set({ error: result.error ?? 'Đăng ký thất bại', loading: false });
+          set({ error: result.error ?? "Registration failed", loading: false });
           return false;
         }
       },
@@ -73,7 +73,7 @@ export const userStore = create<UserState>()(
           set({ loading: false });
           return true;
         } else {
-          set({ error: result.error ?? 'Xác thực thất bại', loading: false });
+          set({ error: result.error ?? "Verification failed", loading: false });
           return false;
         }
       },
@@ -87,7 +87,7 @@ export const userStore = create<UserState>()(
           set({ loading: false });
           return true;
         } else {
-          set({ error: result.error ?? 'Gửi lại OTP thất bại', loading: false });
+          set({ error: result.error ?? "Failed to resend OTP", loading: false });
           return false;
         }
       },
@@ -101,7 +101,7 @@ export const userStore = create<UserState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      // Chỉ persist những field cần thiết
+      // Persist only the fields needed across sessions.
       partialize: (state) => ({
         user: state.user,
       }),

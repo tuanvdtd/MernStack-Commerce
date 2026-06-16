@@ -16,7 +16,7 @@ import { ProductQuickViewDialog, type QuickViewProduct } from "~/components/Prod
 import { userStore } from "~/stores/userStore";
 
 const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+  `${price.toLocaleString("en-US")} VND`;
 
 const flashSaleProducts = [
   { id: "1", name: "iPhone 15 Pro Max 256GB", image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400&q=80", price: 25990000, originalPrice: 34990000, discount: 26, sold: 156, stock: 200 },
@@ -37,8 +37,8 @@ const trendingProducts = [
 ];
 
 const banners = [
-  { title: "Smart Watch Collection", subtitle: "Giảm đến 40%", image: "/promo-smartwatch.png", color: "from-slate-900 via-blue-950 to-cyan-900" },
-  { title: "Laptop Cao Cấp", subtitle: "Trả góp 0%", image: "/promo-laptop.png", color: "from-zinc-900 via-violet-950 to-purple-900" },
+  { title: "Smart Watch Collection", subtitle: "Save up to 40%", image: "/promo-smartwatch.png", color: "from-slate-900 via-blue-950 to-cyan-900" },
+  { title: "Premium Laptops", subtitle: "0% installments", image: "/promo-laptop.png", color: "from-zinc-900 via-violet-950 to-purple-900" },
 ];
 
 export function HomeLoggedIn() {
@@ -137,7 +137,7 @@ export function HomeLoggedIn() {
                                 <Heart className="w-4 h-4 text-gray-600" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent>Yêu thích</TooltipContent>
+                            <TooltipContent>Add to wishlist</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                         <TooltipProvider>
@@ -151,7 +151,7 @@ export function HomeLoggedIn() {
                                 <Eye className="w-4 h-4 text-gray-600" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent>Xem nhanh</TooltipContent>
+                            <TooltipContent>Quick view</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
@@ -166,10 +166,10 @@ export function HomeLoggedIn() {
                       </div>
                       <div className="space-y-1.5">
                         <Progress value={soldPercent} className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-orange-500 [&>div]:to-red-500" />
-                        <p className="text-xs text-muted-foreground">Đã bán {p.sold}/{p.stock}</p>
+                        <p className="text-xs text-muted-foreground">Sold {p.sold}/{p.stock}</p>
                       </div>
                       <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-lg" size="sm" asChild>
-                        <Link to={`/product/${p.id}`}>Mua ngay</Link>
+                        <Link to={`/product/${p.id}`}>Buy now</Link>
                       </Button>
                     </CardContent>
                   </Card>
@@ -180,7 +180,7 @@ export function HomeLoggedIn() {
           <div className="text-center mt-8">
             <Button variant="outline" size="lg" className="rounded-full px-8" asChild>
               <Link to="/flash-sale">
-                Xem tất cả Flash Sale <ChevronRight className="w-4 h-4 ml-1" />
+                View all Flash Sale <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             </Button>
           </div>
@@ -204,7 +204,7 @@ export function HomeLoggedIn() {
                       <h3 className="text-3xl font-bold text-white mb-1">{b.title}</h3>
                       <p className="text-lg text-white/80">{b.subtitle}</p>
                       <Button variant="secondary" size="sm" className="w-fit mt-4 rounded-full">
-                        Xem ngay <ArrowRight className="w-4 h-4 ml-1" />
+                        Shop now <ArrowRight className="w-4 h-4 ml-1" />
                       </Button>
                     </div>
                   </div>
@@ -220,10 +220,10 @@ export function HomeLoggedIn() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Truck, title: "Miễn phí vận chuyển", desc: "Đơn hàng từ 300K" },
-              { icon: ShieldCheck, title: "Bảo hành chính hãng", desc: "12 tháng toàn quốc" },
-              { icon: Zap, title: "Giao hàng nhanh", desc: "Trong 2h nội thành" },
-              { icon: Gift, title: "Ưu đãi thành viên", desc: "Tích điểm đổi quà" },
+              { icon: Truck, title: "Free shipping", desc: "Orders from 300K VND" },
+              { icon: ShieldCheck, title: "Official warranty", desc: "12 months nationwide" },
+              { icon: Zap, title: "Fast delivery", desc: "Within 2 hours in the city" },
+              { icon: Gift, title: "Member deals", desc: "Earn points for rewards" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-4 text-white">
                 <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center flex-shrink-0">
@@ -245,10 +245,10 @@ export function HomeLoggedIn() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <TrendingUp className="w-6 h-6 text-cyan-500" />
-              <h2 className="text-3xl font-bold tracking-tight">Xu hướng mua sắm</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Shopping trends</h2>
             </div>
             <Button variant="ghost" className="text-muted-foreground" asChild>
-              <Link to="/category/trending">Xem thêm <ChevronRight className="w-4 h-4 ml-1" /></Link>
+              <Link to="/category/trending">View more <ChevronRight className="w-4 h-4 ml-1" /></Link>
             </Button>
           </div>
 
@@ -270,14 +270,14 @@ export function HomeLoggedIn() {
                           <Star key={i} className={`w-3.5 h-3.5 ${i < Math.floor(p.rating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`} />
                         ))}
                       </div>
-                      <span className="text-xs text-muted-foreground">({p.reviews.toLocaleString()})</span>
+                      <span className="text-xs text-muted-foreground">({p.reviews.toLocaleString("en-US")})</span>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-lg font-bold text-red-500">{formatPrice(p.price)}</span>
                       <span className="text-xs text-muted-foreground line-through">{formatPrice(p.originalPrice)}</span>
                     </div>
                     <Button variant="outline" className="w-full rounded-lg hover:bg-cyan-50 hover:text-cyan-600 hover:border-cyan-500/30" size="sm">
-                      Thêm vào giỏ
+                      Add to cart
                     </Button>
                   </CardContent>
                 </Card>

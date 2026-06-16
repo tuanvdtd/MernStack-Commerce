@@ -6,23 +6,23 @@ import { Button } from "~/components/ui/button"
 const addresses = [
   {
     id: 1,
-    label: "Nhà riêng",
-    name: "Nguyễn Văn A",
+    label: "Home",
+    name: "Alex Nguyen",
     phone: "0901234567",
-    address: "123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+    address: "123 Nguyen Van Linh, District 7, Ho Chi Minh City",
     isDefault: true,
   },
   {
     id: 2,
-    label: "Văn phòng",
-    name: "Nguyễn Văn A",
+    label: "Office",
+    name: "Alex Nguyen",
     phone: "0901234567",
-    address: "456 Lê Văn Việt, Quận 9, TP. Hồ Chí Minh",
+    address: "456 Le Van Viet, District 9, Ho Chi Minh City",
     isDefault: false,
   },
 ]
 
-/** Tab địa chỉ giao hàng. */
+/** Shipping addresses tab. */
 export function AccountAddresses() {
   return (
     <div>
@@ -30,12 +30,12 @@ export function AccountAddresses() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl font-semibold">Địa chỉ của tôi</CardTitle>
-              <CardDescription>{addresses.length} địa chỉ</CardDescription>
+              <CardTitle className="text-xl font-semibold">My addresses</CardTitle>
+              <CardDescription>{addresses.length} addresses</CardDescription>
             </div>
             <Button className="bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer">
               <Plus className="w-4 h-4 mr-2" />
-              Thêm địa chỉ
+              Add address
             </Button>
           </div>
         </CardHeader>
@@ -70,7 +70,7 @@ export function AccountAddresses() {
                         <h3 className="font-semibold text-slate-900">{addr.label}</h3>
                         {addr.isDefault && (
                           <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[10px]">
-                            Mặc định
+                            Default
                           </Badge>
                         )}
                       </div>
@@ -85,7 +85,7 @@ export function AccountAddresses() {
                       variant="ghost"
                       size="sm"
                       className="text-slate-400 hover:text-cyan-600 cursor-pointer"
-                      aria-label="Sửa địa chỉ"
+                      aria-label="Edit address"
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -94,7 +94,7 @@ export function AccountAddresses() {
                         variant="ghost"
                         size="sm"
                         className="text-slate-400 hover:text-red-500 cursor-pointer"
-                        aria-label="Xóa địa chỉ"
+                        aria-label="Delete address"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

@@ -4,13 +4,13 @@ export const profileFormSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Họ tên không được để trống")
-    .max(100, "Họ tên tối đa 100 ký tự"),
+    .min(1, "Full name is required")
+    .max(100, "Full name must be at most 100 characters"),
   email: z.string().email(),
   phone: z
     .string()
     .trim()
-    .regex(/^0\d{9}$/, "Số điện thoại phải có 10 chữ số và bắt đầu bằng 0")
+    .regex(/^0\d{9}$/, "Phone number must be 10 digits and start with 0")
     .or(z.literal("")),
 })
 

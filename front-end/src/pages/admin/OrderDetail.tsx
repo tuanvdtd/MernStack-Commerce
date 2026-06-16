@@ -20,7 +20,7 @@ import { Separator } from "~/components/ui/separator"
 import { Badge } from "~/components/ui/badge"
 import { ArrowLeft, Package, MapPin, CreditCard, Truck } from "lucide-react"
 import { format } from "date-fns"
-import { vi } from "date-fns/locale"
+import { enUS } from "date-fns/locale"
 import { toast } from "sonner"
 import type { Order } from "~/types/admin/index"
 import { AdminPage } from "~/components/admin/AdminPage"
@@ -53,9 +53,9 @@ export function OrderDetail() {
     return (
       <AdminPage>
         <div className="flex flex-col items-center gap-4 py-20 text-center">
-          <p className="text-sm text-muted-foreground">Đơn hàng không tồn tại</p>
+          <p className="text-sm text-muted-foreground">Order does not exist</p>
           <Button variant="outline" onClick={() => navigate("/admin/orders")}>
-            Quay lại danh sách
+            Back to list
           </Button>
         </div>
       </AdminPage>
@@ -65,7 +65,7 @@ export function OrderDetail() {
   const handleStatusChange = (newStatus: Order["status"]) => {
     updateOrderStatus(order.id, newStatus)
     setOrder({ ...order, status: newStatus })
-    toast.success("Đã cập nhật trạng thái")
+    toast.success("Status updated")
   }
 
   const statusOptions: Order["status"][] = [
@@ -79,27 +79,27 @@ export function OrderDetail() {
   ]
 
   const timeline = [
-    { status: "pending", label: "Đã đặt", completed: true },
+    { status: "pending", label: "Placed", completed: true },
     {
       status: "confirmed",
-      label: "Xác nhận",
+      label: "Confirmed",
       completed: ["confirmed", "processing", "shipped", "delivered"].includes(
         order.status
       ),
     },
     {
       status: "processing",
-      label: "Xử lý",
+      label: "Processing",
       completed: ["processing", "shipped", "delivered"].includes(order.status),
     },
     {
       status: "shipped",
-      label: "Giao vận",
+      label: "Shipping",
       completed: ["shipped", "delivered"].includes(order.status),
     },
     {
       status: "delivered",
-      label: "Hoàn tất",
+      label: "Completed",
       completed: order.status === "delivered",
     },
   ]
@@ -108,14 +108,14 @@ export function OrderDetail() {
     <AdminPage>
       <AdminPageHeader
         title={order.orderNumber}
-        description={`Đặt lúc ${format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}`}
+        description={`Ordered at ${format(new Date(order.createdAt), "MM/dd/yyyy HH:mm", { locale: enUS })}`}
         leading={
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
             onClick={() => navigate("/admin/orders")}
-            aria-label="Quay lại"
+            aria-label="Back"
           >
             <ArrowLeft className="size-4" />
           </Button>
@@ -138,7 +138,7 @@ export function OrderDetail() {
                           : "bg-muted text-muted-foreground"
                       )}
                     >
-                      {item.completed ? "✓" : index + 1}
+                      {item.completed ? "OK" : index + 1}
                     </div>
                     <p
                       className={cn(
@@ -174,7 +174,7 @@ export function OrderDetail() {
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2">
                 <Package className="size-4 text-muted-foreground" aria-hidden />
-                Sản phẩm ({order.items.length})
+                Products ({order.items.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
@@ -211,7 +211,7 @@ export function OrderDetail() {
                       {formatVnd(item.price)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      ×{item.quantity}
+                      x{item.quantity}
                     </p>
                     <p className="mt-2 font-semibold tabular-nums">
                       {formatVnd(item.total)}
@@ -224,18 +224,18 @@ export function OrderDetail() {
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tạm tính</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span className="tabular-nums">{formatVnd(order.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phí ship</span>
+                  <span className="text-muted-foreground">Shipping fee</span>
                   <span className="tabular-nums">
                     {formatVnd(order.shippingFee)}
                   </span>
                 </div>
                 {order.discount > 0 && (
                   <div className="flex justify-between text-destructive">
-                    <span>Giảm giá</span>
+                    <span>Discount</span>
                     <span className="tabular-nums">
                       -{formatVnd(order.discount)}
                     </span>
@@ -243,7 +243,7 @@ export function OrderDetail() {
                 )}
                 <Separator />
                 <div className="flex justify-between text-base font-semibold">
-                  <span>Tổng</span>
+                  <span>Total</span>
                   <span
                     className={cn("tabular-nums", adminBrandTextClass)}
                   >
@@ -258,7 +258,7 @@ export function OrderDetail() {
         <div className="space-y-6">
           <Card className="shadow-none">
             <CardHeader className="border-b">
-              <CardTitle className="text-base">Cập nhật trạng thái</CardTitle>
+              <CardTitle className="text-base">Update status</CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               <Select value={order.status} onValueChange={handleStatusChange}>
@@ -280,12 +280,12 @@ export function OrderDetail() {
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="size-4 text-muted-foreground" aria-hidden />
-                Khách hàng
+                Customer
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-6 text-sm">
               <div>
-                <p className="text-muted-foreground">Họ tên</p>
+                <p className="text-muted-foreground">Full name</p>
                 <p className="font-medium">{order.customerName}</p>
               </div>
               <div>
@@ -294,11 +294,11 @@ export function OrderDetail() {
               </div>
               <Separator />
               <div>
-                <p className="text-muted-foreground">Điện thoại</p>
+                <p className="text-muted-foreground">Phone</p>
                 <p className="font-medium">{order.shippingAddress.phone}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Địa chỉ</p>
+                <p className="text-muted-foreground">Address</p>
                 <p className="font-medium">{order.shippingAddress.address}</p>
                 <p className="text-muted-foreground">
                   {order.shippingAddress.ward},{" "}
@@ -310,7 +310,7 @@ export function OrderDetail() {
               </div>
               {order.note && (
                 <div>
-                  <p className="text-muted-foreground">Ghi chú</p>
+                  <p className="text-muted-foreground">Note</p>
                   <p className="italic">{order.note}</p>
                 </div>
               )}
@@ -321,34 +321,34 @@ export function OrderDetail() {
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2 text-base">
                 <CreditCard className="size-4 text-muted-foreground" aria-hidden />
-                Thanh toán
+                Payment
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-6 text-sm">
               <div>
-                <p className="text-muted-foreground">Phương thức</p>
+                <p className="text-muted-foreground">Method</p>
                 <p className="font-medium">
                   {order.paymentMethod === "cod"
                     ? "COD"
                     : order.paymentMethod === "card"
-                      ? "Thẻ"
-                      : "Ví điện tử"}
+                      ? "Card"
+                      : "E-wallet"}
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground">Trạng thái</p>
+                <p className="text-muted-foreground">Status</p>
                 <Badge
                   variant={
                     order.paymentStatus === "paid" ? "default" : "secondary"
                   }
                 >
                   {order.paymentStatus === "paid"
-                    ? "Đã thanh toán"
+                    ? "Paid"
                     : order.paymentStatus === "pending"
-                      ? "Chưa thanh toán"
+                      ? "Unpaid"
                       : order.paymentStatus === "failed"
-                        ? "Thất bại"
-                        : "Hoàn tiền"}
+                        ? "Failed"
+                        : "Refunded"}
                 </Badge>
               </div>
             </CardContent>
@@ -359,11 +359,11 @@ export function OrderDetail() {
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Truck className="size-4 text-muted-foreground" aria-hidden />
-                  Vận chuyển
+                  Shipping
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Mã vận đơn</p>
+                <p className="text-sm text-muted-foreground">Tracking number</p>
                 <p className="font-mono font-medium">{order.trackingNumber}</p>
               </CardContent>
             </Card>

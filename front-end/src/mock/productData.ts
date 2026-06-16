@@ -11,7 +11,7 @@ export type Product = QuickViewProduct & {
 export const categories = [
   {
     id: "dien-thoai",
-    name: "Điện thoại",
+    name: "Phones",
     icon: Smartphone,
     color: "from-blue-500 to-cyan-400",
     count: 234,
@@ -27,7 +27,7 @@ export const categories = [
   },
   {
     id: "dong-ho",
-    name: "Đồng hồ",
+    name: "Watches",
     icon: Watch,
     color: "from-emerald-500 to-teal-400",
     count: 89,
@@ -35,7 +35,7 @@ export const categories = [
   },
   {
     id: "tai-nghe",
-    name: "Tai nghe",
+    name: "Headphones",
     icon: Headphones,
     color: "from-orange-500 to-amber-400",
     count: 312,
@@ -43,7 +43,7 @@ export const categories = [
   },
   {
     id: "may-tinh-bang",
-    name: "Máy tính bảng",
+    name: "Tablets",
     icon: Tablet,
     color: "from-pink-500 to-rose-400",
     count: 78,
@@ -51,7 +51,7 @@ export const categories = [
   },
   {
     id: "man-hinh",
-    name: "Màn hình",
+    name: "Monitors",
     icon: Monitor,
     color: "from-indigo-500 to-blue-400",
     count: 45,
@@ -60,16 +60,16 @@ export const categories = [
 ];
 
 export const priceRanges = [
-  { id: "under-5", label: "Dưới 5 triệu", min: 0, max: 5_000_000 },
-  { id: "5-10", label: "5 – 10 triệu", min: 5_000_000, max: 10_000_000 },
-  { id: "10-20", label: "10 – 20 triệu", min: 10_000_000, max: 20_000_000 },
-  { id: "over-20", label: "Trên 20 triệu", min: 20_000_000, max: Infinity },
+  { id: "under-5", label: "Under 5M VND", min: 0, max: 5_000_000 },
+  { id: "5-10", label: "5M - 10M VND", min: 5_000_000, max: 10_000_000 },
+  { id: "10-20", label: "10M - 20M VND", min: 10_000_000, max: 20_000_000 },
+  { id: "over-20", label: "Over 20M VND", min: 20_000_000, max: Infinity },
 ];
 
 export const allProducts: Product[] = [
   {
     id: "1",
-    name: "iPhone 15 Pro Max 256GB - Chính hãng VN/A",
+    name: "iPhone 15 Pro Max 256GB - Official VN/A",
     image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400&q=80",
     price: 25990000,
     originalPrice: 34990000,

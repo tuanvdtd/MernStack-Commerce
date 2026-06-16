@@ -13,40 +13,40 @@ import { cn } from "~/lib/utils"
 
 const categoryMeta: Record<string, { title: string; description: string }> = {
   all: {
-    title: "Tất cả sản phẩm",
-    description: "Điện thoại, laptop, tai nghe và phụ kiện công nghệ — lọc theo giá, đánh giá và từ khóa.",
+    title: "All products",
+    description: "Phones, laptops, headphones, and tech accessories - filter by price, rating, and keyword.",
   },
   "dien-thoai": {
-    title: "Điện thoại",
-    description: "iPhone, Samsung Galaxy, Xiaomi chính hãng VN/A.",
+    title: "Phones",
+    description: "Official VN/A iPhone, Samsung Galaxy, and Xiaomi devices.",
   },
   laptop: {
     title: "Laptop",
-    description: "MacBook, Dell XPS, gaming và ultrabook.",
+    description: "MacBook, Dell XPS, gaming laptops, and ultrabooks.",
   },
   "tai-nghe": {
-    title: "Tai nghe",
-    description: "AirPods, Sony, tai nghe true wireless và gaming.",
+    title: "Headphones",
+    description: "AirPods, Sony, true wireless, and gaming headsets.",
   },
   "dong-ho": {
-    title: "Đồng hồ thông minh",
+    title: "Smartwatches",
     description: "Apple Watch, Galaxy Watch, Pixel Watch.",
   },
   "may-tinh-bang": {
-    title: "Máy tính bảng",
-    description: "iPad, Galaxy Tab và máy tính bảng học tập.",
+    title: "Tablets",
+    description: "iPad, Galaxy Tab, and tablets for learning.",
   },
   "man-hinh": {
-    title: "Màn hình",
+    title: "Monitors",
     description: "4K, ultrawide, gaming 144Hz+.",
   },
 }
 
 const sortOptions = [
-  { key: "popular", label: "Phổ biến", icon: TrendingUp },
-  { key: "price-asc", label: "Giá thấp", icon: ArrowDownAZ },
-  { key: "price-desc", label: "Giá cao", icon: ArrowUpAZ },
-  { key: "rating", label: "Đánh giá", icon: Star },
+  { key: "popular", label: "Popular", icon: TrendingUp },
+  { key: "price-asc", label: "Lowest price", icon: ArrowDownAZ },
+  { key: "price-desc", label: "Highest price", icon: ArrowUpAZ },
+  { key: "rating", label: "Rating", icon: Star },
 ] as const
 
 export function Category() {
@@ -59,8 +59,8 @@ export function Category() {
 
   const currentCategory = slug || "all"
   const meta = categoryMeta[currentCategory] ?? {
-    title: "Khám phá danh mục",
-    description: "Duyệt thiết bị điện tử theo danh mục và bộ lọc.",
+    title: "Explore categories",
+    description: "Browse electronics by category and filters.",
   }
 
   const activeCategory = categories.find((category) => category.id === currentCategory)
@@ -172,7 +172,7 @@ export function Category() {
             <main className="p-4 sm:p-5">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-[#2b2f32]">
-                  {filteredProducts.length} sản phẩm
+                  {filteredProducts.length} products
                 </h2>
                 {activeFilterCount > 0 && (
                   <button
@@ -180,7 +180,7 @@ export function Category() {
                     onClick={handleClearAllFilters}
                     className="text-xs text-[#00647e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00cbfd]"
                   >
-                    Xóa bộ lọc ({activeFilterCount})
+                    Clear filters ({activeFilterCount})
                   </button>
                 )}
               </div>
@@ -189,17 +189,17 @@ export function Category() {
                 <div className={cn("flex flex-col gap-2 border-b px-3 py-2 sm:flex-row sm:items-center sm:justify-between", storeTokens.border)}>
                   <span className="flex items-center gap-1.5 text-sm font-medium text-[#2b2f32]">
                     <SlidersHorizontal className="size-4 text-[#757575]" aria-hidden="true" />
-                    Sắp xếp
+                    Sort
                   </span>
                   <div className="relative w-full sm:max-w-[220px]">
                     <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-[#757575]" aria-hidden="true" />
                     <Input
                       type="text"
-                      placeholder="Tìm sản phẩm..."
+                      placeholder="Search products..."
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
                       className={cn("h-8 rounded-md border-gray-200 bg-white pl-8 text-sm")}
-                      aria-label="Tìm kiếm sản phẩm"
+                      aria-label="Search products"
                     />
                   </div>
                 </div>
@@ -233,12 +233,12 @@ export function Category() {
               {filteredProducts.length === 0 ? (
                 <section className={cn("rounded-lg border border-dashed p-10 text-center", storeTokens.border)}>
                   <PackageOpen className="mx-auto mb-3 size-10 text-[#bdbdbd]" aria-hidden="true" />
-                  <h3 className="text-base font-medium text-[#2b2f32]">Không tìm thấy sản phẩm</h3>
+                  <h3 className="text-base font-medium text-[#2b2f32]">No products found</h3>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-[#757575]">
-                    Thử xóa bộ lọc hoặc đổi từ khóa tìm kiếm.
+                    Try clearing filters or changing your search keyword.
                   </p>
                   <Button variant="outline" size="sm" className="mt-4" onClick={handleClearAllFilters}>
-                    Xem tất cả
+                    View all
                   </Button>
                 </section>
               ) : (

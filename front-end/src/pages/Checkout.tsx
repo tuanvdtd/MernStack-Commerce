@@ -19,7 +19,7 @@ const ORDER_ITEMS = [
   {
     id: "1",
     name: "iPhone 16 Pro 256GB",
-    variant: "Titan tự nhiên · Chính hãng VN/A",
+    variant: "Natural Titanium - Official VN/A",
     quantity: 1,
     price: 28_990_000,
     image:
@@ -28,7 +28,7 @@ const ORDER_ITEMS = [
   {
     id: "2",
     name: "AirPods Pro 2 (USB-C)",
-    variant: "Trắng · Chính hãng Apple",
+    variant: "White - Official Apple",
     quantity: 1,
     price: 5_990_000,
     image:
@@ -37,7 +37,7 @@ const ORDER_ITEMS = [
 ]
 
 const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price)
+  `${price.toLocaleString("en-US")} VND`
 
 export function Checkout() {
   const [paymentType, setPaymentType] = useState<PaymentType>("cod")
@@ -53,7 +53,7 @@ export function Checkout() {
   const total = Math.max(0, subtotal + shipping - voucherDiscount)
 
   /**
-   * Xử lý đặt hàng: COD hoàn tất ngay, thẻ mở modal cổng thanh toán tương ứng.
+   * Place the order: COD completes immediately; cards open the selected gateway modal.
    */
   const handlePlaceOrder = async () => {
     if (isSubmitting) return
@@ -62,8 +62,8 @@ export function Checkout() {
     try {
       if (paymentType === "cod") {
         await new Promise((resolve) => window.setTimeout(resolve, 600))
-        toast.success("Đặt hàng thành công!", {
-          description: "Đơn hàng COD của bạn đã được ghi nhận. Shipper sẽ liên hệ sớm.",
+        toast.success("Order placed successfully!", {
+          description: "Your COD order has been recorded. The courier will contact you soon.",
         })
         return
       }
@@ -84,14 +84,14 @@ export function Checkout() {
             className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-[#757575]"
           >
             <Link to="/" className="hover:text-[#2b2f32]">
-              Trang chủ
+              Home
             </Link>
             <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
             <Link to="/cart" className="hover:text-[#2b2f32]">
-              Giỏ hàng
+              Cart
             </Link>
             <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
-            <span className="font-medium text-[#2b2f32]">Thanh toán</span>
+            <span className="font-medium text-[#2b2f32]">Checkout</span>
           </nav>
 
           <div className="flex items-start gap-3">
@@ -104,9 +104,9 @@ export function Checkout() {
               <Package className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-[#2b2f32] sm:text-2xl">Thanh toán</h1>
+              <h1 className="text-xl font-semibold text-[#2b2f32] sm:text-2xl">Checkout</h1>
               <p className="mt-1 text-sm leading-relaxed text-[#757575]">
-                Kiểm tra địa chỉ, sản phẩm và chọn phương thức thanh toán trước khi đặt hàng.
+                Review your address, products, and payment method before placing the order.
               </p>
             </div>
           </div>
@@ -114,7 +114,7 @@ export function Checkout() {
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4 sm:space-y-5">
-            {/* Địa chỉ giao hàng */}
+            {/* Shipping address */}
             <section
               className={cn(
                 "rounded-lg border p-4 sm:p-5",
@@ -134,9 +134,9 @@ export function Checkout() {
                   </span>
                   <div>
                     <h2 className="text-base font-semibold text-[#2b2f32] sm:text-lg">
-                      Địa chỉ giao hàng
+                      Shipping address
                     </h2>
-                    <p className="mt-1 text-sm text-[#757575]">Giao trong 2-4 ngày làm việc</p>
+                    <p className="mt-1 text-sm text-[#757575]">Delivery in 2-4 business days</p>
                   </div>
                 </div>
                 <Button
@@ -146,22 +146,22 @@ export function Checkout() {
                   className="shrink-0 text-[#00647e] hover:bg-[#e8f9fd] hover:text-[#00576e]"
                 >
                   <Pencil className="size-3.5" aria-hidden="true" />
-                  Sửa
+                  Edit
                 </Button>
               </div>
 
               <div className="mt-4 rounded-lg border border-gray-100 bg-[#fafafa] p-4">
-                <p className="font-medium text-[#2b2f32]">Nguyễn Minh Tuấn</p>
+                <p className="font-medium text-[#2b2f32]">Minh Tuan Nguyen</p>
                 <p className="mt-1 text-sm leading-relaxed text-[#757575]">
-                  42 Nguyễn Huệ, Phường Bến Nghé
+                  42 Nguyen Hue, Ben Nghe Ward
                   <br />
-                  Quận 1, TP. Hồ Chí Minh
+                  District 1, Ho Chi Minh City
                 </p>
                 <p className="mt-2 text-sm text-[#2b2f32]">0903 847 192</p>
               </div>
             </section>
 
-            {/* Sản phẩm */}
+            {/* Products */}
             <section
               className={cn(
                 "rounded-lg border p-4 sm:p-5",
@@ -170,7 +170,7 @@ export function Checkout() {
               )}
             >
               <h2 className="text-base font-semibold text-[#2b2f32] sm:text-lg">
-                Sản phẩm ({ORDER_ITEMS.length})
+                Products ({ORDER_ITEMS.length})
               </h2>
 
               <ul className="mt-4 space-y-4">
@@ -194,7 +194,7 @@ export function Checkout() {
                       </div>
                       <p className="mt-1 text-xs text-[#757575]">{item.variant}</p>
                       <p className="mt-2 inline-block rounded bg-[#f0f0f0] px-2 py-0.5 text-xs text-[#757575]">
-                        SL: {item.quantity}
+                        Qty: {item.quantity}
                       </p>
                     </div>
                   </li>

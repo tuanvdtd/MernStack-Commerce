@@ -33,7 +33,7 @@ export function Register() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
-      setError("Vui long nhap dung dinh dang email");
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -53,10 +53,10 @@ export function Register() {
                 FlashBuy
               </Link>
               <div className="bg-[#d8dee2] w-px h-6" />
-              <h1 className="text-[#2b2f32] text-lg">Đăng ký</h1>
+              <h1 className="text-[#2b2f32] text-lg">Sign up</h1>
             </div>
             <Link to="/login" className="text-[#00647e] text-sm hover:underline">
-              Cần trợ giúp?
+              Need help?
             </Link>
           </div>
         </div>
@@ -64,7 +64,7 @@ export function Register() {
 
       <div className="flex h-[700px] items-center justify-center bg-gray-100">
         <div className="bg-white w-[400px] p-8 rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold mb-6 text-center">Tạo tài khoản mới</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center">Create a new account</h1>
 
           {error && (
             <div className="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm">
@@ -93,7 +93,7 @@ export function Register() {
             onClick={handleSignUp}
             disabled={loading}
           >
-            {loading ? "Đang gửi OTP..." : "Gửi mã OTP"}
+            {loading ? "Sending OTP..." : "Send OTP code"}
           </button>
 
           <button
@@ -102,13 +102,13 @@ export function Register() {
             onClick={handleGoogleSignIn}
           >
             <img src={googleIcon} alt="Google Logo" className="w-5 h-5 mr-2" />
-            Đăng ký với Google
+            Sign up with Google
           </button>
 
           <p className="text-sm text-center text-gray-500">
-            Bạn đã có tài khoản?{" "}
+            Already have an account?{" "}
             <button onClick={handleSigninClick} className="text-blue-500 hover:underline">
-              Đăng nhập
+              Sign in
             </button>
           </p>
         </div>

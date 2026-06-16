@@ -20,7 +20,7 @@ type ProductCardProps = {
 }
 
 const formatPrice = (price: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price)
+  `${price.toLocaleString("en-US")} VND`
 
 export const ProductCard = ({
   id,
@@ -40,7 +40,7 @@ export const ProductCard = ({
     <Card
       className={cn(
         "flex h-full flex-col overflow-hidden border-gray-200 bg-white pt-0 pb-0 shadow-none",
-        /* Hover nhẹ — chỉ shadow, không đổi border/màu/scale */
+        /* Keep hover subtle: shadow only, with no border, color, or scale shift. */
         "hover:shadow-[0_1px_8px_rgba(0,0,0,0.08)]"
       )}
     >
@@ -71,7 +71,7 @@ export const ProductCard = ({
           <div className="flex items-center gap-0.5">
             <Star className="size-3 fill-[#ffc107] text-[#ffc107]" aria-hidden="true" />
             <span className="text-[10px] text-[#757575] sm:text-xs">
-              {rating} | {reviews.toLocaleString()} đánh giá
+              {rating} | {reviews.toLocaleString("en-US")} reviews
             </span>
           </div>
         )}
@@ -84,7 +84,7 @@ export const ProductCard = ({
         </div>
 
         {sold != null && (
-          <p className="text-[10px] text-[#757575]">Đã bán {sold}</p>
+          <p className="text-[10px] text-[#757575]">Sold {sold}</p>
         )}
 
         <Button
@@ -93,7 +93,7 @@ export const ProductCard = ({
           className="mt-auto h-7 rounded-md border-gray-200 text-xs text-[#2b2f32] sm:h-8"
           asChild
         >
-          <Link to={`/product/${id}`}>{isFlashSale ? "Mua ngay" : "Xem chi tiết"}</Link>
+          <Link to={`/product/${id}`}>{isFlashSale ? "Buy now" : "View details"}</Link>
         </Button>
       </CardContent>
     </Card>

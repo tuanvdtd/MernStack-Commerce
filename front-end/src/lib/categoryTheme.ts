@@ -1,4 +1,4 @@
-/** Token màu thống nhất cho trang catalog — kiểu ecommerce VN (Shopee/Tiki) */
+/** Unified color tokens for the catalog page with a marketplace feel. */
 export const storeTokens = {
   pageBg: "bg-[#f5f5f5]",
   surface: "bg-white",
@@ -20,7 +20,7 @@ export const storeTokens = {
   iconBoxActive: "bg-[#00cbfd] text-[#003e4f]",
 } as const
 
-/** Giữ API cũ nhưng trả về palette ecommerce thống nhất — không đổi màu theo danh mục */
+/** Keep the old API while returning one marketplace palette across categories. */
 export type CategoryAccent = {
   iconClass: string
   activeClass: string

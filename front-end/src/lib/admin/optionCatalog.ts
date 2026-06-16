@@ -28,7 +28,7 @@ export const getCatalogValues = (
   optionName: string
 ): string[] => findCatalogEntry(catalog, optionName)?.values ?? []
 
-/** Gộp trục/giá trị từ SPU đang sửa vào catalog (giữ custom đã lưu) */
+/** Merge axes and values from the edited SPU into the catalog, keeping saved custom values. */
 export const mergeProductIntoOptionCatalog = (
   catalog: OptionCatalogEntry[],
   product: { optionAxes?: string[]; skus: { options: { optionName: string; value: string }[] }[] }
@@ -73,9 +73,9 @@ export const addCatalogOption = (
 ): { catalog: OptionCatalogEntry[]; name: string } | { error: string } => {
   const name = rawName.trim()
   const label = (rawLabel ?? rawName).trim()
-  if (!name) return { error: "Tên trục Option không được để trống" }
+  if (!name) return { error: "Option axis name is required" }
   if (catalog.some((e) => e.name === name)) {
-    return { error: `Trục "${name}" đã có trong catalog` }
+    return { error: `Axis "${name}" already exists in the catalog` }
   }
   return {
     catalog: [...catalog, { name, label, values: [] }],
@@ -89,10 +89,10 @@ export const addCatalogValue = (
   rawValue: string
 ): { catalog: OptionCatalogEntry[]; value: string } | { error: string } => {
   const value = rawValue.trim()
-  if (!value) return { error: "Giá trị không được để trống" }
+  if (!value) return { error: "Value is required" }
 
   const entry = findCatalogEntry(catalog, optionName)
-  if (!entry) return { error: "Trục Option chưa tồn tại trong catalog" }
+  if (!entry) return { error: "Option axis does not exist in the catalog" }
   if (entry.values.includes(value)) {
     return { catalog, value }
   }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { format } from "date-fns"
-import { vi } from "date-fns/locale"
+import { enUS } from "date-fns/locale"
 import { useAdminStore } from "~/stores/adminStore"
 import { mockDiscounts } from "~/mock/adminData"
 import { Button } from "~/components/ui/button"
@@ -125,7 +125,7 @@ export function DiscountsList() {
   const handleDeleteConfirm = () => {
     if (!selectedDiscountId) return
     deleteDiscount(selectedDiscountId)
-    toast.success("Đã xóa mã giảm giá")
+    toast.success("Discount deleted")
     setDeleteDialogOpen(false)
     setSelectedDiscountId(null)
   }
@@ -142,10 +142,10 @@ export function DiscountsList() {
     try {
       await navigator.clipboard.writeText(code)
       setCopiedCode(code)
-      toast.success("Đã sao chép mã")
+      toast.success("Code copied")
       window.setTimeout(() => setCopiedCode(null), 2000)
     } catch {
-      toast.error("Không thể sao chép mã")
+      toast.error("Unable to copy code")
     }
   }
 
@@ -155,13 +155,13 @@ export function DiscountsList() {
     <>
       <AdminWorkspace>
         <AdminWorkspaceHeader
-          title="Mã giảm giá"
-          description="Quản lý voucher, giới hạn lượt dùng và phạm vi áp dụng."
+          title="Discounts"
+          description="Manage vouchers, usage limits, and application scope."
           actions={
             <Link to="/admin/discounts/create">
               <Button size="sm" className={cn("gap-1.5", adminBrandButtonClass)}>
                 <Plus className="size-3.5" strokeWidth={2} />
-                Tạo mã
+                Create code
               </Button>
             </Link>
           }
@@ -169,21 +169,21 @@ export function DiscountsList() {
 
         <AdminMetricStrip
           metrics={[
-            { label: "Tổng mã", value: discounts.length },
+            { label: "Total codes", value: discounts.length },
             {
-              label: "Đang chạy",
+              label: "Active",
               value: activeCount,
               tone: "success",
             },
             {
-              label: "Chưa bắt đầu",
+              label: "Scheduled",
               value: discounts.filter(
                 (d) => getDiscountDisplayStatus(d) === "scheduled"
               ).length,
               tone: "brand",
             },
             {
-              label: "Hết hạn / hết lượt",
+              label: "Expired / fully used",
               value: discounts.filter((d) => {
                 const s = getDiscountDisplayStatus(d)
                 return s === "expired" || s === "exhausted"
@@ -194,14 +194,14 @@ export function DiscountsList() {
         />
 
         <AdminFilterRow>
-          <AdminFilterSearch label="Từ khóa">
+          <AdminFilterSearch label="Keyword">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-brand)]"
                 strokeWidth={2}
               />
               <Input
-                placeholder="Tên, mã, mô tả..."
+                placeholder="Name, code, description..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -211,7 +211,7 @@ export function DiscountsList() {
               />
             </div>
           </AdminFilterSearch>
-          <AdminFilterField label="Loại giảm">
+          <AdminFilterField label="Discount type">
             <Select
               value={typeFilter}
               onValueChange={(v) => {
@@ -220,16 +220,16 @@ export function DiscountsList() {
               }}
             >
               <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-                <SelectValue placeholder="Loại giảm" />
+                <SelectValue placeholder="Discount type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="FIXED_AMOUNT">Giảm cố định</SelectItem>
-                <SelectItem value="PERCENTAGE">Giảm theo %</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="FIXED_AMOUNT">Fixed amount</SelectItem>
+                <SelectItem value="PERCENTAGE">Percentage</SelectItem>
               </SelectContent>
             </Select>
           </AdminFilterField>
-          <AdminFilterField label="Trạng thái">
+          <AdminFilterField label="Status">
             <Select
               value={statusFilter}
               onValueChange={(v) => {
@@ -238,19 +238,19 @@ export function DiscountsList() {
               }}
             >
               <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-                <SelectValue placeholder="Trạng thái" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="active">Đang chạy</SelectItem>
-                <SelectItem value="scheduled">Chưa bắt đầu</SelectItem>
-                <SelectItem value="inactive">Đã tắt</SelectItem>
-                <SelectItem value="expired">Hết hạn</SelectItem>
-                <SelectItem value="exhausted">Hết lượt</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="inactive">Disabled</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="exhausted">Fully used</SelectItem>
               </SelectContent>
             </Select>
           </AdminFilterField>
-          <AdminFilterField label="Phạm vi">
+          <AdminFilterField label="Scope">
             <Select
               value={appliesFilter}
               onValueChange={(v) => {
@@ -259,12 +259,12 @@ export function DiscountsList() {
               }}
             >
               <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-                <SelectValue placeholder="Phạm vi" />
+                <SelectValue placeholder="Scope" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="ALL">Toàn bộ đơn</SelectItem>
-                <SelectItem value="SPECIFIC">Sản phẩm chỉ định</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="ALL">Entire order</SelectItem>
+                <SelectItem value="SPECIFIC">Selected products</SelectItem>
               </SelectContent>
             </Select>
           </AdminFilterField>
@@ -274,15 +274,15 @@ export function DiscountsList() {
           <Table>
             <TableHeader>
               <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
-                <TableHead className={adminThClass}>Mã / Tên</TableHead>
-                <TableHead className={adminThClass}>Giá trị</TableHead>
-                <TableHead className={adminThClass}>Phạm vi</TableHead>
-                <TableHead className={adminThClass}>Thời gian</TableHead>
-                <TableHead className={adminThClass}>Lượt dùng</TableHead>
-                <TableHead className={adminThClass}>Đơn tối thiểu</TableHead>
-                <TableHead className={adminThClass}>Trạng thái</TableHead>
+                <TableHead className={adminThClass}>Code / Name</TableHead>
+                <TableHead className={adminThClass}>Value</TableHead>
+                <TableHead className={adminThClass}>Scope</TableHead>
+                <TableHead className={adminThClass}>Period</TableHead>
+                <TableHead className={adminThClass}>Usage</TableHead>
+                <TableHead className={adminThClass}>Minimum order</TableHead>
+                <TableHead className={adminThClass}>Status</TableHead>
                 <TableHead className={cn(adminThClass, "text-right")}>
-                  Thao tác
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -292,11 +292,11 @@ export function DiscountsList() {
                   <TableCell colSpan={8} className="p-0">
                     <AdminEmptyState
                       icon={Ticket}
-                      title="Không tìm thấy mã giảm giá"
+                      title="No discounts found"
                       description={
                         hasActiveFilters
-                          ? "Thử đổi bộ lọc hoặc từ khóa tìm kiếm."
-                          : "Chưa có mã giảm giá nào."
+                          ? "Try changing filters or search keywords."
+                          : "There are no discounts yet."
                       }
                       action={
                         hasActiveFilters ? (
@@ -306,12 +306,12 @@ export function DiscountsList() {
                             className="h-8 text-[13px]"
                             onClick={handleClearFilters}
                           >
-                            Xóa bộ lọc
+                            Clear filters
                           </Button>
                         ) : (
                           <Link to="/admin/discounts/create">
                             <Button size="sm" className={adminBrandButtonClass}>
-                              Tạo mã
+                              Create code
                             </Button>
                           </Link>
                         )
@@ -347,7 +347,7 @@ export function DiscountsList() {
                               variant="ghost"
                               size="icon-sm"
                               className="size-6 text-muted-foreground"
-                              aria-label={`Sao chép mã ${discount.code}`}
+                              aria-label={`Copy code ${discount.code}`}
                               onClick={() => handleCopyCode(discount.code)}
                             >
                               {copiedCode === discount.code ? (
@@ -374,18 +374,18 @@ export function DiscountsList() {
                         </span>
                         {discount.appliesTo === "SPECIFIC" && (
                           <p className="text-[12px] text-muted-foreground">
-                            {discount.productIds.length} sản phẩm
+                            {discount.productIds.length} products
                           </p>
                         )}
                       </TableCell>
                       <TableCell className={adminTdClass}>
                         <p className="text-[13px]">
                           {format(new Date(discount.startDate), "dd/MM/yy", {
-                            locale: vi,
+                            locale: enUS,
                           })}
                           {" - "}
                           {format(new Date(discount.endDate), "dd/MM/yy", {
-                            locale: vi,
+                            locale: enUS,
                           })}
                         </p>
                       </TableCell>
@@ -406,14 +406,14 @@ export function DiscountsList() {
                             aria-valuenow={usagePercent}
                             aria-valuemin={0}
                             aria-valuemax={100}
-                            aria-label={`Đã dùng ${usagePercent}%`}
+                            aria-label={`${usagePercent}% used`}
                           />
                         </div>
                       </TableCell>
                       <TableCell className={cn(adminTdClass, adminMonoClass)}>
                         {discount.minOrderValue > 0
                           ? formatVnd(discount.minOrderValue)
-                          : "Không"}
+                          : "None"}
                       </TableCell>
                       <TableCell className={adminTdClass}>
                         <DiscountStatusBadge discount={discount} />
@@ -428,7 +428,7 @@ export function DiscountsList() {
                                 "size-8 bg-background",
                                 adminGhostButtonClass
                               )}
-                              aria-label="Sửa"
+                              aria-label="Edit"
                             >
                               <Pencil className="size-3.5" strokeWidth={1.75} />
                             </Button>
@@ -441,7 +441,7 @@ export function DiscountsList() {
                               "size-8 border-destructive/30 bg-background text-destructive hover:bg-destructive/5",
                               adminGhostButtonClass
                             )}
-                            aria-label="Xóa"
+                            aria-label="Delete"
                             onClick={() => {
                               setSelectedDiscountId(discount.id)
                               setDeleteDialogOpen(true)
@@ -466,7 +466,7 @@ export function DiscountsList() {
             totalItems={filteredDiscounts.length}
             pageSize={ADMIN_PAGE_SIZE}
             onPageChange={setCurrentPage}
-            itemLabel="mã"
+            itemLabel="codes"
           />
         </AdminWorkspaceFooter>
       </AdminWorkspace>
@@ -474,19 +474,19 @@ export function DiscountsList() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xóa mã giảm giá?</AlertDialogTitle>
+            <AlertDialogTitle>Delete discount?</AlertDialogTitle>
             <AlertDialogDescription>
-              Mã và toàn bộ lịch sử sử dụng liên quan sẽ bị xóa. Thao tác không
-              hoàn tác.
+              The code and all related usage history will be deleted. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Xóa
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

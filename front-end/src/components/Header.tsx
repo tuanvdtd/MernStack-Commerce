@@ -40,7 +40,7 @@ export function Header() {
               to="/category/all"
               className={navLinkClass(pathname.startsWith("/category"))}
             >
-              Danh mục
+              Categories
             </Link>
             <Link
               to="/flash-sale"
@@ -49,11 +49,11 @@ export function Header() {
               Flash Sale
             </Link>
             {/* <Link to="/category/deals" className={navLinkClass(pathname.startsWith("/category/deals"))}>
-              Ưu đãi
+              Deals
             </Link> */}
             {!user && (
               <span className="text-xs text-muted-foreground hidden lg:inline">
-                Xem sản phẩm không cần đăng nhập
+                Browse products without signing in
               </span>
             )}
             {user && (
@@ -61,7 +61,7 @@ export function Header() {
                 to="/track-order"
                 className={navLinkClass(pathname.startsWith("/track-order"))}
               >
-                Theo dõi đơn
+                Track order
               </Link>
             )}
           </nav>
@@ -70,10 +70,10 @@ export function Header() {
             <div className="relative w-full">
               <input
                 type="text"
-                placeholder="Tìm sản phẩm..."
+                placeholder="Search products..."
                 className="w-full px-4 py-2 pr-10 bg-[#f8fafc] border border-transparent rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00cbfd] focus:bg-white transition-colors"
               />
-              <button type="button" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-[#00647e] transition-colors" aria-label="Tìm kiếm">
+              <button type="button" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-[#00647e] transition-colors" aria-label="Search">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -87,14 +87,14 @@ export function Header() {
                 <Link
                   to="/cart"
                   className={cn("relative", iconLinkClass(pathname.startsWith("/cart")))}
-                  aria-label="Giỏ hàng"
+                  aria-label="Cart"
                 >
                   <ShoppingCart className="w-6 h-6" />
                 </Link>
                 <Link
                   to="/account"
                   className="p-1"
-                  aria-label="Tài khoản"
+                  aria-label="Account"
                   aria-current={
                     pathname.startsWith("/account") ? "page" : undefined
                   }
@@ -119,7 +119,7 @@ export function Header() {
                 <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-[#2b2f32]" asChild>
                   <Link to="/login">
                     <LogIn className="w-4 h-4 mr-1.5" />
-                    Đăng nhập
+                    Sign in
                   </Link>
                 </Button>
                 <Button
@@ -130,7 +130,7 @@ export function Header() {
                 >
                   <Link to="/register">
                     <UserPlus className="w-4 h-4 mr-1.5 sm:mr-0" />
-                    <span className="hidden sm:inline">Đăng ký</span>
+                    <span className="hidden sm:inline">Sign up</span>
                   </Link>
                 </Button>
               </>
