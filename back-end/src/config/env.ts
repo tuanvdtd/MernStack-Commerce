@@ -24,7 +24,13 @@ const schema = z.object({
   ADMIN_EMAIL_NAME: z.string(),
   CLOUDINARY_CLOUD_NAME: z.string(),
   CLOUDINARY_API_KEY: z.string(),
-  CLOUDINARY_API_SECRET: z.string()
+  CLOUDINARY_API_SECRET: z.string(),
+  // Search infrastructure (Elasticsearch SKU-level index + Redis dictionary cache).
+  ELASTIC_ENDPOINT: z.string().default('http://localhost:9200'),
+  // Optional: khi không cấu hình, attribute dictionary fallback đọc thẳng MySQL.
+  REDIS_URL: z.string().optional(),
+  // RabbitMQ — async sync MySQL → Elasticsearch. Bỏ trống sẽ fallback sync in-process.
+  RABBITMQ_URI: z.string().optional()
 })
 
 export const env = schema.parse(process.env)

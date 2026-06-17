@@ -3,7 +3,10 @@ import { createApp } from './app'
 import { env } from './config/env'
 import { logger } from './config/logger'
 import { startOtpCleanupJob } from './jobs/otpCleanup.job'
+import { connectElasticsearch } from './lib/elasticsearch'
 import { connectDatabase } from './lib/prisma'
+import { connectRabbitMQ } from './lib/rabbitmq'
+import { ensureProductIndex } from './modules/search/search.es'
 
 (async () => {
   // LƯU ÝP: Thực tế sẽ cần mở được connection và khởi tạo DB trước khi create express app
@@ -11,6 +14,18 @@ import { connectDatabase } from './lib/prisma'
 
   await connectDatabase()
   startOtpCleanupJob()
+
+  // Search bootstrap (best-effort): ping ES rồi đảm bảo index products_v2 tồn tại.
+  if (await connectElasticsearch()) {
+    try {
+      await ensureProductIndex()
+    } catch (err) {
+      logger.error({ err }, 'Failed to ensure Elasticsearch product index')
+    }
+  }
+
+  // RabbitMQ publisher (best-effort): kết nối sớm để log lỗi cấu hình.
+  await connectRabbitMQ()
 
   const app = createApp()
   app.listen(env.PORT, () => {

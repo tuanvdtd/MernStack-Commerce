@@ -1,11 +1,17 @@
+import { logger } from '~/config/logger'
 import { ApiError } from '~/core/http/ApiError'
-import { toAdminProduct } from '~/modules/products/product.mapper'
+import {
+  publishProductEvent,
+  type ProductEventAction,
+} from '~/lib/rabbitmq'
+import { CategoryRepo } from '~/modules/categories/category.repo'
 import {
   cleanupRemovedVariantImages,
   resolveProductImageUrls,
   resolveSpuImageForPatch,
   resolveVariantsImageUrls,
 } from '~/modules/products/product.image'
+import { toAdminProduct } from '~/modules/products/product.mapper'
 import type { ProductImageUploads } from '~/modules/products/product.middleware'
 import { ProductRepo } from '~/modules/products/product.repo'
 import type {
@@ -13,10 +19,77 @@ import type {
   PatchProductSpuInput,
   UpdateProductVariantsInput,
 } from '~/modules/products/product.types'
-import { CategoryRepo } from '~/modules/categories/category.repo'
+import { AttributeDictionaryService } from '~/modules/search/attribute-dictionary.service'
+import { SyncService } from '~/modules/search/sync.service'
 import { generateProductSlug } from '~/utils/productSlug'
 
 const emptyUploads = (): ProductImageUploads => ({ skus: new Map() })
+
+/**
+ * Điều phối đồng bộ search sau mỗi thao tác ghi product (create/patch/update/delete).
+ *
+ * @param spuId  id của Product (SPU) vừa thay đổi.
+ * @param action 'upsert' | 'delete' — dùng chung contract với publisher & worker.
+ *
+ * Luồng 3 bước:
+ *
+ * 1. INVALIDATE DICTIONARY CACHE
+ *    - Query parser (scenario 3) cache map `Option -> values + synonyms` ở Redis (TTL 300s).
+ *    - Tạo/sửa product có thể sinh Option/OptionValue mới → phải xóa cache để parser
+ *      nhận diện giá trị mới ngay, không phải đợi hết TTL.
+ *    - Đặt ở API (không phải worker) vì cache phục vụ luồng đọc chạy trong API process
+ *      (giống kiến trúc bản NestJS gốc).
+ *    - `.catch` nuốt lỗi: xóa cache thất bại không được làm hỏng cả luồng; tệ nhất parser
+ *      dùng dữ liệu cũ thêm vài phút.
+ *
+ * 2. PUBLISH EVENT LÊN RABBITMQ (happy path)
+ *    - Bắn message { productId, action } vào exchange `product.events`
+ *      (key product.upsert | product.delete, persistent).
+ *    - Publish OK → return ngay; việc index ES do Worker xử lý bất đồng bộ.
+ *
+ * 3. FALLBACK SYNC IN-PROCESS
+ *    - Khi publish trả về false (RABBITMQ_URI chưa cấu hình HOẶC broker lỗi),
+ *      API tự gọi thẳng SyncService để ES vẫn được cập nhật → không mất dữ liệu,
+ *      đồng thời cho phép dev chạy mà không cần dựng RabbitMQ.
+ *    - upsert -> syncSpu (xóa SKU cũ rồi bulk index lại); delete -> deleteSpu.
+ *
+ * Lưu ý:
+ *  - Hàm được gọi qua wrapper `syncSearchIndex` theo kiểu fire-and-forget nên không
+ *    chặn/đánh fail response của admin.
+ *  - syncSpu/deleteSpu là idempotent (delete-then-reindex theo spuId), nên nếu hiếm khi
+ *    vừa publish được vừa rơi vào fallback thì kết quả cuối vẫn đúng, không sinh rác.
+ */
+async function dispatchProductSync(spuId: string, action: ProductEventAction) {
+  // Bước 1: xóa cache dictionary (best-effort, không chặn luồng nếu Redis lỗi).
+  await AttributeDictionaryService.invalidate().catch((err) => {
+    logger.error({ err, spuId }, 'Failed to invalidate attribute dictionary cache')
+  })
+
+  // Bước 2: publish event để Worker index ES bất đồng bộ.
+  const published = await publishProductEvent({ productId: spuId, action })
+  if (published) {
+    logger.info({ spuId, action }, 'Product sync event published to RabbitMQ')
+    return
+  }
+
+  // Bước 3: RabbitMQ không khả dụng → fallback sync trực tiếp trong API process.
+  logger.warn(
+    { spuId, action },
+    'RabbitMQ unavailable — falling back to in-process ES sync',
+  )
+  if (action === 'delete') {
+    await SyncService.deleteSpu(spuId)
+  } else {
+    await SyncService.syncSpu(spuId)
+  }
+}
+
+/** Fire-and-forget wrapper — không chặn/đánh fail luồng CRUD chính. */
+function syncSearchIndex(spuId: string, action: ProductEventAction) {
+  void dispatchProductSync(spuId, action).catch((err) => {
+    logger.error({ err, spuId, action }, 'Search index sync failed')
+  })
+}
 
 async function assertSkusUnique(
   variants: CreateProductInput['variants'],
@@ -72,6 +145,7 @@ export const ProductService = {
     })
     if (!product) throw ApiError.Internal('Failed to save product')
 
+    syncSearchIndex(product.id, 'upsert')
     return toAdminProduct(product)
   },
 
@@ -99,6 +173,7 @@ export const ProductService = {
     const product = await ProductRepo.patchSpu(id, resolved)
     if (!product) throw ApiError.Internal('Failed to update product')
 
+    syncSearchIndex(product.id, 'upsert')
     return toAdminProduct(product)
   },
 
@@ -122,6 +197,7 @@ export const ProductService = {
     try {
       const product = await ProductRepo.replaceVariants(id, resolved)
       if (!product) throw ApiError.Internal('Failed to update variants')
+      syncSearchIndex(product.id, 'upsert')
       return toAdminProduct(product)
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
@@ -140,6 +216,7 @@ export const ProductService = {
 
     try {
       await ProductRepo.delete(id)
+      syncSearchIndex(id, 'delete')
       return { id }
     } catch {
       throw ApiError.Conflict('Cannot delete product with active references')
