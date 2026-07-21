@@ -66,6 +66,7 @@ export function Inventory() {
     productId: string
     skuId: string
     sku: SKU
+    optionAxes: string[]
   } | null>(null)
   const [stockQuantity, setStockQuantity] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -301,6 +302,7 @@ export function Inventory() {
                                 productId: product.id,
                                 skuId: sku.id,
                                 sku,
+                                optionAxes: product.optionAxes,
                               })
                               setStockQuantity(sku.stockQuantity)
                               setEditDialogOpen(true)
@@ -338,7 +340,7 @@ export function Inventory() {
               {selectedSKU
                 ? formatVariantLabel(
                     selectedSKU.sku.options,
-                    selectedSKU.product.optionAxes
+                    selectedSKU.optionAxes
                   )
                 : null}
             </DialogDescription>

@@ -9,6 +9,7 @@ import {
   type OptionCatalogEntry,
 } from "~/lib/admin/optionCatalog"
 import { adminFormFieldLabelClass } from "~/lib/admin/ui"
+import { toast } from "sonner"
 
 type SpuOptionAxesEditorProps = {
   axes: string[]
