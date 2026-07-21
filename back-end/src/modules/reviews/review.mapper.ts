@@ -4,7 +4,7 @@ import type { ReviewItem } from '~/modules/reviews/review.types'
 
 type ReviewWithUser = ProductReview & {
   user: {
-    id: number
+    id: string
     name: string
     avatarUrl: string | null
   }

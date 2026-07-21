@@ -1,4 +1,4 @@
-import { Wand2, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import type { Control } from "react-hook-form"
 import { useFormContext, useWatch } from "react-hook-form"
 import { Button } from "~/components/ui/button"
@@ -23,7 +23,6 @@ import {
   getCatalogValues,
   type OptionCatalogEntry,
 } from "~/lib/admin/optionCatalog"
-import { suggestSkuCode, slugify } from "~/lib/admin/productUtils"
 import type { ProductFormValues } from "~/lib/admin/productFormSchema"
 import { formatVnd } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
@@ -34,7 +33,6 @@ type SkuFormCardProps = {
   optionAxes: string[]
   optionCatalog: OptionCatalogEntry[]
   onCatalogChange: (catalog: OptionCatalogEntry[]) => void
-  productName: string
   canRemove: boolean
   onRemove: () => void
   onImageFieldChange?: (meta?: ImageUploadChangeMeta) => void | Promise<void>
@@ -47,7 +45,6 @@ export const SkuFormCard = ({
   optionAxes,
   optionCatalog,
   onCatalogChange,
-  productName,
   canRemove,
   onRemove,
   onImageFieldChange,
@@ -57,15 +54,6 @@ export const SkuFormCard = ({
   const row = useWatch({ control, name: `variants.${index}` })
   const filledOptions =
     row?.options?.filter((o) => o.optionName && o.value) ?? []
-
-  const handleSuggestSku = () => {
-    if (filledOptions.length === 0) return
-    const suggested = suggestSkuCode(
-      slugify(productName || "product"),
-      filledOptions
-    )
-    setValue(`variants.${index}.sku`, suggested, { shouldValidate: true })
-  }
 
   const handleCreateValue = (optionName: string, rawValue: string) => {
     const result = addCatalogValue(optionCatalog, optionName, rawValue)
@@ -108,11 +96,11 @@ export const SkuFormCard = ({
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="font-heading text-sm font-semibold text-foreground">
-                SKU #{index + 1}
+                Variant #{index + 1}
               </h4>
-              {row?.sku ? (
+              {row?.id ? (
                 <Badge variant="outline" className="font-mono font-normal">
-                  {row.sku}
+                  {row.id}
                 </Badge>
               ) : null}
             </div>
@@ -191,44 +179,7 @@ export const SkuFormCard = ({
           })}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <FormField
-            control={control}
-            name={`variants.${index}.sku`}
-            render={({ field }) => (
-              <FormItem className="lg:col-span-1">
-                <FormLabel className="text-xs font-medium">SKU code *</FormLabel>
-                <div className="flex gap-2">
-                  <FormControl>
-                    <Input
-                      {...field}
-                      onChange={(e) =>
-                        field.onChange(e.target.value.toUpperCase())
-                      }
-                      placeholder="IPHONE15-BLACK-256GB"
-                      className="font-mono text-sm"
-                    />
-                  </FormControl>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    onClick={handleSuggestSku}
-                    title="Suggest a code from the SPU name and attribute values"
-                    aria-label="Suggest SKU code"
-                    className="shrink-0"
-                  >
-                    <Wand2 className="size-4" />
-                  </Button>
-                </div>
-                <FormMessage />
-                <p className="text-xs text-muted-foreground">
-                  Unique code across the system
-                </p>
-              </FormItem>
-            )}
-          />
-
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={control}
             name={`variants.${index}.price`}
@@ -288,7 +239,7 @@ export const SkuFormCard = ({
             <FormItem>
               <FormControl>
                 <ImageUploadField
-                  label="SKU image (optional)"
+                  label="Variant image (optional)"
                   description="Use when this variant has a different image from the SPU"
                   value={field.value ?? ""}
                   onChange={(newValue, meta) => {

@@ -4,7 +4,7 @@ import type { LoginData, RegisterData, VerifyOtpData } from '~/types/auth';
 import axios from './axiosConfig';
 
 interface LoginResponse {
-  id: number;
+  id: string;
   email: string;
   name: string;
   phone?: string;
@@ -20,7 +20,7 @@ interface loginRes {
 
 function mapLoginResponse(data: LoginResponse): User {
   return {
-    id: String(data.id),
+    id: data.id,
     email: data.email,
     name: data.name,
     phone: data.phone,

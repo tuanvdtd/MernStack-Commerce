@@ -103,7 +103,7 @@ export function AdminLayout() {
     <TooltipProvider delayDuration={0}>
       <div
         className={cn(
-          "admin-shell min-h-svh bg-zinc-50 text-foreground dark:bg-zinc-950",
+          "admin-shell min-h-svh text-foreground",
           sidebarCollapsed && "admin-sidebar-collapsed"
         )}
       >
@@ -126,7 +126,7 @@ export function AdminLayout() {
           <div
             className={cn(
               "flex h-[3.25rem] shrink-0 items-center border-b border-zinc-200/90 dark:border-zinc-800/80",
-              sidebarCollapsed ? "justify-center px-2" : "justify-between gap-2 px-3"
+              sidebarCollapsed ? "justify-center px-2" : "px-3"
             )}
           >
             <Link
@@ -146,18 +146,6 @@ export function AdminLayout() {
                 </span>
               )}
             </Link>
-            {!sidebarCollapsed && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="hidden shrink-0 text-muted-foreground hover:bg-zinc-100 hover:text-foreground lg:inline-flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                onClick={toggleSidebarCollapsed}
-                aria-label="Collapse sidebar"
-              >
-                <PanelLeftClose className="size-4" strokeWidth={1.75} />
-              </Button>
-            )}
           </div>
 
           <nav
@@ -269,18 +257,6 @@ export function AdminLayout() {
                   {!sidebarCollapsed && "Log out"}
                 </Button>
               </SidebarTooltip>
-            )}
-            {sidebarCollapsed && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="hidden h-8 w-full justify-center px-2 text-muted-foreground hover:bg-zinc-100 hover:text-foreground lg:inline-flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                onClick={toggleSidebarCollapsed}
-                aria-label="Expand sidebar"
-              >
-                <PanelLeftOpen className="size-3.5" strokeWidth={1.75} />
-              </Button>
             )}
           </div>
         </aside>

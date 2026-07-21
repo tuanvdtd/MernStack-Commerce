@@ -26,7 +26,7 @@ export const adminGhostButtonClass =
   "transition-[transform,background-color] duration-150 active:scale-[0.98]"
 
 export const adminWorkspaceClass =
-  "overflow-hidden rounded-2xl border border-border/70 bg-background shadow-[0_1px_2px_oklch(0_0_0/0.04)]"
+  "overflow-hidden rounded-2xl border border-border/70 bg-[var(--admin-section-bg)] shadow-[0_1px_2px_oklch(0_0_0/0.04)]"
 
 export const adminDividerClass = "border-border/60"
 
@@ -38,6 +38,20 @@ export const adminFilterLabelClass =
 
 export const adminFilterInputClass =
   "h-10 border-border/80 bg-background text-[13px] shadow-sm focus-visible:border-[var(--admin-brand)]/50 focus-visible:ring-2 focus-visible:ring-[var(--admin-brand)]/20"
+
+/** Centered form width — aligned with Shopify admin product editor (~992px). */
+export const adminFormShellClass = "mx-auto w-full max-w-[62rem]"
+
+/** Section card heading (Status, Variants, Summary, …). */
+export const adminFormSectionTitleClass =
+  "text-sm font-bold tracking-[-0.01em] text-foreground"
+
+/** Field label inside admin form sections (Title, Description, Brand, …). */
+export const adminFormFieldLabelClass = "text-sm font-semibold text-foreground"
+
+/** Mobile-first grid: stacked cards, then main + sidebar from lg. */
+export const adminFormLayoutClass =
+  "grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_16.25rem] lg:items-start lg:gap-4"
 
 export const adminRowActionClass =
   "inline-flex items-center gap-1"

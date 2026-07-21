@@ -24,7 +24,6 @@ export function toAdminProduct(product: NonNullable<ProductWithRelations>) {
   const variants = product.variants.map((variant) => ({
     id: variant.id,
     productId: product.id,
-    sku: variant.sku,
     price: Number(variant.price),
     imgUrl: variant.imgUrl ?? undefined,
     stockQuantity: variant.stockQuantity,

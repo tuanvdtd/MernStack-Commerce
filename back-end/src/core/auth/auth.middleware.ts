@@ -5,7 +5,7 @@ import { ApiError } from '~/core/http/ApiError'
 
 export type AuthRequest = Request & {
   user?: {
-    id: number
+    id: string
     role: string
   }
 }

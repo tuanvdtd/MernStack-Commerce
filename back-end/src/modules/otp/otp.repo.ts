@@ -1,5 +1,6 @@
 import { OtpPurpose } from '~/generated/prisma/client'
 import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
 
 export const OtpRepo = {
   async deleteByEmail(email: string, purpose: OtpPurpose = OtpPurpose.REGISTER) {
@@ -10,7 +11,7 @@ export const OtpRepo = {
 
   async create(email: string, code: string, expiresAt: Date, purpose: OtpPurpose = OtpPurpose.REGISTER) {
     return prisma.otp.create({
-      data: { email, code, expiresAt, purpose },
+      data: { id: newId(), email, code, expiresAt, purpose },
     })
   },
 

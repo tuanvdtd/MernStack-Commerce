@@ -9,12 +9,12 @@ import type { ProductImageUploads } from '~/modules/products/product.middleware'
 import type { ProductWithRelations } from '~/modules/products/product.repo'
 import { cloudinaryProvider } from '~/providers/cloudinary.provider'
 import {
-  buildSkuPublicId,
   buildSpuPublicId,
+  buildVariantPublicId,
 } from '~/utils/productImagePublicId'
 
 const isRemoteImageUrl = (url: string | null | undefined): url is string =>
-  Boolean(url?.trim() && /^https?:\/\//i.test(url.trim()))
+  Boolean(url?.trim() && /^https?:\/\/.+/i.test(url.trim()))
 
 export function assertSpuImageProvided(
   input: CreateProductInput,
@@ -33,21 +33,21 @@ async function uploadSpuImage(productId: string, file: Express.Multer.File) {
   return result.secure_url
 }
 
-async function uploadSkuImage(
+async function uploadVariantImage(
   productId: string,
-  sku: string,
+  variantId: string,
   file: Express.Multer.File,
 ) {
   const result = await cloudinaryProvider.streamUploadWithOverwrite(
     file.buffer,
     PRODUCT_IMAGE_FOLDER,
-    buildSkuPublicId(productId, sku),
+    buildVariantPublicId(productId, variantId),
   )
   return result.secure_url
 }
 
-async function destroySkuImage(productId: string, sku: string) {
-  const publicId = `${PRODUCT_IMAGE_FOLDER}/${buildSkuPublicId(productId, sku)}`
+async function destroyVariantImage(productId: string, variantId: string) {
+  const publicId = `${PRODUCT_IMAGE_FOLDER}/${buildVariantPublicId(productId, variantId)}`
   try {
     await cloudinaryProvider.destroy(publicId)
   } catch {
@@ -70,11 +70,12 @@ export async function resolveProductImageUrls(
 
   const variants = await Promise.all(
     input.variants.map(async (variant, index) => {
+      const variantId = variant.id
       const skuFile = files.skus.get(index)
-      if (skuFile) {
+      if (skuFile && variantId) {
         return {
           ...variant,
-          imgUrl: await uploadSkuImage(productId, variant.sku, skuFile),
+          imgUrl: await uploadVariantImage(productId, variantId, skuFile),
         }
       }
 
@@ -116,7 +117,7 @@ export async function resolveSpuImageForPatch(
   return resolved
 }
 
-/** PUT variants: upload ảnh SKU mới theo index, giữ URL remote nếu không đổi file. */
+/** PUT variants: upload ảnh variant mới theo index, giữ URL remote nếu không đổi file. */
 export async function resolveVariantsImageUrls(
   productId: string,
   input: UpdateProductVariantsInput,
@@ -124,11 +125,12 @@ export async function resolveVariantsImageUrls(
 ): Promise<UpdateProductVariantsInput> {
   const variants = await Promise.all(
     input.variants.map(async (variant, index) => {
+      const variantId = variant.id
       const skuFile = files.skus.get(index)
-      if (skuFile) {
+      if (skuFile && variantId) {
         return {
           ...variant,
-          imgUrl: await uploadSkuImage(productId, variant.sku, skuFile),
+          imgUrl: await uploadVariantImage(productId, variantId, skuFile),
         }
       }
 
@@ -143,22 +145,24 @@ export async function resolveVariantsImageUrls(
   return { ...input, variants }
 }
 
-/** Xóa ảnh Cloudinary của SKU bị remove hoặc bỏ URL ảnh khi replace variants. */
+/** Xóa ảnh Cloudinary của variant bị remove hoặc bỏ URL ảnh khi replace variants. */
 export async function cleanupRemovedVariantImages(
   productId: string,
   existing: NonNullable<ProductWithRelations>,
   input: UpdateProductVariantsInput,
   files: ProductImageUploads,
 ) {
-  const incomingSkus = new Set(input.variants.map((variant) => variant.sku))
+  const incomingIds = new Set(
+    input.variants.map((variant) => variant.id).filter(Boolean) as string[],
+  )
 
   for (const variant of existing.variants) {
-    if (!incomingSkus.has(variant.sku) && isRemoteImageUrl(variant.imgUrl)) {
-      await destroySkuImage(productId, variant.sku)
+    if (!incomingIds.has(variant.id) && isRemoteImageUrl(variant.imgUrl)) {
+      await destroyVariantImage(productId, variant.id)
       continue
     }
 
-    const index = input.variants.findIndex((item) => item.sku === variant.sku)
+    const index = input.variants.findIndex((item) => item.id === variant.id)
     if (index === -1) continue
 
     const incoming = input.variants[index]
@@ -170,7 +174,7 @@ export async function cleanupRemovedVariantImages(
       !hasNewFile &&
       !keepsRemoteUrl
     ) {
-      await destroySkuImage(productId, variant.sku)
+      await destroyVariantImage(productId, variant.id)
     }
   }
 }
@@ -181,15 +185,17 @@ export async function cleanupRemovedProductImages(
   input: CreateProductInput,
   files: ProductImageUploads,
 ) {
-  const incomingSkus = new Set(input.variants.map((variant) => variant.sku))
+  const incomingIds = new Set(
+    input.variants.map((variant) => variant.id).filter(Boolean) as string[],
+  )
 
   for (const variant of existing.variants) {
-    if (!incomingSkus.has(variant.sku) && isRemoteImageUrl(variant.imgUrl)) {
-      await destroySkuImage(productId, variant.sku)
+    if (!incomingIds.has(variant.id) && isRemoteImageUrl(variant.imgUrl)) {
+      await destroyVariantImage(productId, variant.id)
       continue
     }
 
-    const index = input.variants.findIndex((item) => item.sku === variant.sku)
+    const index = input.variants.findIndex((item) => item.id === variant.id)
     if (index === -1) continue
 
     const incoming = input.variants[index]
@@ -201,7 +207,7 @@ export async function cleanupRemovedProductImages(
       !hasNewFile &&
       !keepsRemoteUrl
     ) {
-      await destroySkuImage(productId, variant.sku)
+      await destroyVariantImage(productId, variant.id)
     }
   }
 }

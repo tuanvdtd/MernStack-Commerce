@@ -2,7 +2,7 @@ import type { SPU } from "~/types/admin/index"
 import api from "./axiosConfig"
 
 export type CreateProductVariantPayload = {
-  sku: string
+  id?: string
   price: number
   stockQuantity: number
   imgUrl?: string

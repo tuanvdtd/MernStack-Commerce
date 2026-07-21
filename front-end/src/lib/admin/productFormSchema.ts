@@ -1,16 +1,21 @@
 import * as z from "zod"
 
+/** Strip HTML tags and collapse whitespace for plain-text length checks. */
+const getPlainTextFromHtml = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
 export const variantOptionSchema = z.object({
   optionName: z.string(),
   value: z.string().min(1, "Choose a value for this attribute"),
 })
 
 export const variantSchema = z.object({
+  /** Có khi variant đã lưu; variant mới không gửi id — BE sinh UUID v7. */
   id: z.string().optional(),
-  sku: z
-    .string()
-    .min(1, "SKU code is required")
-    .min(3, "SKU code must be at least 3 characters"),
   price: z.number().min(1000, "Sale price must be at least 1,000 VND"),
   stockQuantity: z.number().min(0, "Stock cannot be negative"),
   imgUrl: z
@@ -26,7 +31,12 @@ export const variantSchema = z.object({
 export const productFormSchema = z
   .object({
     name: z.string().min(3, "SPU name must be at least 3 characters"),
-    description: z.string().min(10, "Description must be at least 10 characters"),
+    description: z
+      .string()
+      .refine(
+        (value) => getPlainTextFromHtml(value).length >= 10,
+        "Description must be at least 10 characters"
+      ),
     categoryId: z.string().min(1, "Please choose a category"),
     brand: z.string().min(1, "Please choose a brand"),
     imgUrl: z
@@ -51,20 +61,16 @@ export const productFormSchema = z
       })
     }
 
-    const skuCodes = data.variants.map((v) => v.sku.trim())
-    const codeCounts = new Map<string, number>()
-    for (const code of skuCodes) {
-      codeCounts.set(code, (codeCounts.get(code) ?? 0) + 1)
+    const variantIds = data.variants
+      .map((v) => v.id?.trim())
+      .filter(Boolean) as string[]
+    if (new Set(variantIds).size !== variantIds.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Duplicate variant ids in the list",
+        path: ["variants"],
+      })
     }
-    skuCodes.forEach((code, index) => {
-      if (code && (codeCounts.get(code) ?? 0) > 1) {
-        ctx.addIssue({
-          code: "custom",
-          message: `Code "${code}" is duplicated in the list`,
-          path: ["variants", index, "sku"],
-        })
-      }
-    })
 
     const combos = data.variants.map((variant) =>
       data.optionAxes
@@ -89,7 +95,6 @@ export type VariantFormValues = z.infer<typeof variantSchema>
 export const createDefaultVariant = (
   optionAxes: string[]
 ): VariantFormValues => ({
-  sku: "",
   price: 0,
   stockQuantity: 0,
   imgUrl: "",

@@ -18,7 +18,6 @@ export interface VariantOption {
 export interface SKU {
   id: string
   productId: string
-  sku: string
   price: number
   imgUrl?: string
   stockQuantity: number
@@ -51,7 +50,6 @@ export interface SPU {
 export interface OrderItem {
   id: string
   skuId: string
-  sku: string
   productName: string
   productImage: string
   variants: VariantOption[]

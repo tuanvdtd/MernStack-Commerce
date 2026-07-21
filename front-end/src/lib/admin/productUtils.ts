@@ -67,35 +67,26 @@ export const computeProductStats = (
   }
 }
 
-export const suggestSkuCode = (
-  productSlug: string,
-  options: VariantOption[]
-): string => {
-  const prefix = productSlug
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.slice(0, 4).toUpperCase())
-    .join("")
-    .slice(0, 12)
-
-  const suffix = options
-    .map((o) =>
-      o.value
-        .replace(/\s+/g, "")
-        .replace(/[^a-zA-Z0-9]/g, "")
-        .toUpperCase()
-        .slice(0, 8)
-    )
-    .join("-")
-
-  return [prefix || "SKU", suffix].filter(Boolean).join("-")
-}
-
 export const formatVariantOptions = (options: VariantOption[]): string =>
   options.map((o) => `${o.optionName}: ${o.value}`).join(" · ")
 
+export const formatVariantLabel = (
+  options: VariantOption[],
+  optionAxes: string[] = []
+): string => {
+  const axes =
+    optionAxes.length > 0
+      ? optionAxes
+      : options.map((option) => option.optionName)
+  const parts = axes.map((axis) => {
+    const value = options.find((option) => option.optionName === axis)?.value
+    return value?.trim() ?? ""
+  })
+  return parts.filter(Boolean).join(" / ") || "Variant"
+}
+
 export interface SkuFormInput {
-  sku: string
+  id?: string
   price: number
   stockQuantity: number
   imgUrl?: string
@@ -117,7 +108,6 @@ export const validateOptionAxes = (axes: string[]): string | null => {
 }
 
 export type SkuFieldErrors = {
-  sku?: string
   price?: string
   stockQuantity?: string
   options?: Partial<Record<string, string>>
@@ -132,8 +122,7 @@ const emptySkuErrors = (count: number): SkuFieldErrors[] =>
 
 const hasSkuFieldErrors = (row: SkuFieldErrors): boolean =>
   Boolean(
-    row.sku ||
-      row.price ||
+    row.price ||
       row.stockQuantity ||
       (row.options && Object.keys(row.options).length > 0)
   )
@@ -141,8 +130,7 @@ const hasSkuFieldErrors = (row: SkuFieldErrors): boolean =>
 export const validateSkuFormsDetailed = (
   skus: SkuFormInput[],
   optionAxes: string[],
-  catalog: OptionCatalogEntry[],
-  existingCodes: string[] = []
+  catalog: OptionCatalogEntry[]
 ): SkuFormsValidationResult => {
   if (skus.length === 0) {
     return {
@@ -153,24 +141,9 @@ export const validateSkuFormsDetailed = (
   }
 
   const errors = emptySkuErrors(skus.length)
-  const codeIndices = new Map<string, number[]>()
 
   for (let i = 0; i < skus.length; i++) {
     const row = skus[i]
-    const code = row.sku.trim()
-
-    if (!code) {
-      errors[i].sku = "SKU code is required"
-    } else if (code.length < 3) {
-      errors[i].sku = "SKU code must be at least 3 characters"
-    } else {
-      const list = codeIndices.get(code) ?? []
-      list.push(i)
-      codeIndices.set(code, list)
-      if (existingCodes.includes(code)) {
-        errors[i].sku = `Code "${code}" already exists`
-      }
-    }
 
     if (row.price < 1000) {
       errors[i].price = "Sale price must be at least 1,000 VND"
@@ -185,16 +158,6 @@ export const validateSkuFormsDetailed = (
         errors[i].options = {
           ...errors[i].options,
           [axis]: `Choose a value for "${getOptionCatalogLabel(axis, catalog)}"`,
-        }
-      }
-    }
-  }
-
-  for (const [code, indices] of codeIndices) {
-    if (indices.length > 1) {
-      for (const i of indices) {
-        if (!errors[i].sku) {
-          errors[i].sku = `Code "${code}" is duplicated in the list`
         }
       }
     }
@@ -231,13 +194,12 @@ export const validateSkuFormsDetailed = (
 export const validateSkuForms = (
   skus: SkuFormInput[],
   optionAxes: string[],
-  catalog: OptionCatalogEntry[],
-  existingCodes: string[] = []
+  catalog: OptionCatalogEntry[]
 ): string | null => {
   const axesError = validateOptionAxes(optionAxes)
   if (axesError) return axesError
 
-  const result = validateSkuFormsDetailed(skus, optionAxes, catalog, existingCodes)
+  const result = validateSkuFormsDetailed(skus, optionAxes, catalog)
   if (result.ok) return null
 
   if (result.globalError) return result.globalError
@@ -245,7 +207,6 @@ export const validateSkuForms = (
   for (let i = 0; i < result.errors.length; i++) {
     const row = result.errors[i]
     const label = `SKU #${i + 1}`
-    if (row.sku) return `${label}: ${row.sku}`
     if (row.price) return `${label}: ${row.price}`
     if (row.stockQuantity) return `${label}: ${row.stockQuantity}`
     if (row.options) {

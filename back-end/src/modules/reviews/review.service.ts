@@ -31,7 +31,7 @@ export const ReviewService = {
   },
 
   /** User đăng nhập tạo đánh giá — mỗi user một review / SPU. */
-  async create(userId: number, productId: string, input: CreateReviewInput) {
+  async create(userId: string, productId: string, input: CreateReviewInput) {
     const product = await CatalogRepo.findActiveById(productId)
     if (!product) {
       throw ApiError.NotFound('Product not found')
@@ -49,7 +49,7 @@ export const ReviewService = {
   },
 
   /** User sửa review của chính mình. */
-  async update(userId: number, reviewId: string, input: PatchReviewInput) {
+  async update(userId: string, reviewId: string, input: PatchReviewInput) {
     const existing = await ReviewRepo.findById(reviewId)
     if (!existing) {
       throw ApiError.NotFound('Review not found')
@@ -64,7 +64,7 @@ export const ReviewService = {
   },
 
   /** User xóa review của chính mình. */
-  async delete(userId: number, reviewId: string) {
+  async delete(userId: string, reviewId: string) {
     const existing = await ReviewRepo.findById(reviewId)
     if (!existing) {
       throw ApiError.NotFound('Review not found')

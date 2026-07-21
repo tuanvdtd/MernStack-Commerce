@@ -1,5 +1,6 @@
 import { prisma } from '~/lib/prisma'
 import { hashPassword } from '~/utils/password'
+import { newId } from '~/utils/id'
 
 const SEED_PASSWORD = 'tuan123456'
 
@@ -16,34 +17,44 @@ const USERS = [
   },
 ] as const
 
+/** Upsert role với id UUID v7 khi tạo mới. */
 async function seedRoles() {
   for (const name of ['USER', 'ADMIN'] as const) {
     await prisma.role.upsert({
       where: { name },
       update: {},
-      create: { name },
+      create: { id: newId(), name },
     })
   }
 }
 
+/** Upsert user seed gắn role theo tên. */
 async function seedUsers(password: string) {
   const seededUsers = []
 
   for (const account of USERS) {
+    const role = await prisma.role.findUnique({
+      where: { name: account.roleName },
+    })
+    if (!role) {
+      throw new Error(`Role ${account.roleName} not found — run seedRoles first`)
+    }
+
     const user = await prisma.user.upsert({
       where: { email: account.email },
       update: {
         name: account.name,
         password,
         isActive: true,
-        role: { connect: { name: account.roleName } },
+        roleId: role.id,
       },
       create: {
+        id: newId(),
         name: account.name,
         email: account.email,
         password,
         isActive: true,
-        role: { connect: { name: account.roleName } },
+        roleId: role.id,
       },
       omit: { password: true },
       include: { role: true },

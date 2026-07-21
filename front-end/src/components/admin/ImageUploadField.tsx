@@ -24,6 +24,10 @@ type ImageUploadFieldProps = {
   onChange: (value: string, meta?: ImageUploadChangeMeta) => void
   onError?: (message: string) => void
   className?: string
+  /** Square tile, Shopify dropzone, or default block. */
+  variant?: "default" | "tile" | "dropzone"
+  /** Hide the field label (when the parent section already shows it). */
+  hideLabel?: boolean
 }
 
 const revokeBlobUrl = (url: string | undefined) => {
@@ -39,6 +43,8 @@ export const ImageUploadField = ({
   onChange,
   onError,
   className,
+  variant = "default",
+  hideLabel = false,
 }: ImageUploadFieldProps) => {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -107,30 +113,192 @@ export const ImageUploadField = ({
   const maxMb = LIMIT_COMMON_FILE_SIZE / (1024 * 1024)
 
   const dropZoneClass = cn(
-    "rounded-xl border border-dashed transition-colors",
+    "rounded-lg border border-dashed transition-colors",
     isDragging
-      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-      : "border-border bg-muted/30 hover:border-primary/40 hover:bg-muted/50"
+      ? "border-[var(--admin-brand)] bg-[var(--admin-brand)]/5"
+      : "border-border/80 bg-muted/20 hover:border-border",
+    variant === "tile" && "rounded-lg"
   )
+
+  const fileInput = (
+    <input
+      ref={inputRef}
+      id={inputId}
+      type="file"
+      accept={ACCEPT}
+      className="sr-only"
+      onChange={(e) => {
+        handleFile(e.target.files?.[0])
+        e.target.value = ""
+      }}
+    />
+  )
+
+  const dragHandlers = {
+    onDragEnter: handleDragEnter,
+    onDragLeave: handleDragLeave,
+    onDragOver: handleDragOver,
+    onDrop: handleDrop,
+  }
+
+  if (variant === "dropzone") {
+    return (
+      <div className={cn("space-y-3", className)}>
+        {fileInput}
+        {!hideLabel ? <Label htmlFor={inputId}>{label}</Label> : null}
+
+        {value ? (
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="group relative size-[4.75rem] overflow-hidden rounded-lg border border-border bg-muted/30">
+              <img
+                src={value}
+                alt={label}
+                className="size-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/45 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  Change
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon-sm"
+                  className="size-7"
+                  onClick={handleRemove}
+                  aria-label="Remove image"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              {...dragHandlers}
+              aria-label="Add or replace image"
+              className={cn(
+                "flex size-[4.75rem] items-center justify-center text-muted-foreground",
+                dropZoneClass
+              )}
+            >
+              <ImagePlus className="size-5" aria-hidden />
+            </button>
+          </div>
+        ) : (
+          <div
+            {...dragHandlers}
+            className={cn(
+              "flex min-h-[7.5rem] flex-col items-center justify-center gap-3 px-4 py-8 text-center",
+              dropZoneClass
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 bg-background text-[13px] shadow-none"
+                onClick={() => inputRef.current?.click()}
+              >
+                Upload new
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-8 px-2 text-[13px] text-[var(--admin-brand)]"
+                onClick={() => inputRef.current?.click()}
+              >
+                Select existing
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isDragging
+                ? "Drop the image here"
+                : `Accepts JPG, JPEG, PNG — up to ${maxMb}MB`}
+            </p>
+          </div>
+        )}
+
+        {description ? (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+    )
+  }
+
+  if (variant === "tile") {
+    return (
+      <div className={cn("space-y-2", className)}>
+        {fileInput}
+
+        {value ? (
+          <div className="group relative aspect-square w-full max-w-[7.5rem] overflow-hidden rounded-lg border border-border">
+            <img
+              src={value}
+              alt={label}
+              className="size-full object-cover"
+            />
+            <div className="absolute inset-0 flex items-end justify-center gap-1 bg-linear-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => inputRef.current?.click()}
+              >
+                Change
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon-sm"
+                className="size-7"
+                onClick={handleRemove}
+                aria-label="Remove image"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            aria-label={label}
+            className={cn(
+              "flex aspect-square w-full max-w-[7.5rem] flex-col items-center justify-center gap-1 p-2 text-muted-foreground",
+              dropZoneClass
+            )}
+          >
+            <ImagePlus className="size-6" aria-hidden />
+            <span className="text-[11px] font-medium text-foreground">
+              {isDragging ? "Drop" : "Upload"}
+            </span>
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Label htmlFor={inputId}>{label}</Label>
+      {!hideLabel ? <Label htmlFor={inputId}>{label}</Label> : null}
       {description ? (
         <p className="text-xs text-muted-foreground">{description}</p>
       ) : null}
 
-      <input
-        ref={inputRef}
-        id={inputId}
-        type="file"
-        accept={ACCEPT}
-        className="sr-only"
-        onChange={(e) => {
-          handleFile(e.target.files?.[0])
-          e.target.value = ""
-        }}
-      />
+      {fileInput}
 
       {value ? (
         <div

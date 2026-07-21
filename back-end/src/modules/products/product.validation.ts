@@ -15,7 +15,7 @@ const variantOptionSchema = z.object({
 })
 
 const variantSchema = z.object({
-  sku: z.string().trim().min(3).max(100),
+  id: z.string().trim().min(1).optional(),
   price: z.coerce.number().min(1000),
   stockQuantity: z.coerce.number().int().min(0),
   imgUrl: optionalImageUrlSchema,
@@ -36,11 +36,11 @@ function refineVariantsAgainstAxes(
   data: { optionAxes: string[]; variants: z.infer<typeof variantSchema>[] },
   ctx: z.RefinementCtx,
 ) {
-  const skuCodes = data.variants.map((v) => v.sku)
-  if (new Set(skuCodes).size !== skuCodes.length) {
+  const variantIds = data.variants.map((v) => v.id).filter(Boolean) as string[]
+  if (new Set(variantIds).size !== variantIds.length) {
     ctx.addIssue({
       code: 'custom',
-      message: 'Duplicate SKU codes in request',
+      message: 'Duplicate variant ids in request',
       path: ['variants'],
     })
   }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useAdminStore } from "~/stores/adminStore"
 import { mockProducts } from "~/mock/adminData"
-import { computeProductStats, formatVariantOptions } from "~/lib/admin/productUtils"
+import { computeProductStats, formatVariantLabel, formatVariantOptions } from "~/lib/admin/productUtils"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import {
@@ -85,7 +85,10 @@ export function Inventory() {
     const q = searchQuery.toLowerCase()
     return (
       product.name.toLowerCase().includes(q) ||
-      sku.sku.toLowerCase().includes(q) ||
+      sku.id.toLowerCase().includes(q) ||
+      formatVariantLabel(sku.options, product.optionAxes)
+        .toLowerCase()
+        .includes(q) ||
       sku.options.some(
         (o) =>
           o.optionName.toLowerCase().includes(q) ||
@@ -169,7 +172,7 @@ export function Inventory() {
                 strokeWidth={2}
               />
               <Input
-                placeholder="SKU code, SPU name, attributes..."
+                placeholder="Variant id, SPU name, attributes..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -185,7 +188,7 @@ export function Inventory() {
           <Table>
             <TableHeader>
               <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
-                <TableHead className={adminThClass}>SKU code</TableHead>
+                <TableHead className={adminThClass}>Variant</TableHead>
                 <TableHead className={adminThClass}>SPU</TableHead>
                 <TableHead className={adminThClass}>Attributes</TableHead>
                 <TableHead className={adminThClass}>Price</TableHead>
@@ -237,8 +240,13 @@ export function Inventory() {
                       key={sku.id}
                       className={cn("group", adminDividerClass)}
                     >
-                      <TableCell className={cn(adminTdClass, adminMonoClass, "font-medium text-foreground")}>
-                        {sku.sku}
+                      <TableCell className={cn(adminTdClass, "font-medium text-foreground")}>
+                        <span className="block text-[13px]">
+                          {formatVariantLabel(sku.options, product.optionAxes)}
+                        </span>
+                        <span className={cn(adminMonoClass, "text-[11px] text-muted-foreground")}>
+                          {sku.id}
+                        </span>
                       </TableCell>
                       <TableCell className={adminTdClass}>
                         <div className="flex items-center gap-2.5">
@@ -326,8 +334,13 @@ export function Inventory() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update stock</DialogTitle>
-            <DialogDescription className={cn(adminMonoClass, "text-foreground")}>
-              {selectedSKU?.sku.sku}
+            <DialogDescription>
+              {selectedSKU
+                ? formatVariantLabel(
+                    selectedSKU.sku.options,
+                    selectedSKU.product.optionAxes
+                  )
+                : null}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

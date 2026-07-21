@@ -2,7 +2,7 @@ import axios from "./axiosConfig"
 import type { User } from "~/types/user"
 
 export interface UserProfileResponse {
-  id: number
+  id: string
   email: string
   name: string
   phone?: string
@@ -22,7 +22,7 @@ export function mapProfileToUser(
   existing?: User | null
 ): User {
   return {
-    id: String(profile.id),
+    id: profile.id,
     email: profile.email,
     name: profile.name,
     phone: profile.phone,

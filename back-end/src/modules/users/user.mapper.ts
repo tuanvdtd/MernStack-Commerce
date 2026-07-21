@@ -2,7 +2,7 @@ import { dbRoleToApiRole } from '~/config/rbacConfig'
 import { TokenService } from '~/core/auth/token'
 
 type UserWithRole = {
-  id: number
+  id: string
   email: string
   name: string
   phone: string | null

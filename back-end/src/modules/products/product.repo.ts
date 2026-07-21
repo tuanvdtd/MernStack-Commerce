@@ -1,4 +1,5 @@
 import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
 import type {
   CreateProductInput,
   PatchProductSpuInput,
@@ -42,7 +43,7 @@ async function resolveOptionValueIds(
 
     const option = await tx.option.upsert({
       where: { name: axis },
-      create: { name: axis },
+      create: { id: newId(), name: axis },
       update: {},
     })
 
@@ -54,6 +55,7 @@ async function resolveOptionValueIds(
         },
       },
       create: {
+        id: newId(),
         optionId: option.id,
         value: match.value,
       },
@@ -74,15 +76,6 @@ export const ProductRepo = {
     })
   },
 
-  async findBySku(sku: string, excludeProductId?: string) {
-    return prisma.productVariant.findFirst({
-      where: {
-        sku,
-        ...(excludeProductId ? { productId: { not: excludeProductId } } : {}),
-      },
-    })
-  },
-
   async list() {
     return prisma.product.findMany({
       include: productInclude,
@@ -94,6 +87,7 @@ export const ProductRepo = {
     return prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
+          id: newId(),
           name: data.name,
           slug,
           description: data.description,
@@ -113,7 +107,7 @@ export const ProductRepo = {
 
         await tx.productVariant.create({
           data: {
-            sku: variant.sku,
+            id: newId(),
             price: variant.price,
             stockQuantity: variant.stockQuantity,
             imgUrl: variant.imgUrl?.trim() || null,
@@ -218,16 +212,19 @@ export const ProductRepo = {
     })
   },
 
-  /** PUT variants: thêm/sửa theo mã SKU, xóa SKU không còn trong payload. */
+  /** PUT variants: thêm/sửa theo id, xóa variant không còn trong payload. */
   async replaceVariants(id: string, data: UpdateProductVariantsInput) {
     return prisma.$transaction(async (tx) => {
       const existingVariants = await tx.productVariant.findMany({
         where: { productId: id },
-        select: { id: true, sku: true },
+        select: { id: true },
       })
 
-      const incomingSkus = new Set(data.variants.map((v) => v.sku))
-      const toRemove = existingVariants.filter((v) => !incomingSkus.has(v.sku))
+      const existingIds = new Set(existingVariants.map((v) => v.id))
+      const incomingIds = new Set(
+        data.variants.map((v) => v.id).filter(Boolean) as string[],
+      )
+      const toRemove = existingVariants.filter((v) => !incomingIds.has(v.id))
 
       for (const variant of toRemove) {
         await tx.productVariant.delete({ where: { id: variant.id } })
@@ -240,15 +237,16 @@ export const ProductRepo = {
           variant.options,
         )
 
-        const existing = existingVariants.find((v) => v.sku === variant.sku)
+        const existingId =
+          variant.id && existingIds.has(variant.id) ? variant.id : undefined
 
-        if (existing) {
+        if (existingId) {
           await tx.productVariantOptionValue.deleteMany({
-            where: { productVariantId: existing.id },
+            where: { productVariantId: existingId },
           })
 
           await tx.productVariant.update({
-            where: { id: existing.id },
+            where: { id: existingId },
             data: {
               price: variant.price,
               stockQuantity: variant.stockQuantity,
@@ -263,7 +261,7 @@ export const ProductRepo = {
         } else {
           await tx.productVariant.create({
             data: {
-              sku: variant.sku,
+              id: variant.id ?? newId(),
               price: variant.price,
               stockQuantity: variant.stockQuantity,
               imgUrl: variant.imgUrl?.trim() || null,

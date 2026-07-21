@@ -6,7 +6,7 @@ import { env } from "~/config/env"
 
 type Payload = {
   role: string
-  id: number
+  id: string
 }
 
 export const TokenService = {

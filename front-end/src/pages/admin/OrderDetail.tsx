@@ -198,7 +198,7 @@ export function OrderDetail() {
                       ))}
                     </div>
                     <p className="mt-1 font-mono text-xs text-muted-foreground">
-                      {item.sku}
+                      {item.skuId}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">

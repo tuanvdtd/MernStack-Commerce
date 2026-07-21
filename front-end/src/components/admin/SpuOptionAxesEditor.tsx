@@ -8,7 +8,7 @@ import {
   getCatalogLabel,
   type OptionCatalogEntry,
 } from "~/lib/admin/optionCatalog"
-import { toast } from "sonner"
+import { adminFormFieldLabelClass } from "~/lib/admin/ui"
 
 type SpuOptionAxesEditorProps = {
   axes: string[]
@@ -73,7 +73,7 @@ export const SpuOptionAxesEditor = ({
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <Label className="text-sm font-medium">Variant axes (Option) *</Label>
+          <Label className={adminFormFieldLabelClass}>Variant axes (Option) *</Label>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             All SKUs share the same axes. Choose from the catalog or add a new axis.
           </p>

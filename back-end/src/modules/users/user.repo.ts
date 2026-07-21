@@ -1,4 +1,5 @@
 import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
 import { PatchProfileInput, RegisterUserDto } from '~/modules/users/user.types'
 
 export const UserRepo = {
@@ -19,17 +20,18 @@ export const UserRepo = {
   },
 
   async create(data: RegisterUserDto, isActive = false) {
-    // default role is user
+    const role =
+      (await prisma.role.findUnique({ where: { name: 'USER' } })) ??
+      (await prisma.role.create({
+        data: { id: newId(), name: 'USER' },
+      }))
+
     const res = await prisma.user.create({
       data: {
+        id: newId(),
         ...data,
         isActive,
-        role: {
-          connectOrCreate: {
-            where: { name: 'USER' },
-            create: { name: 'USER' },
-          },
-        }
+        roleId: role.id,
       },
     })
     return res
@@ -41,7 +43,7 @@ export const UserRepo = {
     })
   },
 
-  async findById(id: number) {
+  async findById(id: string) {
     return prisma.user.findUnique({
       where: { id },
       include: { role: true },
@@ -49,7 +51,7 @@ export const UserRepo = {
   },
 
   /** Cập nhật thông tin profile của user đang đăng nhập. */
-  async updateProfile(id: number, data: PatchProfileInput) {
+  async updateProfile(id: string, data: PatchProfileInput) {
     return prisma.user.update({
       where: { id },
       data,

@@ -22,6 +22,7 @@ import type {
 import { AttributeDictionaryService } from '~/modules/search/attribute-dictionary.service'
 import { SyncService } from '~/modules/search/sync.service'
 import { generateProductSlug } from '~/utils/productSlug'
+import { newId } from '~/utils/id'
 
 const emptyUploads = (): ProductImageUploads => ({ skus: new Map() })
 
@@ -91,18 +92,6 @@ function syncSearchIndex(spuId: string, action: ProductEventAction) {
   })
 }
 
-async function assertSkusUnique(
-  variants: CreateProductInput['variants'],
-  excludeProductId?: string,
-) {
-  for (const variant of variants) {
-    const existing = await ProductRepo.findBySku(variant.sku, excludeProductId)
-    if (existing) {
-      throw ApiError.Conflict(`SKU code "${variant.sku}" already exists`)
-    }
-  }
-}
-
 export const ProductService = {
   async list() {
     const products = await ProductRepo.list()
@@ -119,8 +108,6 @@ export const ProductService = {
     const category = await CategoryRepo.findById(input.categoryId)
     if (!category) throw ApiError.NotFound('Category not found')
 
-    await assertSkusUnique(input.variants)
-
     const slug = generateProductSlug(input.name)
     const draftInput: CreateProductInput = {
       ...input,
@@ -134,7 +121,19 @@ export const ProductService = {
     const created = await ProductRepo.create(draftInput, slug)
     if (!created) throw ApiError.Internal('Failed to create product')
 
-    const resolved = await resolveProductImageUrls(created.id, input, files)
+    const inputWithVariantIds: CreateProductInput = {
+      ...input,
+      variants: input.variants.map((variant, index) => ({
+        ...variant,
+        id: created.variants[index]?.id,
+      })),
+    }
+
+    const resolved = await resolveProductImageUrls(
+      created.id,
+      inputWithVariantIds,
+      files,
+    )
 
     // Tạo mới: lưu ảnh SPU rồi ghi đè variants kèm ảnh SKU (2 phase sau create draft)
     await ProductRepo.patchSpu(created.id, { imgUrl: resolved.imgUrl })
@@ -177,7 +176,7 @@ export const ProductService = {
     return toAdminProduct(product)
   },
 
-  /** Bước 2 edit — replace toàn bộ SKU, dọn ảnh Cloudinary của SKU bị xóa/đổi. */
+  /** Bước 2 edit — replace toàn bộ variant, dọn ảnh Cloudinary của variant bị xóa/đổi. */
   async updateVariants(
     id: string,
     input: UpdateProductVariantsInput,
@@ -186,13 +185,24 @@ export const ProductService = {
     const existing = await ProductRepo.findById(id)
     if (!existing) throw ApiError.NotFound('Product not found')
 
-    const existingSkus = new Set(existing.variants.map((v) => v.sku))
-    const newVariants = input.variants.filter((v) => !existingSkus.has(v.sku))
-    await assertSkusUnique(newVariants, id)
+    const existingIds = new Set(existing.variants.map((v) => v.id))
+    for (const variant of input.variants) {
+      if (variant.id && !existingIds.has(variant.id)) {
+        throw ApiError.BadRequest(`Variant id "${variant.id}" not found on product`)
+      }
+    }
 
-    await cleanupRemovedVariantImages(id, existing, input, files)
+    const inputWithIds: UpdateProductVariantsInput = {
+      ...input,
+      variants: input.variants.map((variant) => ({
+        ...variant,
+        id: variant.id ?? newId(),
+      })),
+    }
 
-    const resolved = await resolveVariantsImageUrls(id, input, files)
+    await cleanupRemovedVariantImages(id, existing, inputWithIds, files)
+
+    const resolved = await resolveVariantsImageUrls(id, inputWithIds, files)
 
     try {
       const product = await ProductRepo.replaceVariants(id, resolved)
@@ -203,7 +213,7 @@ export const ProductService = {
       const message = error instanceof Error ? error.message : ''
       if (message.includes('Foreign key constraint')) {
         throw ApiError.Conflict(
-          'Cannot remove SKU that is referenced by cart or orders',
+          'Cannot remove variant that is referenced by cart or orders',
         )
       }
       throw error

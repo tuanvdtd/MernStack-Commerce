@@ -4,7 +4,6 @@ import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useAdminStore } from "~/stores/adminStore"
 import type { SPU } from "~/types/admin/index"
-import { ADMIN_BRANDS } from "~/mock/adminCatalog"
 import { findCategoryById } from "~/lib/admin/categoryCatalog"
 import { createCategory, fetchCategories } from "~/apis/categoryApi"
 import { fetchOptionCatalog } from "~/apis/optionApi"
@@ -21,49 +20,20 @@ import {
 } from "~/apis/productApi"
 import { isFieldDirty } from "~/lib/admin/getDirtyValues"
 import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
-import { deriveOptionAxes } from "~/lib/admin/productUtils"
-import { SpuOptionAxesEditor } from "~/components/admin/SpuOptionAxesEditor"
+import { AdminFormShell, AdminFormLayout } from "~/components/admin/AdminFormShell"
+import { AdminFormCard } from "~/components/admin/AdminFormCard"
+import { ProductFormSidebar } from "~/components/admin/ProductFormSidebar"
+import { ProductVariantsSection } from "~/components/admin/ProductVariantsSection"
 import type { OptionCatalogEntry } from "~/lib/admin/optionCatalog"
-import { SkuFormCard } from "~/components/admin/SkuFormCard"
-import { ProductFormStepper } from "~/components/admin/ProductFormStepper"
-import { ProductFormSummary } from "~/components/admin/ProductFormSummary"
 import {
   createDefaultVariant,
   defaultProductFormValues,
   productFormSchema,
   type ProductFormValues,
 } from "~/lib/admin/productFormSchema"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Textarea } from "~/components/ui/textarea"
-import { Switch } from "~/components/ui/switch"
-import { Separator } from "~/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select"
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "~/components/ui/form"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "~/components/ui/accordion"
-import { Plus, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
-import { toast } from "sonner"
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -71,27 +41,29 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
+import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "~/components/ui/form"
+import { ArrowLeft, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import { AdminPage } from "~/components/admin/AdminPage"
 import { AdminPageHeader } from "~/components/admin/AdminPageHeader"
 import {
   ImageUploadField,
   type ImageUploadChangeMeta,
 } from "~/components/admin/ImageUploadField"
-import { adminBrandButtonClass } from "~/lib/admin/ui"
+import { adminBrandButtonClass, adminFormFieldLabelClass } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
+import { deriveOptionAxes } from "~/lib/admin/productUtils"
+import { SimpleEditor } from "~/components/tiptap-templates/simple/simple-editor"
 import type { AdminCategory } from "~/types/admin/index"
-
-type FormStep = "spu" | "skus"
-
-const SPU_FIELDS = [
-  "name",
-  "description",
-  "categoryId",
-  "brand",
-  "imgUrl",
-  "isActive",
-  "optionAxes",
-] as const satisfies ReadonlyArray<keyof ProductFormValues>
 
 const classificationSelectClass =
   "h-10 min-h-10 w-full justify-between rounded-lg border-input bg-transparent px-2.5 text-sm shadow-none"
@@ -113,7 +85,6 @@ const mapSpuToFormValues = (product: SPU): ProductFormValues => {
       product.skus.length > 0
         ? product.skus.map((sku) => ({
             id: sku.id,
-            sku: sku.sku,
             price: sku.price,
             stockQuantity: sku.stockQuantity,
             imgUrl: sku.imgUrl ?? "",
@@ -140,13 +111,10 @@ const cloneFormValues = (values: ProductFormValues): ProductFormValues => ({
   })),
 })
 
-const isSameOptionAxes = (a: string[], b: string[]) =>
-  a.length === b.length && a.every((axis, index) => axis === b[index])
-
 const mapVariantToPayload = (
   variant: ProductFormValues["variants"][number]
 ) => ({
-  sku: variant.sku.trim(),
+  ...(variant.id ? { id: variant.id } : {}),
   price: variant.price,
   stockQuantity: variant.stockQuantity,
   ...(isRemoteImageUrl(variant.imgUrl)
@@ -169,7 +137,7 @@ const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
   variants: values.variants.map(mapVariantToPayload),
 })
 
-/** SKU-step payload: send full variants so the backend can replace by SKU code. */
+/** Variant payload: gửi full danh sách để BE đồng bộ theo id. */
 const mapFormToVariantsPayload = (
   values: ProductFormValues
 ): UpdateProductVariantsPayload => ({
@@ -219,18 +187,16 @@ export function ProductForm() {
   const { addProduct, updateProduct } = useAdminStore()
   const [categoryCatalog, setCategoryCatalog] = useState<AdminCategory[]>([])
   const [optionCatalog, setOptionCatalog] = useState<OptionCatalogEntry[]>([])
-  const [activeStep, setActiveStep] = useState<FormStep>("spu")
-  const [openSkuPanels, setOpenSkuPanels] = useState<string[]>(["sku-0"])
   const [loadedSlug, setLoadedSlug] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(id))
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [spuSaveDialogOpen, setSpuSaveDialogOpen] = useState(false)
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
   const isEditMode = Boolean(id)
   const pendingImagesRef = useRef<{ spu?: File; skus: Record<number, File> }>({
     skus: {},
   })
-  const saveClickGuardRef = useRef(false)
   const committedFormRef = useRef<ProductFormValues | null>(null)
+  const variantsSectionRef = useRef<HTMLDivElement>(null)
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -245,11 +211,16 @@ export function ProductForm() {
 
   const watchName = form.watch("name")
   const watchCategoryId = form.watch("categoryId")
-  const watchBrand = form.watch("brand")
   const watchImgUrl = form.watch("imgUrl")
   const watchIsActive = form.watch("isActive")
   const watchOptionAxes = form.watch("optionAxes")
   const watchVariants = form.watch("variants")
+  const { isDirty } = form.formState
+
+  const hasPendingImageChanges =
+    Boolean(pendingImagesRef.current.spu) ||
+    Object.keys(pendingImagesRef.current.skus).length > 0
+  const hasUnsavedChanges = isDirty || hasPendingImageChanges
 
   const skuStats = useMemo(() => {
     const prices = watchVariants.map((s) => s.price).filter((p) => p > 0)
@@ -302,11 +273,6 @@ export function ProductForm() {
         committedFormRef.current = cloneFormValues(formValues)
         pendingImagesRef.current = { skus: {} }
         setLoadedSlug(product.slug)
-        setOpenSkuPanels(
-          product.skus.length > 0
-            ? product.skus.map((_, i) => `sku-${i}`)
-            : ["sku-0"]
-        )
         setCategoryCatalog((prev) => {
           if (prev.some((c) => c.id === product.categoryId)) return prev
           return [
@@ -359,7 +325,6 @@ export function ProductForm() {
   const handleAddSku = () => {
     const axes = form.getValues("optionAxes")
     append(createDefaultVariant(axes))
-    setOpenSkuPanels((prev) => [...prev, `sku-${fields.length}`])
   }
 
   const handleRemoveSku = (index: number) => {
@@ -368,103 +333,9 @@ export function ProductForm() {
       return
     }
     remove(index)
-    setOpenSkuPanels((prev) =>
-      prev
-        .filter((panelId) => panelId !== `sku-${index}`)
-        .map((panelId) => {
-          const n = Number(panelId.replace("sku-", ""))
-          return n > index ? `sku-${n - 1}` : panelId
-        })
-    )
   }
 
-  const focusSkuPanelsWithErrors = () => {
-    const variantErrors = form.formState.errors.variants
-    if (!variantErrors || !Array.isArray(variantErrors)) return
-
-    const panels = variantErrors
-      .map((row, i) => (row ? `sku-${i}` : null))
-      .filter((panelId): panelId is string => panelId !== null)
-
-    if (panels.length > 0) {
-      setOpenSkuPanels((prev) => [...new Set([...prev, ...panels])])
-    }
-  }
-
-  /** Unsaved SPU changes based on dirtyFields plus pending image files. */
-  const isSpuDirty = () => {
-    if (pendingImagesRef.current.spu) return true
-    return SPU_FIELDS.some((field) =>
-      isFieldDirty(form.formState.dirtyFields, field)
-    )
-  }
-
-  const revertSpuChanges = () => {
-    const baseline = committedFormRef.current
-    if (!baseline) return
-
-    const current = form.getValues()
-    const axesChanged = !isSameOptionAxes(current.optionAxes, baseline.optionAxes)
-    const variants = current.variants.map((variant, index) => {
-      if (!axesChanged) return variant
-      const baseVariant = baseline.variants[index]
-      if (!baseVariant) return variant
-      return { ...variant, options: baseVariant.options.map((o) => ({ ...o })) }
-    })
-
-    form.reset(
-      {
-        ...current,
-        name: baseline.name,
-        description: baseline.description,
-        categoryId: baseline.categoryId,
-        brand: baseline.brand,
-        imgUrl: baseline.imgUrl,
-        isActive: baseline.isActive,
-        optionAxes: [...baseline.optionAxes],
-        variants,
-      },
-      { keepDirty: false },
-    )
-
-    delete pendingImagesRef.current.spu
-  }
-
-  const goToSkuStep = () => {
-    // Guard against a ghost click when Next and Save land in the same position.
-    saveClickGuardRef.current = true
-    setActiveStep("skus")
-    window.setTimeout(() => {
-      saveClickGuardRef.current = false
-    }, 400)
-  }
-
-  const requestNavigateToSkus = async () => {
-    const valid = await form.trigger([...SPU_FIELDS])
-    if (!valid) return
-
-    if (isEditMode && isSpuDirty()) {
-      setSpuSaveDialogOpen(true)
-      return
-    }
-
-    goToSkuStep()
-  }
-
-  const handleStepClick = (step: FormStep) => {
-    if (step === "skus" && activeStep === "spu") {
-      void requestNavigateToSkus()
-      return
-    }
-    setActiveStep(step)
-  }
-
-  const continueToSkusWithoutSaving = () => {
-    revertSpuChanges()
-    setSpuSaveDialogOpen(false)
-    goToSkuStep()
-  }
-
+  /** Collect pending image files for multipart upload on save. */
   const collectPendingImageFiles = (): ProductImageFiles => ({
     spuImage: pendingImagesRef.current.spu,
     skuImages: { ...pendingImagesRef.current.skus },
@@ -542,24 +413,18 @@ export function ProductForm() {
     return product
   }
 
-  const saveSpuAndContinue = async () => {
-    const valid = await form.trigger([...SPU_FIELDS])
-    if (!valid) {
-      setSpuSaveDialogOpen(false)
-      return
+  /** Revert the form to the last saved snapshot (edit) or empty defaults (create). */
+  const handleDiscard = () => {
+    pendingImagesRef.current = { skus: {} }
+
+    if (isEditMode && committedFormRef.current) {
+      form.reset(cloneFormValues(committedFormRef.current))
+    } else {
+      form.reset(defaultProductFormValues())
     }
 
-    setIsSubmitting(true)
-    try {
-      await persistSpuPatch(form.getValues())
-      toast.success("SPU changes saved")
-      setSpuSaveDialogOpen(false)
-      goToSkuStep()
-    } catch (error) {
-      toast.error(getProductApiError(error))
-    } finally {
-      setIsSubmitting(false)
-    }
+    setDiscardDialogOpen(false)
+    toast.message("Changes discarded")
   }
 
   const handleSaveProduct = form.handleSubmit(
@@ -567,6 +432,7 @@ export function ProductForm() {
       setIsSubmitting(true)
       try {
         if (id) {
+          await persistSpuPatch(values)
           await persistVariants(values)
           toast.success("Product saved")
         } else {
@@ -579,31 +445,13 @@ export function ProductForm() {
         setIsSubmitting(false)
       }
     },
-    (errors) => {
-      if (errors.variants) {
-        focusSkuPanelsWithErrors()
-        setActiveStep("skus")
-        return
-      }
-      setActiveStep("spu")
+    () => {
+      variantsSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
     }
   )
-
-  const summaryProps = {
-    name: watchName,
-    slug: loadedSlug ?? "",
-    categoryId: watchCategoryId,
-    categoryCatalog,
-    brand: watchBrand,
-    isActive: watchIsActive,
-    imgUrl: watchImgUrl,
-    optionAxes: watchOptionAxes,
-    optionCatalog,
-    skuCount: fields.length,
-    minPrice: skuStats.minPrice,
-    maxPrice: skuStats.maxPrice,
-    totalStock: skuStats.totalStock,
-  }
 
   if (isLoading) {
     return (
@@ -615,129 +463,84 @@ export function ProductForm() {
   }
 
   return (
-    <AdminPage className="gap-6">
-      <AdminPageHeader
-        title={isEditMode ? "Edit SPU / SKU" : "Create SPU & SKU"}
-        description="Complete the SPU information, then click Next to create SKUs. The URL slug is generated automatically on save."
-        leading={
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() => navigate("/admin/products")}
-            aria-label="Back"
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-        }
-      />
+    <AdminPage className="gap-3 sm:gap-4">
+      <AdminFormShell>
+        <AdminPageHeader
+          size="compact"
+          className="mb-3 sm:mb-4"
+          title={
+            isEditMode
+              ? watchName.trim() || "Edit product"
+              : "Add product"
+          }
+          description={
+            loadedSlug
+              ? `/${loadedSlug}`
+              : "URL slug is generated automatically when you save."
+          }
+          leading={
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => navigate("/admin/products")}
+              aria-label="Back to products"
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+          }
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  "min-w-[5.5rem]",
+                  "disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-100 disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-600 disabled:shadow-none",
+                  "dark:disabled:border-zinc-600 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                )}
+                disabled={!hasUnsavedChanges || isSubmitting}
+                onClick={() => setDiscardDialogOpen(true)}
+              >
+                Discard
+              </Button>
+              <Button
+                type="button"
+                className={cn(adminBrandButtonClass, "min-w-[5.5rem] gap-2")}
+                disabled={isSubmitting}
+                onClick={() => void handleSaveProduct()}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : null}
+                {isEditMode ? "Save" : "Create"}
+              </Button>
+            </>
+          }
+        />
 
-      <ProductFormStepper
-        activeStep={activeStep}
-        skuCount={fields.length}
-        onStepClick={handleStepClick}
-      />
-
-      <ProductFormSummary {...summaryProps} className="lg:hidden" />
-
-      <Form {...form}>
-        <form
-          onSubmit={handleSaveProduct}
-          className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-8"
-        >
-          <div className="min-w-0 space-y-6">
-            {activeStep === "spu" ? (
-              <div className="space-y-8 rounded-xl border border-border bg-card p-5 sm:p-6">
-                <section className="space-y-4">
-                  <div>
-                    <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Product identity
-                    </h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Display name shown in the store. The URL slug is generated on save.
-                    </p>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="E.g. iPhone 15" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description *</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Detailed product description for the product page..."
-                            rows={4}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </section>
-
-                <Separator />
-
-                <section className="space-y-4">
-                  <div>
-                    <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Classification
-                    </h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Category and brand used for filters and SEO
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Form {...form}>
+          <form onSubmit={handleSaveProduct}>
+            <AdminFormLayout
+              main={
+                <>
+                  <AdminFormCard
+                    padding={false}
+                    bodyClassName="space-y-5 px-3 py-3 sm:space-y-6 sm:px-4 sm:py-4"
+                  >
                     <FormField
                       control={form.control}
-                      name="categoryId"
+                      name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Category *</FormLabel>
+                          <FormLabel className={adminFormFieldLabelClass}>
+                            Title
+                          </FormLabel>
                           <FormControl>
-                            <CatalogCreatablePicker
-                              value={field.value}
-                              onChange={field.onChange}
-                              options={categoryCatalog.map((c) => c.id)}
-                              className="w-full"
-                              triggerClassName={classificationSelectClass}
-                              formatOption={(categoryId) =>
-                                findCategoryById(categoryCatalog, categoryId)
-                                  ?.name ?? categoryId
-                              }
-                              placeholder="Choose category"
-                              createPlaceholder="New category name (e.g. Monitor)"
-                              createButtonLabel="Add category"
-                              onCreate={async (raw) => {
-                                try {
-                                  const category = await createCategory(raw)
-                                  setCategoryCatalog((prev) => {
-                                    if (prev.some((c) => c.id === category.id)) {
-                                      return prev
-                                    }
-                                    return [...prev, category]
-                                  })
-                                  field.onChange(category.id)
-                                } catch (error) {
-                                  toast.error(getProductApiError(error))
-                                }
-                              }}
+                            <Input
+                              placeholder="Short sleeve t-shirt"
+                              className="mt-2 h-10 border-border/80 text-[13px] shadow-none"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -747,311 +550,163 @@ export function ProductForm() {
 
                     <FormField
                       control={form.control}
-                      name="brand"
+                      name="description"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Brand *</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger className={classificationSelectClass}>
-                                <SelectValue placeholder="Choose brand" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {ADMIN_BRANDS.map((brand) => (
-                                <SelectItem key={brand} value={brand}>
-                                  {brand}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormLabel className={adminFormFieldLabelClass}>
+                            Description
+                          </FormLabel>
+                          <FormControl>
+                            <div className="mt-2 overflow-hidden rounded-lg border border-border/80">
+                              <SimpleEditor
+                                embedded
+                                value={field.value}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                              />
+                            </div>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Choose from the available categories or add a new one.
-                  </p>
-                </section>
 
-                <Separator />
-
-                <section>
-                  <FormField
-                    control={form.control}
-                    name="optionAxes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <SpuOptionAxesEditor
-                            axes={field.value}
-                            onChange={handleOptionAxesChange}
-                            optionCatalog={optionCatalog}
-                            onCatalogChange={setOptionCatalog}
-                            error={
-                              typeof form.formState.errors.optionAxes?.message ===
-                              "string"
-                                ? form.formState.errors.optionAxes.message
-                                : null
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </section>
-
-                <Separator />
-
-                <section className="space-y-4">
-                  <div>
-                    <h2 className="font-heading text-sm font-semibold text-foreground">
-                      Media & status
-                    </h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      SPU cover image is required. SKU images are optional.
-                    </p>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="imgUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <ImageUploadField
-                            label="SPU cover image *"
-                            description="Required for storefront display"
-                            value={field.value}
-                            onChange={(newValue, meta) => {
-                              trackSpuImage(meta)
-                              field.onChange(newValue)
-                            }}
-                            onError={(msg) => toast.error(msg)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 px-4 py-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-sm">Active</FormLabel>
-                          <FormDescription className="text-xs">
-                            Turn off to hide the entire SPU and its SKUs from the store
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </section>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {typeof form.formState.errors.variants?.message === "string" ? (
-                  <p
-                    className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
-                    role="alert"
-                  >
-                    {form.formState.errors.variants.message}
-                  </p>
-                ) : null}
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-heading text-sm font-semibold text-foreground">
-                      SKU variants
-                    </h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {loadedSlug ? (
-                        <>
-                          Slug:{" "}
-                          <span className="font-mono text-foreground">
-                            /{loadedSlug}
-                          </span>
-                        </>
-                      ) : (
-                        "Code, price, stock, and values for each option axis"
+                    <FormField
+                      control={form.control}
+                      name="imgUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={adminFormFieldLabelClass}>
+                            Media
+                          </FormLabel>
+                          <FormControl>
+                            <div className="mt-2">
+                              <ImageUploadField
+                                label="Media"
+                                hideLabel
+                                variant="dropzone"
+                                value={field.value}
+                                onChange={(newValue, meta) => {
+                                  trackSpuImage(meta)
+                                  field.onChange(newValue)
+                                }}
+                                onError={(msg) => toast.error(msg)}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </p>
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={adminFormFieldLabelClass}>
+                            Category
+                          </FormLabel>
+                          <FormControl>
+                            <div className="mt-2">
+                              <CatalogCreatablePicker
+                                value={field.value}
+                                onChange={field.onChange}
+                                options={categoryCatalog.map((c) => c.id)}
+                                className="w-full"
+                                triggerClassName={classificationSelectClass}
+                                formatOption={(categoryId) =>
+                                  findCategoryById(categoryCatalog, categoryId)
+                                    ?.name ?? categoryId
+                                }
+                                placeholder="Choose a product category"
+                                createPlaceholder="New category name (e.g. Monitor)"
+                                createButtonLabel="Add category"
+                                onCreate={async (raw) => {
+                                  try {
+                                    const category = await createCategory(raw)
+                                    setCategoryCatalog((prev) => {
+                                      if (
+                                        prev.some((c) => c.id === category.id)
+                                      ) {
+                                        return prev
+                                      }
+                                      return [...prev, category]
+                                    })
+                                    field.onChange(category.id)
+                                  } catch (error) {
+                                    toast.error(getProductApiError(error))
+                                  }
+                                }}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </AdminFormCard>
+
+                  <div ref={variantsSectionRef}>
+                    <ProductVariantsSection
+                      control={form.control}
+                      fields={fields}
+                      optionAxes={watchOptionAxes}
+                      optionCatalog={optionCatalog}
+                      onOptionAxesChange={handleOptionAxesChange}
+                      onCatalogChange={setOptionCatalog}
+                      optionAxesError={
+                        typeof form.formState.errors.optionAxes?.message ===
+                        "string"
+                          ? form.formState.errors.optionAxes.message
+                          : null
+                      }
+                      variantsError={
+                        typeof form.formState.errors.variants?.message ===
+                        "string"
+                          ? form.formState.errors.variants.message
+                          : null
+                      }
+                      onAddVariant={handleAddSku}
+                      onRemoveVariant={handleRemoveSku}
+                      onSkuImageChange={trackSkuImage}
+                    />
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={handleAddSku}
-                  >
-                    <Plus className="size-4" aria-hidden />
-                    Add SKU
-                  </Button>
-                </div>
+                </>
+              }
+              sidebar={
+                <ProductFormSidebar
+                  control={form.control}
+                  name={watchName}
+                  slug={loadedSlug ?? ""}
+                  categoryId={watchCategoryId}
+                  categoryCatalog={categoryCatalog}
+                  isActive={watchIsActive}
+                  imgUrl={watchImgUrl}
+                  skuCount={fields.length}
+                  minPrice={skuStats.minPrice}
+                  maxPrice={skuStats.maxPrice}
+                  totalStock={skuStats.totalStock}
+                />
+              }
+            />
+          </form>
+        </Form>
+      </AdminFormShell>
 
-                {fields.length === 1 ? (
-                  <SkuFormCard
-                    control={form.control}
-                    index={0}
-                    optionAxes={watchOptionAxes}
-                    optionCatalog={optionCatalog}
-                    onCatalogChange={setOptionCatalog}
-                    productName={watchName}
-                    canRemove={false}
-                    onRemove={() => handleRemoveSku(0)}
-                    onImageFieldChange={(meta) => trackSkuImage(0, meta)}
-                  />
-                ) : (
-                  <Accordion
-                    type="multiple"
-                    value={openSkuPanels}
-                    onValueChange={setOpenSkuPanels}
-                    className="space-y-3"
-                  >
-                    {fields.map((field, index) => (
-                      <AccordionItem
-                        key={field.id}
-                        value={`sku-${index}`}
-                        className="overflow-hidden rounded-xl border border-border bg-card px-0 last:border-b"
-                      >
-                        <AccordionTrigger className="px-4 py-3 hover:no-underline sm:px-5">
-                          <span className="flex flex-col items-start gap-0.5 text-left">
-                            <span className="text-sm font-medium">
-                              SKU #{index + 1}
-                              {watchVariants[index]?.sku ? (
-                                <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
-                                  {watchVariants[index].sku}
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="text-xs font-normal text-muted-foreground">
-                              {watchVariants[index]?.price > 0
-                                ? `${watchVariants[index].price.toLocaleString("en-US")} VND`
-                                : "No price entered"}
-                            </span>
-                          </span>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-0 pb-0">
-                          <SkuFormCard
-                            control={form.control}
-                            index={index}
-                            optionAxes={watchOptionAxes}
-                            optionCatalog={optionCatalog}
-                            onCatalogChange={setOptionCatalog}
-                            productName={watchName}
-                            canRemove={fields.length > 1}
-                            onRemove={() => handleRemoveSku(index)}
-                            onImageFieldChange={(meta) =>
-                              trackSkuImage(index, meta)
-                            }
-                            compact
-                          />
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                )}
-              </div>
-            )}
-
-            <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-0">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => navigate("/admin/products")}
-              >
-                Close
-              </Button>
-              <div className="flex flex-wrap items-center gap-2">
-                {activeStep === "skus" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveStep("spu")}
-                  >
-                    Back to SPU
-                  </Button>
-                ) : null}
-                {activeStep === "spu" ? (
-                  <Button
-                    type="button"
-                    className={cn(adminBrandButtonClass, "gap-2")}
-                    onClick={() => void requestNavigateToSkus()}
-                  >
-                    Next
-                    <ArrowRight className="size-4" aria-hidden />
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    className={cn(adminBrandButtonClass, "gap-2")}
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      if (saveClickGuardRef.current) return
-                      void handleSaveProduct()
-                    }}
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="size-4 animate-spin" aria-hidden />
-                    ) : null}
-                    {id ? "Save product" : "Create product"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <ProductFormSummary {...summaryProps} className="hidden lg:block" />
-        </form>
-      </Form>
-
-      <AlertDialog open={spuSaveDialogOpen} onOpenChange={setSpuSaveDialogOpen}>
+      <AlertDialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Save SPU changes?</AlertDialogTitle>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved SPU changes. Save before moving to the SKU step?
-              Choosing Skip will revert the SPU changes.
+              All unsaved changes will be lost. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={continueToSkusWithoutSaving}
-            >
-              Skip
-            </Button>
-            <Button
-              type="button"
-              className={cn(adminBrandButtonClass, "gap-2")}
-              disabled={isSubmitting}
-              onClick={() => void saveSpuAndContinue()}
-            >
-              {isSubmitting ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : null}
-              Save and continue
-            </Button>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDiscard}>
+              Discard
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

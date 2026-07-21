@@ -85,14 +85,14 @@ export const UserService = {
   },
 
   /** Lấy profile user đang đăng nhập. */
-  async getMe(userId: number) {
+  async getMe(userId: string) {
     const user = await UserRepo.findById(userId)
     if (!user) throw new ApiError(404, 'User not found')
     return toProfileResponse(user)
   },
 
   /** PATCH partial profile — chỉ field được gửi lên. */
-  async patchProfile(userId: number, input: PatchProfileInput) {
+  async patchProfile(userId: string, input: PatchProfileInput) {
     const user = await UserRepo.findById(userId)
     if (!user) throw new ApiError(404, 'User not found')
 

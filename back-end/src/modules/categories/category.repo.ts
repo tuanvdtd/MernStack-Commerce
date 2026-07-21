@@ -1,4 +1,5 @@
 import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
 
 export const CategoryRepo = {
   async list() {
@@ -25,7 +26,7 @@ export const CategoryRepo = {
 
   async create(name: string, slug: string) {
     return prisma.category.create({
-      data: { name, slug },
+      data: { id: newId(), name, slug },
     })
   },
 }

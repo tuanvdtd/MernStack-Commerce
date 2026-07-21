@@ -24,7 +24,7 @@ export type ReviewItem = {
   comment: string | null
   createdAt: string
   user: {
-    id: number
+    id: string
     name: string
     avatarUrl: string | null
   }

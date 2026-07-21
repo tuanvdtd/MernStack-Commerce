@@ -18,7 +18,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-1",
         productId: "spu-1",
-        sku: "IP15PM-BK-256",
         price: 29990000,
         stockQuantity: 45,
         options: [
@@ -31,7 +30,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-2",
         productId: "spu-1",
-        sku: "IP15PM-BK-512",
         price: 34990000,
         stockQuantity: 28,
         options: [
@@ -44,7 +42,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-3",
         productId: "spu-1",
-        sku: "IP15PM-WT-256",
         price: 29990000,
         stockQuantity: 8,
         options: [
@@ -78,7 +75,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-4",
         productId: "spu-2",
-        sku: "S24U-BK-256",
         price: 26990000,
         stockQuantity: 35,
         options: [
@@ -92,7 +88,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-5",
         productId: "spu-2",
-        sku: "S24U-GY-512",
         price: 31990000,
         stockQuantity: 22,
         options: [
@@ -127,7 +122,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-6",
         productId: "spu-3",
-        sku: "MBP16-M3MAX-SG-512",
         price: 89990000,
         stockQuantity: 5,
         options: [
@@ -141,7 +135,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-7",
         productId: "spu-3",
-        sku: "MBP16-M3MAX-SG-1TB",
         price: 99990000,
         stockQuantity: 3,
         options: [
@@ -176,7 +169,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-8",
         productId: "spu-4",
-        sku: "SONY-XM5-BK",
         price: 7990000,
         stockQuantity: 120,
         options: [{ optionName: "Color", value: "Black" }],
@@ -186,7 +178,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-9",
         productId: "spu-4",
-        sku: "SONY-XM5-SL",
         price: 7990000,
         stockQuantity: 95,
         options: [{ optionName: "Color", value: "Silver" }],
@@ -217,7 +208,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-10",
         productId: "spu-5",
-        sku: "IPADPRO-M2-128-WIFI",
         price: 24990000,
         stockQuantity: 18,
         options: [
@@ -230,7 +220,6 @@ export const mockProducts: SPU[] = [
       {
         id: "sku-11",
         productId: "spu-5",
-        sku: "IPADPRO-M2-256-5G",
         price: 32990000,
         stockQuantity: 12,
         options: [
@@ -260,7 +249,6 @@ export const mockOrders: Order[] = [
       {
         id: "item-1",
         skuId: "sku-1",
-        sku: "IP15PM-BK-256",
         productName: "iPhone 15 Pro Max",
         productImage:
           "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400",
@@ -302,7 +290,6 @@ export const mockOrders: Order[] = [
       {
         id: "item-2",
         skuId: "sku-8",
-        sku: "SONY-XM5-BK",
         productName: "Sony WH-1000XM5",
         productImage:
           "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400",
@@ -314,7 +301,6 @@ export const mockOrders: Order[] = [
       {
         id: "item-3",
         skuId: "sku-10",
-        sku: "IPADPRO-M2-128-WIFI",
         productName: "iPad Pro 12.9 inch M2",
         productImage:
           "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400",
@@ -355,7 +341,6 @@ export const mockOrders: Order[] = [
       {
         id: "item-4",
         skuId: "sku-4",
-        sku: "S24U-BK-256",
         productName: "Samsung Galaxy S24 Ultra",
         productImage:
           "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=400",
@@ -398,7 +383,6 @@ export const mockOrders: Order[] = [
       {
         id: "item-5",
         skuId: "sku-6",
-        sku: "MBP16-M3MAX-SG-512",
         productName: "MacBook Pro 16 inch M3 Max",
         productImage:
           "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400",
@@ -441,7 +425,6 @@ export const mockOrders: Order[] = [
       {
         id: "item-6",
         skuId: "sku-9",
-        sku: "SONY-XM5-SL",
         productName: "Sony WH-1000XM5",
         productImage:
           "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400",

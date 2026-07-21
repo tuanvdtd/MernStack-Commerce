@@ -1,5 +1,6 @@
 import { Prisma } from '~/generated/prisma/client'
 import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
 import type {
   CreateReviewInput,
   PatchReviewInput,
@@ -73,10 +74,11 @@ export const ReviewRepo = {
   },
 
   /** Tạo review mới và cập nhật rating tổng hợp trên Product. */
-  async create(userId: number, productId: string, input: CreateReviewInput) {
+  async create(userId: string, productId: string, input: CreateReviewInput) {
     return prisma.$transaction(async (tx) => {
       const review = await tx.productReview.create({
         data: {
+          id: newId(),
           userId,
           productId,
           rating: input.rating,

@@ -1,4 +1,5 @@
 import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
 
 export const OptionRepo = {
   async listWithValues() {
@@ -15,7 +16,7 @@ export const OptionRepo = {
   async upsertOption(name: string) {
     return prisma.option.upsert({
       where: { name },
-      create: { name },
+      create: { id: newId(), name },
       update: {},
     })
   },
@@ -25,7 +26,7 @@ export const OptionRepo = {
       where: {
         optionId_value: { optionId, value },
       },
-      create: { optionId, value },
+      create: { id: newId(), optionId, value },
       update: {},
     })
   },

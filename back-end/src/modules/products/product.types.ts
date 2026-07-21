@@ -4,7 +4,8 @@ export type VariantOptionInput = {
 }
 
 export type CreateVariantInput = {
-  sku: string
+  /** Có khi cập nhật variant đã tồn tại; bỏ trống khi tạo variant mới. */
+  id?: string
   price: number
   stockQuantity: number
   imgUrl?: string
@@ -33,7 +34,7 @@ export type PatchProductSpuInput = {
   optionAxes?: string[]
 }
 
-/** Body PUT /products/:id/variants — đồng bộ full danh sách SKU. */
+/** Body PUT /products/:id/variants — đồng bộ full danh sách variant theo id. */
 export type UpdateProductVariantsInput = {
   optionAxes: string[]
   variants: CreateVariantInput[]

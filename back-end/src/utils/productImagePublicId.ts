@@ -10,6 +10,7 @@ export function buildSpuPublicId(productId: string): string {
   return `${productId}/spu`
 }
 
-export function buildSkuPublicId(productId: string, sku: string): string {
-  return `${productId}/sku-${sanitizeForPublicId(sku)}`
+/** Public id Cloudinary cho ảnh variant — dùng variant id thay cho mã SKU. */
+export function buildVariantPublicId(productId: string, variantId: string): string {
+  return `${productId}/variant-${sanitizeForPublicId(variantId)}`
 }
