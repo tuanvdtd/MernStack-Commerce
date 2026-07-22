@@ -1,213 +1,117 @@
 import { ApiError } from '~/core/http/ApiError'
 import { PRODUCT_IMAGE_FOLDER } from '~/modules/upload/upload.constants'
-import type {
-  CreateProductInput,
-  PatchProductSpuInput,
-  UpdateProductVariantsInput,
-} from '~/modules/products/product.types'
-import type { ProductImageUploads } from '~/modules/products/product.middleware'
-import type { ProductWithRelations } from '~/modules/products/product.repo'
+import type { ProductImageInput } from '~/modules/products/product.types'
 import { cloudinaryProvider } from '~/providers/cloudinary.provider'
-import {
-  buildSpuPublicId,
-  buildVariantPublicId,
-} from '~/utils/productImagePublicId'
+import { newId } from '~/utils/id'
 
-const isRemoteImageUrl = (url: string | null | undefined): url is string =>
-  Boolean(url?.trim() && /^https?:\/\/.+/i.test(url.trim()))
-
-export function assertSpuImageProvided(
-  input: CreateProductInput,
-  files: ProductImageUploads,
-) {
-  if (files.spu || isRemoteImageUrl(input.imgUrl)) return
-  throw ApiError.BadRequest('Ảnh đại diện SPU là bắt buộc')
+type ExistingProductImage = {
+  id: string
+  url: string
+  publicId: string | null
+  sortOrder: number
+  alt: string | null
 }
 
-async function uploadSpuImage(productId: string, file: Express.Multer.File) {
-  const result = await cloudinaryProvider.streamUploadWithOverwrite(
-    file.buffer,
-    PRODUCT_IMAGE_FOLDER,
-    buildSpuPublicId(productId),
-  )
-  return result.secure_url
-}
-
-async function uploadVariantImage(
-  productId: string,
-  variantId: string,
-  file: Express.Multer.File,
-) {
-  const result = await cloudinaryProvider.streamUploadWithOverwrite(
-    file.buffer,
-    PRODUCT_IMAGE_FOLDER,
-    buildVariantPublicId(productId, variantId),
-  )
-  return result.secure_url
-}
-
-async function destroyVariantImage(productId: string, variantId: string) {
-  const publicId = `${PRODUCT_IMAGE_FOLDER}/${buildVariantPublicId(productId, variantId)}`
-  try {
-    await cloudinaryProvider.destroy(publicId)
-  } catch {
-    // Best-effort — ảnh có thể đã bị xóa trước đó
+type Tx = {
+  productImage: {
+    deleteMany: (args: {
+      where: { productId: string; id?: { in: string[] } }
+    }) => Promise<unknown>
+    createMany: (args: {
+      data: Array<{
+        id: string
+        productId: string
+        url: string
+        publicId: string | null
+        sortOrder: number
+        alt: string | null
+      }>
+    }) => Promise<unknown>
   }
 }
 
-export async function resolveProductImageUrls(
-  productId: string,
-  input: CreateProductInput,
-  files: ProductImageUploads,
-): Promise<CreateProductInput> {
-  let imgUrl = input.imgUrl?.trim() ?? ''
+const isManagedPublicId = (publicId: string | null | undefined) =>
+  Boolean(publicId?.startsWith(`${PRODUCT_IMAGE_FOLDER}/`))
 
-  if (files.spu) {
-    imgUrl = await uploadSpuImage(productId, files.spu)
-  } else if (!isRemoteImageUrl(imgUrl)) {
-    imgUrl = ''
-  }
+/**
+ * Kiểm tra gallery SPU có ít nhất một ảnh hợp lệ (upload-first qua Cloudinary).
+ */
+export function assertProductGalleryProvided(images: ProductImageInput[] | undefined) {
+  if (images?.length && images.every((img) => img.url.trim())) return
+  throw ApiError.BadRequest('Sản phẩm cần ít nhất một ảnh trong gallery')
+}
 
-  const variants = await Promise.all(
-    input.variants.map(async (variant, index) => {
-      const variantId = variant.id
-      const skuFile = files.skus.get(index)
-      if (skuFile && variantId) {
-        return {
-          ...variant,
-          imgUrl: await uploadVariantImage(productId, variantId, skuFile),
-        }
-      }
+/**
+ * Lấy URL ảnh đầu gallery (sortOrder nhỏ nhất) để sync vào Product.thumbnail.
+ */
+export function resolvePrimaryImageUrl(images: ProductImageInput[]): string {
+  if (!images.length) return ''
+  const sorted = [...images].sort((a, b) => a.sortOrder - b.sortOrder)
+  return sorted[0]?.url.trim() ?? ''
+}
 
-      const existingUrl = variant.imgUrl?.trim()
-      return {
-        ...variant,
-        ...(isRemoteImageUrl(existingUrl) ? { imgUrl: existingUrl } : {}),
+/**
+ * Xóa ảnh Cloudinary không còn tham chiếu trong gallery (best-effort).
+ */
+export async function destroyManagedImages(publicIds: string[]) {
+  await Promise.allSettled(
+    publicIds.filter(isManagedPublicId).map(async (publicId) => {
+      try {
+        await cloudinaryProvider.destroy(publicId!)
+      } catch {
+        // Ảnh có thể đã bị xóa trước đó
       }
     }),
   )
-
-  return { ...input, imgUrl, variants }
 }
 
-/** PATCH SPU: ưu tiên file upload; không gửi imgUrl thì giữ ảnh cũ. */
-export async function resolveSpuImageForPatch(
+/**
+ * Thay thế toàn bộ gallery của product: xóa record cũ, dọn Cloudinary orphan, tạo record mới.
+ */
+export async function replaceProductImages(
+  tx: Tx,
   productId: string,
-  existingImgUrl: string | null | undefined,
-  input: PatchProductSpuInput,
-  files: ProductImageUploads,
-): Promise<PatchProductSpuInput> {
-  const resolved = { ...input }
+  incoming: ProductImageInput[],
+  existing: ExistingProductImage[],
+): Promise<string> {
+  const incomingPublicIds = new Set(incoming.map((img) => img.publicId))
+  const removedPublicIds = existing
+    .map((img) => img.publicId)
+    .filter((publicId): publicId is string => {
+      if (!publicId) return false
+      return !incomingPublicIds.has(publicId)
+    })
 
-  if (files.spu) {
-    resolved.imgUrl = await uploadSpuImage(productId, files.spu)
-    return resolved
+  await tx.productImage.deleteMany({ where: { productId } })
+
+  if (incoming.length > 0) {
+    await tx.productImage.createMany({
+      data: incoming.map((img) => ({
+        id: newId(),
+        productId,
+        url: img.url.trim(),
+        publicId: img.publicId.trim() || null,
+        sortOrder: img.sortOrder,
+        alt: img.alt?.trim() || null,
+      })),
+    })
   }
 
-  if (input.imgUrl === undefined) {
-    return resolved
+  if (removedPublicIds.length > 0) {
+    await destroyManagedImages(removedPublicIds)
   }
 
-  if (isRemoteImageUrl(input.imgUrl)) {
-    resolved.imgUrl = input.imgUrl.trim()
-    return resolved
-  }
-
-  resolved.imgUrl = existingImgUrl?.trim() || ''
-  return resolved
+  return resolvePrimaryImageUrl(incoming)
 }
 
-/** PUT variants: upload ảnh variant mới theo index, giữ URL remote nếu không đổi file. */
-export async function resolveVariantsImageUrls(
-  productId: string,
-  input: UpdateProductVariantsInput,
-  files: ProductImageUploads,
-): Promise<UpdateProductVariantsInput> {
-  const variants = await Promise.all(
-    input.variants.map(async (variant, index) => {
-      const variantId = variant.id
-      const skuFile = files.skus.get(index)
-      if (skuFile && variantId) {
-        return {
-          ...variant,
-          imgUrl: await uploadVariantImage(productId, variantId, skuFile),
-        }
-      }
-
-      const existingUrl = variant.imgUrl?.trim()
-      return {
-        ...variant,
-        ...(isRemoteImageUrl(existingUrl) ? { imgUrl: existingUrl } : {}),
-      }
-    }),
-  )
-
-  return { ...input, variants }
-}
-
-/** Xóa ảnh Cloudinary của variant bị remove hoặc bỏ URL ảnh khi replace variants. */
-export async function cleanupRemovedVariantImages(
-  productId: string,
-  existing: NonNullable<ProductWithRelations>,
-  input: UpdateProductVariantsInput,
-  files: ProductImageUploads,
+/**
+ * Dọn toàn bộ ảnh Cloudinary của product khi xóa SPU.
+ */
+export async function cleanupProductGalleryImages(
+  images: Array<{ publicId: string | null }>,
 ) {
-  const incomingIds = new Set(
-    input.variants.map((variant) => variant.id).filter(Boolean) as string[],
-  )
-
-  for (const variant of existing.variants) {
-    if (!incomingIds.has(variant.id) && isRemoteImageUrl(variant.imgUrl)) {
-      await destroyVariantImage(productId, variant.id)
-      continue
-    }
-
-    const index = input.variants.findIndex((item) => item.id === variant.id)
-    if (index === -1) continue
-
-    const incoming = input.variants[index]
-    const hasNewFile = files.skus.has(index)
-    const keepsRemoteUrl = isRemoteImageUrl(incoming.imgUrl)
-
-    if (
-      isRemoteImageUrl(variant.imgUrl) &&
-      !hasNewFile &&
-      !keepsRemoteUrl
-    ) {
-      await destroyVariantImage(productId, variant.id)
-    }
-  }
-}
-
-export async function cleanupRemovedProductImages(
-  productId: string,
-  existing: NonNullable<ProductWithRelations>,
-  input: CreateProductInput,
-  files: ProductImageUploads,
-) {
-  const incomingIds = new Set(
-    input.variants.map((variant) => variant.id).filter(Boolean) as string[],
-  )
-
-  for (const variant of existing.variants) {
-    if (!incomingIds.has(variant.id) && isRemoteImageUrl(variant.imgUrl)) {
-      await destroyVariantImage(productId, variant.id)
-      continue
-    }
-
-    const index = input.variants.findIndex((item) => item.id === variant.id)
-    if (index === -1) continue
-
-    const incoming = input.variants[index]
-    const hasNewFile = files.skus.has(index)
-    const keepsRemoteUrl = isRemoteImageUrl(incoming.imgUrl)
-
-    if (
-      isRemoteImageUrl(variant.imgUrl) &&
-      !hasNewFile &&
-      !keepsRemoteUrl
-    ) {
-      await destroyVariantImage(productId, variant.id)
-    }
-  }
+  const publicIds = images
+    .map((img) => img.publicId)
+    .filter((publicId): publicId is string => Boolean(publicId))
+  await destroyManagedImages(publicIds)
 }

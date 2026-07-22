@@ -715,9 +715,9 @@ export function DiscountForm() {
                               }
                               aria-label={`Select ${product.name}`}
                             />
-                            {product.imgUrl ? (
+                            {product.thumbnail ? (
                               <img
-                                src={product.imgUrl}
+                                src={product.thumbnail}
                                 alt=""
                                 className="size-9 rounded-lg object-cover"
                               />

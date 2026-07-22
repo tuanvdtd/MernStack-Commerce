@@ -7,11 +7,6 @@ import { validateRequest } from '~/core/validate/validateRequest'
 import { permissions } from '~/config/rbacConfig'
 import { ProductController } from '~/modules/products/product.controller'
 import {
-  assertProductImages,
-  parseProductFormData,
-  productMultipartUpload,
-} from '~/modules/products/product.middleware'
-import {
   CreateProductSchema,
   GetProductSchema,
   PatchProductSpuSchema,
@@ -30,25 +25,16 @@ r.get(
 )
 r.post(
   '/',
-  productMultipartUpload,
-  parseProductFormData,
   validateRequest(CreateProductSchema),
-  assertProductImages,
   asyncHandler(ProductController.create),
 )
-// Bước 1 edit: partial SPU
 r.patch(
   '/:id',
-  productMultipartUpload,
-  parseProductFormData,
   validateRequest(PatchProductSpuSchema),
   asyncHandler(ProductController.patchSpu),
 )
-// Bước 2 edit: đồng bộ toàn bộ SKU
 r.put(
   '/:id/variants',
-  productMultipartUpload,
-  parseProductFormData,
   validateRequest(UpdateProductVariantsSchema),
   asyncHandler(ProductController.updateVariants),
 )

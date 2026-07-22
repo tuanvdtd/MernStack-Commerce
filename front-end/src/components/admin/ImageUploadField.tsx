@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react"
 import type { DragEvent } from "react"
-import { ImagePlus, Trash2 } from "lucide-react"
+import { ImagePlus, Loader2, Trash2 } from "lucide-react"
 import { Button } from "~/components/ui/button"
 import { Label } from "~/components/ui/label"
 import {
@@ -8,6 +8,7 @@ import {
   LIMIT_COMMON_FILE_SIZE,
   singleFileValidator,
 } from "~/lib/fileValidator"
+import { uploadProductImage } from "~/apis/uploadApi"
 import { cn } from "~/lib/utils"
 
 const ACCEPT = ALLOW_COMMON_FILE_TYPES.join(",")
@@ -15,6 +16,7 @@ const ACCEPT = ALLOW_COMMON_FILE_TYPES.join(",")
 export type ImageUploadChangeMeta = {
   file?: File | null
   previousUrl?: string
+  publicId?: string
 }
 
 type ImageUploadFieldProps = {
@@ -28,6 +30,10 @@ type ImageUploadFieldProps = {
   variant?: "default" | "tile" | "dropzone"
   /** Hide the field label (when the parent section already shows it). */
   hideLabel?: boolean
+  /** Upload lên Cloudinary ngay khi chọn file (không dùng blob preview). */
+  uploadOnSelect?: boolean
+  onUploadStart?: () => void
+  onUploadEnd?: () => void
 }
 
 const revokeBlobUrl = (url: string | undefined) => {
@@ -45,10 +51,14 @@ export const ImageUploadField = ({
   className,
   variant = "default",
   hideLabel = false,
+  uploadOnSelect = false,
+  onUploadStart,
+  onUploadEnd,
 }: ImageUploadFieldProps) => {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const previewRef = useRef(value)
 
   useEffect(() => {
@@ -61,7 +71,7 @@ export const ImageUploadField = ({
     }
   }, [])
 
-  const handleFile = (file: File | undefined) => {
+  const handleFile = async (file: File | undefined) => {
     if (!file) return
 
     const validationError = singleFileValidator(file)
@@ -71,6 +81,25 @@ export const ImageUploadField = ({
     }
 
     const previousUrl = value || undefined
+
+    if (uploadOnSelect) {
+      setIsUploading(true)
+      onUploadStart?.()
+      try {
+        const result = await uploadProductImage(file)
+        onChange(result.secureUrl, {
+          previousUrl,
+          publicId: result.publicId,
+        })
+      } catch {
+        onError?.("Unable to upload the image.")
+      } finally {
+        setIsUploading(false)
+        onUploadEnd?.()
+      }
+      return
+    }
+
     revokeBlobUrl(previousUrl)
 
     const previewUrl = URL.createObjectURL(file)
@@ -107,7 +136,7 @@ export const ImageUploadField = ({
     e.stopPropagation()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    handleFile(file)
+    void handleFile(file)
   }
 
   const maxMb = LIMIT_COMMON_FILE_SIZE / (1024 * 1024)
@@ -128,7 +157,7 @@ export const ImageUploadField = ({
       accept={ACCEPT}
       className="sr-only"
       onChange={(e) => {
-        handleFile(e.target.files?.[0])
+        void handleFile(e.target.files?.[0])
         e.target.value = ""
       }}
     />
@@ -308,11 +337,18 @@ export const ImageUploadField = ({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          <img
-            src={value}
-            alt="Preview"
-            className="size-24 shrink-0 rounded-lg border border-border object-cover"
-          />
+          <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border border-border">
+            <img
+              src={value}
+              alt="Preview"
+              className="size-full object-cover"
+            />
+            {isUploading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <Loader2 className="size-6 animate-spin text-white" />
+              </div>
+            ) : null}
+          </div>
           <div className="flex flex-col gap-2">
             <p className="text-xs text-muted-foreground">
               {isDragging

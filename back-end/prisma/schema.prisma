@@ -77,10 +77,11 @@ model Product {
   categoryId    String
   category      Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   variants      ProductVariant[]
+  images        ProductImage[]
   discounts     DiscountProduct[]
   reviews       ProductReview[]
   brand         String
-  imgUrl        String?
+  thumbnail     String?
   isActive      Boolean           @default(true)
   averageRating Decimal           @default(0) @db.Decimal(2, 1)
   reviewCount   Int               @default(0)
@@ -88,6 +89,19 @@ model Product {
   updatedAt     DateTime          @updatedAt
 
   @@index([categoryId])
+}
+
+model ProductImage {
+  id        String   @id
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   @db.VarChar(512)
+  publicId  String?  @db.VarChar(255)
+  sortOrder Int      @default(0)
+  alt       String?  @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  @@index([productId, sortOrder])
 }
 
 model ProductReview {

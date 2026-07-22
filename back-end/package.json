@@ -21,7 +21,8 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "tree": "npx tree -L 4 -I 'node_modules|.git|dist|build'",
-    "seed": "node --import tsx prisma/seed.ts"
+    "seed": "node --import tsx prisma/seed.ts",
+    "db:clear-products": "node --import tsx prisma/scripts/clearProducts.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.12.2",

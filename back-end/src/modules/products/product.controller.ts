@@ -20,10 +20,7 @@ export const ProductController = {
   },
 
   create: async (req: AuthRequest, res: Response) => {
-    const product = await ProductService.create(
-      req.body as CreateProductInput,
-      req.productImageUploads,
-    )
+    const product = await ProductService.create(req.body as CreateProductInput)
     return res.status(201).json(product)
   },
 
@@ -32,7 +29,6 @@ export const ProductController = {
     const product = await ProductService.patchSpu(
       String(req.params.id),
       req.body as PatchProductSpuInput,
-      req.productImageUploads,
     )
     return res.json(product)
   },
@@ -42,7 +38,6 @@ export const ProductController = {
     const product = await ProductService.updateVariants(
       String(req.params.id),
       req.body as UpdateProductVariantsInput,
-      req.productImageUploads,
     )
     return res.json(product)
   },

@@ -234,7 +234,7 @@ export function Inventory() {
               ) : (
                 paginatedSKUs.map(({ product, sku }) => {
                   const stock = getStockLabel(sku.stockQuantity)
-                  const thumb = sku.imgUrl ?? product.imgUrl
+                  const thumb = sku.imgUrl ?? product.thumbnail
 
                   return (
                     <TableRow

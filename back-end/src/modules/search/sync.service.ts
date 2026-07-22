@@ -29,7 +29,7 @@ function toSkuDocuments(product: ProductForSync): SkuEsDocument[] {
     spuId: product.id,
     skuTitle: product.name,
     skuPrice: Number(variant.price),
-    skuImg: variant.imgUrl ?? product.imgUrl ?? '',
+    skuImg: variant.imgUrl ?? product.thumbnail ?? '',
     hasStock: variant.stockQuantity > 0,
     hotScore: Number(product.averageRating),
     saleCount: product.reviewCount,

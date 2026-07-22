@@ -145,9 +145,9 @@ export function Dashboard() {
                     key={product.id}
                     className="flex items-center gap-3 px-5 py-3 lg:px-6"
                   >
-                    {product.imgUrl ? (
+                    {product.thumbnail ? (
                       <img
-                        src={product.imgUrl}
+                        src={product.thumbnail}
                         alt={product.name}
                         className="size-9 shrink-0 rounded-lg object-cover"
                       />

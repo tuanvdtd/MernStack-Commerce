@@ -26,6 +26,14 @@ export interface SKU {
   updatedAt: string
 }
 
+/** Gallery image stored in ProductImage. */
+export interface ProductImage {
+  url: string
+  publicId?: string
+  sortOrder: number
+  alt?: string
+}
+
 /** SPU matching the Product model. */
 export interface SPU {
   id: string
@@ -37,7 +45,9 @@ export interface SPU {
   brand: string
   /** Option names (variant axes); all SKUs in one SPU share this axis set. */
   optionAxes: string[]
-  imgUrl?: string
+  /** Thumbnail denormalized từ gallery[0] — ảnh đại diện listing/cart. */
+  thumbnail?: string
+  images: ProductImage[]
   isActive: boolean
   skus: SKU[]
   createdAt: string

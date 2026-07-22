@@ -33,7 +33,7 @@ export const deriveOptionAxes = (
       }
     }
   }
-  return axes.length > 0 ? axes : [...DEFAULT_OPTION_AXES]
+  return axes
 }
 
 export const alignSkuOptionsToAxes = (

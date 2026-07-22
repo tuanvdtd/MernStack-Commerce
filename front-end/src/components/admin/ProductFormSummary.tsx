@@ -13,7 +13,7 @@ type ProductFormSummaryProps = {
   categoryCatalog: AdminCategory[]
   brand: string
   isActive: boolean
-  imgUrl: string
+  thumbnail: string
   optionAxes: string[]
   optionCatalog: OptionCatalogEntry[]
   skuCount: number
@@ -30,7 +30,7 @@ export const ProductFormSummary = ({
   categoryCatalog,
   brand,
   isActive,
-  imgUrl,
+  thumbnail,
   optionAxes,
   optionCatalog,
   skuCount,
@@ -84,9 +84,9 @@ export const ProductFormSummary = ({
         {brand ? <Badge variant="outline">{brand}</Badge> : null}
       </div>
 
-      {imgUrl ? (
+      {thumbnail ? (
         <img
-          src={imgUrl}
+          src={thumbnail}
           alt=""
           className="mt-4 aspect-square w-full max-w-[140px] rounded-lg border border-border object-cover"
         />

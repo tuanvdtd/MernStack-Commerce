@@ -1,4 +1,8 @@
 import * as z from "zod"
+import {
+  generateVariantsFromOptionDefinitions,
+  hasVariantOptions,
+} from "~/lib/admin/variantGeneration"
 
 /** Strip HTML tags and collapse whitespace for plain-text length checks. */
 const getPlainTextFromHtml = (html: string) =>
@@ -8,9 +12,24 @@ const getPlainTextFromHtml = (html: string) =>
     .replace(/\s+/g, " ")
     .trim()
 
+export const productImageSchema = z.object({
+  url: z
+    .string()
+    .min(1)
+    .refine((val) => /^https?:\/\//i.test(val), "Invalid image URL"),
+  publicId: z.string().min(1, "Missing image reference"),
+  sortOrder: z.number().int().min(0),
+  alt: z.string().optional(),
+})
+
+export const productOptionDefinitionSchema = z.object({
+  name: z.string().min(1, "Option name is required"),
+  values: z.array(z.string().min(1)).min(1, "Add at least one option value"),
+})
+
 export const variantOptionSchema = z.object({
   optionName: z.string(),
-  value: z.string().min(1, "Choose a value for this attribute"),
+  value: z.string(),
 })
 
 export const variantSchema = z.object({
@@ -21,8 +40,7 @@ export const variantSchema = z.object({
   imgUrl: z
     .string()
     .refine(
-      (val) =>
-        val === "" || /^https?:\/\//i.test(val) || val.startsWith("blob:"),
+      (val) => val === "" || /^https?:\/\//i.test(val),
       "SKU image is invalid"
     ),
   options: z.array(variantOptionSchema),
@@ -39,30 +57,96 @@ export const productFormSchema = z
       ),
     categoryId: z.string().min(1, "Please choose a category"),
     brand: z.string().min(1, "Please choose a brand"),
-    imgUrl: z
-      .string()
-      .min(1, "Please choose an SPU cover image")
-      .refine(
-        (val) => /^https?:\/\//i.test(val) || val.startsWith("blob:"),
-        "Please choose an SPU cover image"
-      ),
+    images: z
+      .array(productImageSchema)
+      .min(1, "Please add at least one product image")
+      .max(9, "Product gallery supports up to 9 images"),
     isActive: z.boolean(),
-    optionAxes: z
-      .array(z.string().min(1, "Option axis name is required"))
-      .min(1, "SPU needs at least one option axis"),
-    variants: z.array(variantSchema).min(1, "Please add at least 1 SKU"),
+    basePrice: z.number().min(0),
+    baseStock: z.number().min(0),
+    optionDefinitions: z.array(productOptionDefinitionSchema),
+    variants: z.array(variantSchema),
   })
   .superRefine((data, ctx) => {
-    if (new Set(data.optionAxes).size !== data.optionAxes.length) {
+    const sortOrders = data.images.map((image) => image.sortOrder)
+    if (new Set(sortOrders).size !== sortOrders.length) {
       ctx.addIssue({
         code: "custom",
-        message: "Option axes cannot be duplicated on the SPU",
-        path: ["optionAxes"],
+        message: "Duplicate image order in gallery",
+        path: ["images"],
+      })
+    }
+
+    const optionNames = data.optionDefinitions.map((definition) => definition.name)
+    if (new Set(optionNames).size !== optionNames.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Option names cannot be duplicated",
+        path: ["optionDefinitions"],
+      })
+    }
+
+    if (!hasVariantOptions(data.optionDefinitions)) {
+      if (data.basePrice < 1000) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Sale price must be at least 1,000 VND",
+          path: ["basePrice"],
+        })
+      }
+
+      if (data.variants.length !== 1) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Simple product must have exactly one SKU",
+          path: ["variants"],
+        })
+      }
+
+      if (data.variants[0]?.price !== data.basePrice) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Price must match the value in the Price section",
+          path: ["basePrice"],
+        })
+      }
+
+      if (data.variants[0]?.stockQuantity !== data.baseStock) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Inventory must match the value in the Price section",
+          path: ["baseStock"],
+        })
+      }
+
+      return
+    }
+
+    const optionAxes = data.optionDefinitions.map((definition) => definition.name)
+    const expectedVariants = generateVariantsFromOptionDefinitions(
+      data.optionDefinitions,
+      data.variants
+    )
+
+    if (expectedVariants.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Add values for each option before saving",
+        path: ["optionDefinitions"],
+      })
+      return
+    }
+
+    if (data.variants.length !== expectedVariants.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Variant list is out of sync with option values",
+        path: ["variants"],
       })
     }
 
     const variantIds = data.variants
-      .map((v) => v.id?.trim())
+      .map((variant) => variant.id?.trim())
       .filter(Boolean) as string[]
     if (new Set(variantIds).size !== variantIds.length) {
       ctx.addIssue({
@@ -73,12 +157,7 @@ export const productFormSchema = z
     }
 
     const combos = data.variants.map((variant) =>
-      data.optionAxes
-        .map((axis) => {
-          const match = variant.options.find((o) => o.optionName === axis)
-          return `${axis}:${match?.value ?? ""}`
-        })
-        .join("|")
+      buildVariantComboKey(optionAxes, variant.options)
     )
     if (new Set(combos).size !== combos.length) {
       ctx.addIssue({
@@ -87,30 +166,58 @@ export const productFormSchema = z
         path: ["variants"],
       })
     }
+
+    for (let index = 0; index < data.variants.length; index++) {
+      const variant = data.variants[index]
+      for (const axis of optionAxes) {
+        const match = variant.options.find((option) => option.optionName === axis)
+        if (!match?.value.trim()) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Missing value for option "${axis}"`,
+            path: ["variants", index, "options"],
+          })
+        }
+      }
+    }
   })
 
+/** Tạo key combo duy nhất từ danh sách option của SKU. */
+const buildVariantComboKey = (
+  optionAxes: string[],
+  options: z.infer<typeof variantOptionSchema>[]
+): string =>
+  optionAxes
+    .map((axis) => {
+      const value =
+        options.find((option) => option.optionName === axis)?.value ?? ""
+      return `${axis}:${value}`
+    })
+    .join("|")
+
 export type ProductFormValues = z.infer<typeof productFormSchema>
+export type ProductImageFormValues = z.infer<typeof productImageSchema>
+export type ProductOptionDefinitionFormValues = z.infer<
+  typeof productOptionDefinitionSchema
+>
 export type VariantFormValues = z.infer<typeof variantSchema>
 
-export const createDefaultVariant = (
-  optionAxes: string[]
-): VariantFormValues => ({
-  price: 0,
-  stockQuantity: 0,
-  imgUrl: "",
-  options: optionAxes.map((optionName) => ({ optionName, value: "" })),
+export const defaultProductFormValues = (): ProductFormValues => ({
+  name: "",
+  description: "",
+  categoryId: "",
+  brand: "",
+  images: [],
+  isActive: true,
+  basePrice: 0,
+  baseStock: 0,
+  optionDefinitions: [],
+  variants: [
+    {
+      price: 0,
+      stockQuantity: 0,
+      imgUrl: "",
+      options: [],
+    },
+  ],
 })
-
-export const defaultProductFormValues = (): ProductFormValues => {
-  const optionAxes = ["Color", "Storage"]
-  return {
-    name: "",
-    description: "",
-    categoryId: "",
-    brand: "",
-    imgUrl: "",
-    isActive: true,
-    optionAxes,
-    variants: [createDefaultVariant(optionAxes)],
-  }
-}

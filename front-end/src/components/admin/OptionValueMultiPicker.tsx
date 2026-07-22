@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronDown, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { Button } from "~/components/ui/button"
+import { Checkbox } from "~/components/ui/checkbox"
 import { Input } from "~/components/ui/input"
 import { cn } from "~/lib/utils"
 
@@ -13,11 +22,11 @@ type MenuPosition = {
   bottom?: number
 }
 
-type CatalogCreatablePickerProps = {
-  value: string
-  onChange: (value: string) => void
+type OptionValueMultiPickerProps = {
+  selectedValues: string[]
+  onSelectedValuesChange: (values: string[]) => void
   options: string[]
-  onCreate?: (value: string) => void
+  onCreate?: (value: string) => boolean | void
   placeholder?: string
   formatOption?: (value: string) => string
   createPlaceholder?: string
@@ -25,39 +34,36 @@ type CatalogCreatablePickerProps = {
   disabled?: boolean
   className?: string
   triggerClassName?: string
-  leadingIcon?: ReactNode
-  showChevron?: boolean
 }
 
 const MENU_GAP = 4
 const MENU_MIN_HEIGHT = 140
 const MENU_MAX_HEIGHT = 320
-/** Estimated height when the create block is visible. */
 const CREATE_BLOCK_HEIGHT = 96
 
+/** Ước lượng chiều cao menu theo số option và block tạo mới. */
 const estimateMenuHeight = (optionCount: number, hasCreate: boolean): number => {
-  const listHeight = Math.min(220, Math.max(72, optionCount * 36 + 16))
+  const listHeight = Math.min(260, Math.max(72, optionCount * 36 + 16))
   return Math.min(
     MENU_MAX_HEIGHT,
     listHeight + (hasCreate ? CREATE_BLOCK_HEIGHT : 0)
   )
 }
 
-export const CatalogCreatablePicker = ({
-  value,
-  onChange,
+/** Menu chọn nhiều OptionValue bằng checkbox; giá trị đã chọn được tích sẵn. */
+export const OptionValueMultiPicker = ({
+  selectedValues,
+  onSelectedValuesChange,
   options,
   onCreate,
-  placeholder = "Choose or add new",
-  formatOption = (v) => v,
+  placeholder = "Add value",
+  formatOption = (value) => value,
   createPlaceholder = "Enter new value...",
   createButtonLabel = "Add",
   disabled = false,
   className,
   triggerClassName,
-  leadingIcon,
-  showChevron = true,
-}: CatalogCreatablePickerProps) => {
+}: OptionValueMultiPickerProps) => {
   const listId = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -65,8 +71,14 @@ export const CatalogCreatablePicker = ({
   const [draft, setDraft] = useState("")
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
 
-  const uniqueOptions = [...new Set(options.filter(Boolean))]
+  const menuOptions = useMemo(
+    () => [...new Set([...options, ...selectedValues].filter(Boolean))],
+    [options, selectedValues]
+  )
 
+  const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues])
+
+  /** Cập nhật vị trí popover theo trigger. */
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current
     if (!trigger) return
@@ -74,14 +86,8 @@ export const CatalogCreatablePicker = ({
     const rect = trigger.getBoundingClientRect()
     const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP
     const spaceAbove = rect.top - MENU_GAP
-    const wantedHeight = estimateMenuHeight(
-      uniqueOptions.length,
-      Boolean(onCreate)
-    )
-
-    const openUp =
-      spaceBelow < wantedHeight && spaceAbove >= spaceBelow
-
+    const wantedHeight = estimateMenuHeight(menuOptions.length, Boolean(onCreate))
+    const openUp = spaceBelow < wantedHeight && spaceAbove >= spaceBelow
     const available = Math.max(
       MENU_MIN_HEIGHT,
       Math.min(MENU_MAX_HEIGHT, openUp ? spaceAbove : spaceBelow)
@@ -91,18 +97,18 @@ export const CatalogCreatablePicker = ({
       openUp
         ? {
             left: rect.left,
-            width: Math.max(rect.width, 240),
+            width: Math.max(rect.width, 280),
             bottom: window.innerHeight - rect.top + MENU_GAP,
             maxHeight: available,
           }
         : {
             left: rect.left,
-            width: Math.max(rect.width, 240),
+            width: Math.max(rect.width, 280),
             top: rect.bottom + MENU_GAP,
             maxHeight: available,
           }
     )
-  }, [uniqueOptions.length, onCreate])
+  }, [menuOptions.length, onCreate])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -118,8 +124,9 @@ export const CatalogCreatablePicker = ({
 
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (e: MouseEvent) => {
-      const target = e.target as Node
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node
       if (
         triggerRef.current?.contains(target) ||
         menuRef.current?.contains(target)
@@ -128,28 +135,37 @@ export const CatalogCreatablePicker = ({
       }
       setOpen(false)
     }
+
     document.addEventListener("mousedown", onPointerDown)
     return () => document.removeEventListener("mousedown", onPointerDown)
   }, [open])
 
-  const display = value ? formatOption(value) : null
+  /** Bật/tắt một giá trị trong danh sách đã chọn. */
+  const toggleValue = (value: string, checked: boolean) => {
+    if (checked) {
+      if (selectedSet.has(value)) return
+      onSelectedValuesChange([...selectedValues, value])
+      return
+    }
 
-  const handleSelect = (next: string) => {
-    onChange(next)
-    setOpen(false)
-    setDraft("")
+    onSelectedValuesChange(selectedValues.filter((item) => item !== value))
   }
 
+  /** Tạo giá trị mới và tự chọn sau khi thêm. */
   const handleCreate = () => {
     const trimmed = draft.trim()
     if (!trimmed) return
-    if (uniqueOptions.includes(trimmed)) {
-      handleSelect(trimmed)
+
+    if (menuOptions.includes(trimmed)) {
+      toggleValue(trimmed, true)
+      setDraft("")
       return
     }
-    onCreate?.(trimmed)
-    onChange(trimmed)
-    setOpen(false)
+
+    if (onCreate?.(trimmed) === false) return
+    if (!selectedSet.has(trimmed)) {
+      onSelectedValuesChange([...selectedValues, trimmed])
+    }
     setDraft("")
   }
 
@@ -159,6 +175,7 @@ export const CatalogCreatablePicker = ({
         ref={menuRef}
         id={listId}
         role="listbox"
+        aria-multiselectable="true"
         style={{
           position: "fixed",
           left: menuPosition.left,
@@ -171,33 +188,32 @@ export const CatalogCreatablePicker = ({
         className="flex flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
       >
         <div className="min-h-0 flex-1 overflow-y-auto p-1">
-          {uniqueOptions.length === 0 ? (
+          {menuOptions.length === 0 ? (
             <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-              No data yet - add a new item below
+              No values yet — add a new one below
             </p>
           ) : (
-            uniqueOptions.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                role="option"
-                aria-selected={value === opt}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent",
-                  value === opt && "bg-accent"
-                )}
-                onClick={() => handleSelect(opt)}
-              >
-                <Check
+            menuOptions.map((option) => {
+              const checked = selectedSet.has(option)
+              return (
+                <label
+                  key={option}
                   className={cn(
-                    "size-4 shrink-0",
-                    value === opt ? "opacity-100" : "opacity-0"
+                    "flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-accent",
+                    checked && "bg-accent/60"
                   )}
-                  aria-hidden
-                />
-                <span className="truncate">{formatOption(opt)}</span>
-              </button>
-            ))
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(next) =>
+                      toggleValue(option, next === true)
+                    }
+                    aria-label={formatOption(option)}
+                  />
+                  <span className="truncate">{formatOption(option)}</span>
+                </label>
+              )
+            })
           )}
         </div>
 
@@ -209,12 +225,12 @@ export const CatalogCreatablePicker = ({
             <div className="flex gap-2">
               <Input
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(event) => setDraft(event.target.value)}
                 placeholder={createPlaceholder}
                 className="h-8 text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
                     handleCreate()
                   }
                 }}
@@ -246,28 +262,16 @@ export const CatalogCreatablePicker = ({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         className={cn(
-          "h-10 w-full justify-between border-input bg-transparent font-normal shadow-none hover:bg-transparent hover:text-foreground",
-          !display && "text-muted-foreground",
-          !showChevron && "justify-start",
+          "h-10 w-full justify-start border-input bg-transparent font-normal shadow-none hover:bg-transparent hover:text-foreground",
+          "text-muted-foreground",
           triggerClassName
         )}
         onClick={() => {
-          setOpen((o) => !o)
+          setOpen((current) => !current)
           if (!open) setDraft("")
         }}
       >
-        <span className="flex min-w-0 items-center gap-2 truncate">
-          {leadingIcon ? (
-            <span className="shrink-0 text-current">{leadingIcon}</span>
-          ) : null}
-          <span className="truncate">{display ?? placeholder}</span>
-        </span>
-        {showChevron ? (
-          <ChevronDown
-            className={cn("size-4 shrink-0 opacity-50", open && "rotate-180")}
-            aria-hidden
-          />
-        ) : null}
+        <span className="truncate">{placeholder}</span>
       </Button>
 
       {typeof document !== "undefined" && menu

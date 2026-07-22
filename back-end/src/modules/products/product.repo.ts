@@ -1,5 +1,6 @@
 import { prisma } from '~/lib/prisma'
 import { newId } from '~/utils/id'
+import { replaceProductImages } from '~/modules/products/product.image'
 import type {
   CreateProductInput,
   PatchProductSpuInput,
@@ -9,6 +10,9 @@ import type {
 
 const productInclude = {
   category: true,
+  images: {
+    orderBy: { sortOrder: 'asc' as const },
+  },
   variants: {
     include: {
       options: {
@@ -85,6 +89,10 @@ export const ProductRepo = {
 
   async create(data: CreateProductInput, slug: string) {
     return prisma.$transaction(async (tx) => {
+      const primaryImgUrl =
+        [...data.images].sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url.trim() ||
+        null
+
       const product = await tx.product.create({
         data: {
           id: newId(),
@@ -93,10 +101,12 @@ export const ProductRepo = {
           description: data.description,
           categoryId: data.categoryId,
           brand: data.brand,
-          imgUrl: data.imgUrl?.trim() || null,
+          thumbnail: primaryImgUrl,
           isActive: data.isActive,
         },
       })
+
+      await replaceProductImages(tx, product.id, data.images, [])
 
       for (const variant of data.variants) {
         const optionValueIds = await resolveOptionValueIds(
@@ -134,6 +144,12 @@ export const ProductRepo = {
    */
   async patchSpu(id: string, data: PatchProductSpuInput) {
     return prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findUnique({
+        where: { id },
+        include: { images: { orderBy: { sortOrder: 'asc' } } },
+      })
+      if (!existing) return null
+
       const productUpdate: Record<string, unknown> = {}
 
       if (data.name !== undefined) productUpdate.name = data.name
@@ -142,10 +158,17 @@ export const ProductRepo = {
       }
       if (data.categoryId !== undefined) productUpdate.categoryId = data.categoryId
       if (data.brand !== undefined) productUpdate.brand = data.brand
-      if (data.imgUrl !== undefined) {
-        productUpdate.imgUrl = data.imgUrl?.trim() || null
-      }
       if (data.isActive !== undefined) productUpdate.isActive = data.isActive
+
+      if (data.images !== undefined) {
+        const primaryImgUrl = await replaceProductImages(
+          tx,
+          id,
+          data.images,
+          existing.images,
+        )
+        productUpdate.thumbnail = primaryImgUrl || null
+      }
 
       if (Object.keys(productUpdate).length > 0) {
         await tx.product.update({

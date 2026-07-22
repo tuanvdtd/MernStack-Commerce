@@ -39,7 +39,7 @@ export function toCatalogProductListItem(
     name: product.name,
     slug: product.slug,
     brand: product.brand,
-    imgUrl: product.imgUrl ?? undefined,
+    thumbnail: product.thumbnail ?? undefined,
     category: {
       id: product.category.id,
       name: product.category.name,

@@ -3,6 +3,13 @@ export type VariantOptionInput = {
   value: string
 }
 
+export type ProductImageInput = {
+  url: string
+  publicId: string
+  sortOrder: number
+  alt?: string
+}
+
 export type CreateVariantInput = {
   /** Có khi cập nhật variant đã tồn tại; bỏ trống khi tạo variant mới. */
   id?: string
@@ -17,7 +24,7 @@ export type CreateProductInput = {
   description: string
   categoryId: string
   brand: string
-  imgUrl: string
+  images: ProductImageInput[]
   isActive: boolean
   optionAxes: string[]
   variants: CreateVariantInput[]
@@ -29,7 +36,7 @@ export type PatchProductSpuInput = {
   description?: string
   categoryId?: string
   brand?: string
-  imgUrl?: string
+  images?: ProductImageInput[]
   isActive?: boolean
   optionAxes?: string[]
 }

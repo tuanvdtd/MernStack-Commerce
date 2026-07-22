@@ -11,7 +11,7 @@ export type CatalogProductListItem = {
   name: string
   slug: string
   brand: string
-  imgUrl?: string
+  thumbnail?: string
   category: CatalogCategoryRef
   minPrice: number
   maxPrice: number

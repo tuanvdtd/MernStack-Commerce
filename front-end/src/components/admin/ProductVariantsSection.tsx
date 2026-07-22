@@ -1,10 +1,10 @@
-import { Plus, Trash2, ImagePlus } from "lucide-react"
+import { Fragment, useMemo, useState } from "react"
+import { CirclePlus, ImagePlus, Plus } from "lucide-react"
 import type { Control, FieldArrayWithId } from "react-hook-form"
 import { useFormContext, useWatch } from "react-hook-form"
 import { AdminFormCard } from "~/components/admin/AdminFormCard"
 import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
-import { SpuOptionAxesEditor } from "~/components/admin/SpuOptionAxesEditor"
-import { Button } from "~/components/ui/button"
+import { ProductOptionEditor } from "~/components/admin/ProductOptionEditor"
 import { Input } from "~/components/ui/input"
 import {
   FormControl,
@@ -13,342 +13,484 @@ import {
   FormMessage,
 } from "~/components/ui/form"
 import {
-  addCatalogValue,
+  addCatalogOption,
   getCatalogLabel,
-  getCatalogValues,
   type OptionCatalogEntry,
 } from "~/lib/admin/optionCatalog"
-import type { ProductFormValues } from "~/lib/admin/productFormSchema"
+import type {
+  ProductFormValues,
+  ProductOptionDefinitionFormValues,
+} from "~/lib/admin/productFormSchema"
+import {
+  buildVariantComboKey,
+  generateVariantsFromOptionDefinitions,
+  hasVariantOptions,
+} from "~/lib/admin/variantGeneration"
 import { adminThClass, adminTdClass } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
 import { toast } from "sonner"
-import {
-  ImageUploadField,
-  type ImageUploadChangeMeta,
-} from "~/components/admin/ImageUploadField"
 
 type ProductVariantsSectionProps = {
   control: Control<ProductFormValues>
   fields: FieldArrayWithId<ProductFormValues, "variants", "id">[]
-  optionAxes: string[]
   optionCatalog: OptionCatalogEntry[]
-  onOptionAxesChange: (axes: string[]) => void
   onCatalogChange: (catalog: OptionCatalogEntry[]) => void
-  optionAxesError?: string | null
+  optionDefinitions: ProductOptionDefinitionFormValues[]
+  onOptionDefinitionsChange: (
+    definitions: ProductOptionDefinitionFormValues[]
+  ) => void
+  onVariantsReplace: (variants: ProductFormValues["variants"]) => void
   variantsError?: string | null
-  onAddVariant: () => void
-  onRemoveVariant: (index: number) => void
-  onSkuImageChange: (index: number, meta?: ImageUploadChangeMeta) => void
+  optionDefinitionsError?: string | null
 }
 
-/** Build a display label from option values, e.g. "Purple / 256GB". */
-const getVariantLabel = (
-  variant: ProductFormValues["variants"][number] | undefined,
-  optionAxes: string[],
-  optionCatalog: OptionCatalogEntry[]
-) => {
-  if (!variant) return "New variant"
-  const parts = optionAxes.map((axis) => {
-    const value =
-      variant.options.find((option) => option.optionName === axis)?.value ?? ""
-    return value || getCatalogLabel(optionCatalog, axis)
-  })
-  return parts.filter(Boolean).join(" / ") || "New variant"
-}
-
-type VariantTableRowProps = {
+type VariantRowProps = {
   control: Control<ProductFormValues>
   index: number
-  optionAxes: string[]
-  optionCatalog: OptionCatalogEntry[]
-  onCatalogChange: (catalog: OptionCatalogEntry[]) => void
-  canRemove: boolean
-  onRemove: () => void
-  onSkuImageChange: (index: number, meta?: ImageUploadChangeMeta) => void
+  label: string
+  nested?: boolean
 }
 
-const VariantTableRow = ({
+/** Một dòng SKU trong bảng variant (giá + tồn kho). */
+const VariantRow = ({
   control,
   index,
-  optionAxes,
-  optionCatalog,
-  onCatalogChange,
-  canRemove,
-  onRemove,
-  onSkuImageChange,
-}: VariantTableRowProps) => {
-  const { setValue } = useFormContext<ProductFormValues>()
+  label,
+  nested = false,
+}: VariantRowProps) => {
   const row = useWatch({ control, name: `variants.${index}` })
-  const variantLabel = getVariantLabel(row, optionAxes, optionCatalog)
-
-  const handleCreateValue = (optionName: string, rawValue: string) => {
-    const result = addCatalogValue(optionCatalog, optionName, rawValue)
-    if ("error" in result) {
-      toast.error(result.error)
-      return
-    }
-    onCatalogChange(result.catalog)
-  }
 
   return (
-    <>
-      <tr className="border-b border-border/60 last:border-0">
-        <td className={cn(adminTdClass, "min-w-[12rem]")}>
-          <div className="flex items-start gap-3">
-            <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted/30">
-              {row?.imgUrl ? (
-                <img
-                  src={row.imgUrl}
-                  alt=""
-                  className="size-full object-cover"
-                />
-              ) : (
-                <div className="flex size-full items-center justify-center text-muted-foreground">
-                  <ImagePlus className="size-4" aria-hidden />
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 space-y-0.5">
-              <p className="text-[13px] font-medium leading-snug text-foreground">
-                {variantLabel}
-              </p>
-              {row?.id ? (
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                  {row.id}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </td>
-        <td className={cn(adminTdClass, "min-w-[8rem]")}>
-          <FormField
-            control={control}
-            name={`variants.${index}.price`}
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-xs text-muted-foreground">
-                      ₫
-                    </span>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-9 pl-7 text-[13px] tabular-nums"
-                      value={field.value || ""}
-                      onChange={(event) =>
-                        field.onChange(Number(event.target.value) || 0)
-                      }
-                      placeholder="0"
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+    <tr className="border-b border-border/50 last:border-0">
+      <td className={cn(adminTdClass, nested && "pl-10")}>
+        <div className="flex items-center gap-3">
+          <div className="relative size-9 shrink-0 overflow-hidden rounded-md border border-border bg-muted/30">
+            {row?.imgUrl ? (
+              <img src={row.imgUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <div className="flex size-full items-center justify-center text-muted-foreground">
+                <ImagePlus className="size-4" aria-hidden />
+              </div>
             )}
-          />
-        </td>
-        <td className={cn(adminTdClass, "min-w-[6rem]")}>
-          <FormField
-            control={control}
-            name={`variants.${index}.stockQuantity`}
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium leading-snug">{label}</p>
+            {row?.id ? (
+              <p className="truncate font-mono text-[11px] text-muted-foreground">
+                {row.id}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </td>
+      <td className={cn(adminTdClass, "min-w-[8rem]")}>
+        <FormField
+          control={control}
+          name={`variants.${index}.price`}
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-xs text-muted-foreground">
+                    ₫
+                  </span>
                   <Input
                     type="number"
                     min={0}
-                    className="h-9 text-[13px] tabular-nums"
+                    className="h-9 pl-7 text-[13px] tabular-nums"
                     value={field.value || ""}
                     onChange={(event) =>
                       field.onChange(Number(event.target.value) || 0)
                     }
                     placeholder="0"
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </td>
-        <td className={cn(adminTdClass, "w-10")}>
-          {canRemove ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={onRemove}
-              aria-label={`Remove variant ${index + 1}`}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          ) : null}
-        </td>
-      </tr>
-      <tr className="border-b border-border/40 bg-muted/10 last:border-0">
-        <td colSpan={4} className="px-4 py-3 sm:px-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {optionAxes.map((axisName, axisIndex) => {
-              const presetValues = getCatalogValues(optionCatalog, axisName)
-              const currentValue =
-                row?.options?.find((option) => option.optionName === axisName)
-                  ?.value ?? ""
-              const valueOptions = [
-                ...new Set([
-                  ...presetValues,
-                  ...(currentValue ? [currentValue] : []),
-                ]),
-              ]
-              const label = getCatalogLabel(optionCatalog, axisName)
-
-              return (
-                <FormField
-                  key={`${index}-${axisName}`}
-                  control={control}
-                  name={`variants.${index}.options.${axisIndex}.value`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <CatalogCreatablePicker
-                          value={field.value ?? ""}
-                          onChange={(value) => {
-                            field.onChange(value)
-                            setValue(
-                              `variants.${index}.options.${axisIndex}.optionName`,
-                              axisName,
-                              { shouldValidate: false }
-                            )
-                          }}
-                          options={valueOptions}
-                          placeholder={label}
-                          createPlaceholder="New value..."
-                          createButtonLabel="Add"
-                          onCreate={(raw) => handleCreateValue(axisName, raw)}
-                          triggerClassName="h-9 w-full text-[13px]"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </td>
+      <td className={cn(adminTdClass, "min-w-[6rem]")}>
+        <FormField
+          control={control}
+          name={`variants.${index}.stockQuantity`}
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-9 text-[13px] tabular-nums"
+                  value={field.value || ""}
+                  onChange={(event) =>
+                    field.onChange(Number(event.target.value) || 0)
+                  }
+                  placeholder="0"
                 />
-              )
-            })}
-
-            <FormField
-              control={control}
-              name={`variants.${index}.imgUrl`}
-              render={({ field }) => (
-                <FormItem className="sm:col-span-2 lg:col-span-4">
-                  <FormControl>
-                    <ImageUploadField
-                      label="Variant image"
-                      value={field.value ?? ""}
-                      onChange={(newValue, meta) => {
-                        onSkuImageChange(index, meta)
-                        field.onChange(newValue)
-                      }}
-                      onError={(message) => toast.error(message)}
-                      className="[&_label]:text-xs [&_label]:font-medium [&_label]:text-muted-foreground"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </td>
-      </tr>
-    </>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </td>
+    </tr>
   )
 }
 
-/** Variants block: option axes + Shopify-style table. */
+/** Section variant theo flow Shopify: thêm option → chọn giá trị → sinh bảng SKU. */
 export const ProductVariantsSection = ({
   control,
   fields,
-  optionAxes,
   optionCatalog,
-  onOptionAxesChange,
   onCatalogChange,
-  optionAxesError,
+  optionDefinitions,
+  onOptionDefinitionsChange,
+  onVariantsReplace,
   variantsError,
-  onAddVariant,
-  onRemoveVariant,
-  onSkuImageChange,
+  optionDefinitionsError,
 }: ProductVariantsSectionProps) => {
+  const { getValues } = useFormContext<ProductFormValues>()
   const variants = useWatch({ control, name: "variants" })
+  const [editingOptionName, setEditingOptionName] = useState<string | null>(null)
+
+  const hasOptions = hasVariantOptions(optionDefinitions)
+  const optionAxes = optionDefinitions.map((definition) => definition.name)
+  const groupAxis = optionAxes[0]
+  const usedOptionNames = optionDefinitions.map((definition) => definition.name)
+  const availableOptionNames = optionCatalog
+    .map((entry) => entry.name)
+    .filter((name) => !usedOptionNames.includes(name))
+
+  const formatOptionName = (name: string) => {
+    const label = getCatalogLabel(optionCatalog, name)
+    return label === name ? name : `${label} (${name})`
+  }
+
+  /** Tạo option axis mới trong catalog. */
+  const handleCreateOptionAxis = (rawName: string): string | null => {
+    const result = addCatalogOption(optionCatalog, rawName)
+    if ("error" in result) {
+      toast.error(result.error)
+      return null
+    }
+    onCatalogChange(result.catalog)
+    return result.name
+  }
+
+  /** Mở editor sau khi chọn option từ menu catalog. */
+  const handleSelectOption = (optionName: string) => {
+    if (!optionName.trim()) return
+    setEditingOptionName(optionName)
+  }
+
   const totalStock =
     variants?.reduce((sum, variant) => sum + (variant.stockQuantity || 0), 0) ??
     0
 
+  const groupedRows = useMemo(() => {
+    if (!hasOptions || !groupAxis) return []
+
+    const groups = new Map<
+      string,
+      Array<{ index: number; label: string; comboKey: string }>
+    >()
+
+    fields.forEach((_field, index) => {
+      const variant = variants?.[index]
+      if (!variant) return
+
+      const groupValue =
+        variant.options.find((option) => option.optionName === groupAxis)
+          ?.value ?? "Variant"
+
+      const secondaryLabel = optionAxes
+        .slice(1)
+        .map((axis) => {
+          const value =
+            variant.options.find((option) => option.optionName === axis)?.value ??
+            ""
+          return value
+        })
+        .filter(Boolean)
+        .join(" / ")
+
+      const list = groups.get(groupValue) ?? []
+      list.push({
+        index,
+        label: secondaryLabel || groupValue,
+        comboKey: buildVariantComboKey(optionAxes, variant.options),
+      })
+      groups.set(groupValue, list)
+    })
+
+    return [...groups.entries()].map(([groupValue, rows]) => ({
+      groupValue,
+      rows,
+    }))
+  }, [fields, variants, hasOptions, groupAxis, optionAxes])
+
+  const optionAxisPickerProps = {
+    value: "",
+    onChange: handleSelectOption,
+    options: availableOptionNames,
+    formatOption: formatOptionName,
+    createPlaceholder: "New axis name (e.g. Material)",
+    createButtonLabel: "Add axis",
+    onCreate: (raw: string) => {
+      const name = handleCreateOptionAxis(raw)
+      if (name) handleSelectOption(name)
+    },
+    showChevron: false,
+  } as const
+
+  /** Sinh lại SKU sau khi cập nhật optionDefinitions. */
+  const syncVariants = (
+    definitions: ProductOptionDefinitionFormValues[],
+    fallbackPrice?: number,
+    fallbackStock?: number
+  ) => {
+    const currentVariants = getValues("variants")
+    const basePrice = fallbackPrice ?? getValues("basePrice") ?? 0
+    const baseStock = fallbackStock ?? getValues("baseStock") ?? 0
+
+    if (!hasVariantOptions(definitions)) {
+      onVariantsReplace([
+        {
+          id: currentVariants[0]?.id,
+          price: basePrice,
+          stockQuantity: baseStock,
+          imgUrl: currentVariants[0]?.imgUrl ?? "",
+          options: [],
+        },
+      ])
+      return
+    }
+
+    onVariantsReplace(
+      generateVariantsFromOptionDefinitions(definitions, currentVariants, {
+        price: basePrice,
+        stockQuantity: baseStock,
+      })
+    )
+  }
+
+  /** Lưu option sau khi admin ấn Done. */
+  const handleOptionDone = (definition: ProductOptionDefinitionFormValues) => {
+    const nextDefinitions = editingOptionName
+      ? optionDefinitions.some((item) => item.name === editingOptionName)
+        ? optionDefinitions.map((item) =>
+            item.name === editingOptionName ? definition : item
+          )
+        : [...optionDefinitions, definition]
+      : [...optionDefinitions, definition]
+
+    onOptionDefinitionsChange(nextDefinitions)
+    syncVariants(nextDefinitions)
+    setEditingOptionName(null)
+  }
+
+  /** Xóa option đang edit hoặc đã lưu. */
+  const handleOptionDelete = () => {
+    if (!editingOptionName) return
+
+    const nextDefinitions = optionDefinitions.filter(
+      (definition) => definition.name !== editingOptionName
+    )
+    onOptionDefinitionsChange(nextDefinitions)
+    syncVariants(nextDefinitions)
+    setEditingOptionName(null)
+  }
+
+  /** Mở lại editor để sửa values của option đã lưu. */
+  const handleEditSavedOption = (optionName: string) => {
+    setEditingOptionName(optionName)
+  }
+
+  const editingDefinition = editingOptionName
+    ? optionDefinitions.find((definition) => definition.name === editingOptionName)
+    : undefined
+
+  const isEditingNewOption =
+    Boolean(editingOptionName) &&
+    !optionDefinitions.some((definition) => definition.name === editingOptionName)
+
   return (
-    <AdminFormCard
-      title="Variants"
-      action={
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 text-[13px] text-[var(--admin-brand)] hover:text-[var(--admin-brand)]"
-          onClick={onAddVariant}
-        >
-          <Plus className="size-4" aria-hidden />
-          Add variant
-        </Button>
-      }
-    >
-      <SpuOptionAxesEditor
-        axes={optionAxes}
-        onChange={onOptionAxesChange}
-        optionCatalog={optionCatalog}
-        onCatalogChange={onCatalogChange}
-        error={optionAxesError}
-      />
+    <AdminFormCard title="Variants">
+      <div className="space-y-3">
+        {optionDefinitions.map((definition) =>
+          editingOptionName === definition.name ? (
+            <ProductOptionEditor
+              key={definition.name}
+              optionName={editingOptionName}
+              initialValues={editingDefinition?.values ?? definition.values}
+              optionCatalog={optionCatalog}
+              onCatalogChange={onCatalogChange}
+              onDone={handleOptionDone}
+              onDelete={handleOptionDelete}
+            />
+          ) : (
+            <button
+              key={definition.name}
+              type="button"
+              className="w-full rounded-xl border border-border/70 p-3 text-left hover:border-[var(--admin-brand)]/30"
+              onClick={() => handleEditSavedOption(definition.name)}
+            >
+              <div className="flex items-start gap-2">
+                <GripPlaceholder />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-foreground">
+                    {getCatalogLabel(optionCatalog, definition.name)}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {definition.values.map((value) => (
+                      <span
+                        key={value}
+                        className="rounded-full border border-border/70 bg-muted/20 px-2.5 py-1 text-[12px]"
+                      >
+                        {value}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </button>
+          )
+        )}
 
-      {variantsError ? (
-        <p
-          className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
-          role="alert"
-        >
-          {variantsError}
-        </p>
-      ) : null}
+        {isEditingNewOption && editingOptionName ? (
+          <ProductOptionEditor
+            key={`new-${editingOptionName}`}
+            optionName={editingOptionName}
+            initialValues={[]}
+            optionCatalog={optionCatalog}
+            onCatalogChange={onCatalogChange}
+            onDone={handleOptionDone}
+            onDelete={handleOptionDelete}
+          />
+        ) : null}
 
-      <div className="-mx-4 mt-5 overflow-x-auto sm:mx-0">
-        <table className="w-full min-w-[32rem] border-collapse text-left">
-          <thead>
-            <tr className="border-b border-border/80 bg-muted/20">
-              <th className={adminThClass}>Variant</th>
-              <th className={adminThClass}>Price</th>
-              <th className={adminThClass}>Available</th>
-              <th className={cn(adminThClass, "w-10")} aria-hidden />
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((field, index) => (
-              <VariantTableRow
-                key={field.id}
-                control={control}
-                index={index}
-                optionAxes={optionAxes}
-                optionCatalog={optionCatalog}
-                onCatalogChange={onCatalogChange}
-                canRemove={fields.length > 1}
-                onRemove={() => onRemoveVariant(index)}
-                onSkuImageChange={onSkuImageChange}
-              />
-            ))}
-          </tbody>
-        </table>
+        {!editingOptionName ? (
+          hasOptions ? (
+            <CatalogCreatablePicker
+              {...optionAxisPickerProps}
+              placeholder="Add another option"
+              leadingIcon={<Plus className="size-4" aria-hidden />}
+              triggerClassName="h-auto w-fit justify-start gap-2 border-0 bg-transparent px-1 py-1 text-[13px] font-normal text-[var(--admin-brand)] shadow-none hover:bg-transparent hover:text-[var(--admin-brand)]"
+            />
+          ) : (
+            <CatalogCreatablePicker
+              {...optionAxisPickerProps}
+              placeholder="Add options like size or color"
+              leadingIcon={<CirclePlus className="size-4" aria-hidden />}
+              triggerClassName="h-auto w-full justify-start gap-2 border-0 bg-transparent px-1 py-2 text-[13px] font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
+            />
+          )
+        ) : null}
       </div>
 
-      <p className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-        Total inventory across all variants:{" "}
-        <span className="font-medium text-foreground">
-          {totalStock.toLocaleString("en-US")} available
-        </span>
-      </p>
+        {optionDefinitionsError ? (
+          <p
+            className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+            role="alert"
+          >
+            {optionDefinitionsError}
+          </p>
+        ) : null}
+
+        {variantsError ? (
+          <p
+            className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+            role="alert"
+          >
+            {variantsError}
+          </p>
+        ) : null}
+
+        {hasOptions && fields.length > 0 && !editingOptionName ? (
+          <div className="-mx-4 mt-5 overflow-x-auto sm:mx-0">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-0">
+              <p className="text-[12px] text-muted-foreground">
+                Group by{" "}
+                <span className="font-medium text-foreground">
+                  {getCatalogLabel(optionCatalog, groupAxis)}
+                </span>
+              </p>
+            </div>
+
+            <table className="w-full min-w-[32rem] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border/80 bg-muted/20">
+                  <th className={adminThClass}>Variant</th>
+                  <th className={adminThClass}>Price</th>
+                  <th className={adminThClass}>Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {optionAxes.length === 1
+                  ? fields.map((field, index) => {
+                      const variant = variants?.[index]
+                      const label =
+                        variant?.options.find(
+                          (option) => option.optionName === groupAxis
+                        )?.value ?? `Variant ${index + 1}`
+
+                      return (
+                        <VariantRow
+                          key={field.id}
+                          control={control}
+                          index={index}
+                          label={label}
+                        />
+                      )
+                    })
+                  : groupedRows.map((group) => (
+                      <Fragment key={`group-${group.groupValue}`}>
+                        <tr className="border-b border-border/60 bg-muted/10">
+                          <td colSpan={3} className={adminTdClass}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-medium">
+                                {group.groupValue}
+                              </span>
+                              <span className="text-[12px] text-muted-foreground">
+                                {group.rows.length} variants
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {group.rows.map((row) => (
+                          <VariantRow
+                            key={row.comboKey}
+                            control={control}
+                            index={row.index}
+                            label={row.label}
+                            nested
+                          />
+                        ))}
+                      </Fragment>
+                    ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {hasOptions ? (
+          <p className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+            Total inventory across all variants:{" "}
+            <span className="font-medium text-foreground">
+              {totalStock.toLocaleString("en-US")} available
+            </span>
+          </p>
+        ) : null}
     </AdminFormCard>
   )
 }
+
+/** Icon grip placeholder giống Shopify editor. */
+const GripPlaceholder = () => (
+  <span className="mt-1 inline-flex flex-col gap-0.5" aria-hidden>
+    <span className="block size-1 rounded-full bg-muted-foreground/50" />
+    <span className="block size-1 rounded-full bg-muted-foreground/50" />
+    <span className="block size-1 rounded-full bg-muted-foreground/50" />
+  </span>
+)

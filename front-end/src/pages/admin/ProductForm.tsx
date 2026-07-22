@@ -15,22 +15,27 @@ import {
   updateProductVariants,
   type CreateProductPayload,
   type PatchProductSpuPayload,
-  type ProductImageFiles,
   type UpdateProductVariantsPayload,
 } from "~/apis/productApi"
+import { useOrphanImageTracker } from "~/hooks/useOrphanImageTracker"
 import { isFieldDirty } from "~/lib/admin/getDirtyValues"
 import { CatalogCreatablePicker } from "~/components/admin/CatalogCreatablePicker"
 import { AdminFormShell, AdminFormLayout } from "~/components/admin/AdminFormShell"
 import { AdminFormCard } from "~/components/admin/AdminFormCard"
 import { ProductFormSidebar } from "~/components/admin/ProductFormSidebar"
+import { ProductPriceSection } from "~/components/admin/ProductPriceSection"
 import { ProductVariantsSection } from "~/components/admin/ProductVariantsSection"
 import type { OptionCatalogEntry } from "~/lib/admin/optionCatalog"
 import {
-  createDefaultVariant,
   defaultProductFormValues,
   productFormSchema,
   type ProductFormValues,
 } from "~/lib/admin/productFormSchema"
+import {
+  createSimpleProductVariant,
+  deriveOptionDefinitions,
+  hasVariantOptions,
+} from "~/lib/admin/variantGeneration"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,10 +60,7 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { AdminPage } from "~/components/admin/AdminPage"
 import { AdminPageHeader } from "~/components/admin/AdminPageHeader"
-import {
-  ImageUploadField,
-  type ImageUploadChangeMeta,
-} from "~/components/admin/ImageUploadField"
+import { ProductGalleryField } from "~/components/admin/ProductGalleryField"
 import { adminBrandButtonClass, adminFormFieldLabelClass } from "~/lib/admin/ui"
 import { cn } from "~/lib/utils"
 import { deriveOptionAxes } from "~/lib/admin/productUtils"
@@ -73,29 +75,57 @@ const mapSpuToFormValues = (product: SPU): ProductFormValues => {
     ? product.optionAxes
     : deriveOptionAxes(product)
 
+  const optionDefinitions = deriveOptionDefinitions(optionAxes, product.skus)
+  const firstSku = product.skus[0]
+
+  const images =
+    product.images?.length > 0
+      ? product.images.map((image, index) => ({
+          url: image.url,
+          publicId: image.publicId ?? `legacy:${image.url}`,
+          sortOrder: image.sortOrder ?? index,
+          alt: image.alt,
+        }))
+      : product.thumbnail
+        ? [
+            {
+              url: product.thumbnail,
+              publicId: `legacy:${product.thumbnail}`,
+              sortOrder: 0,
+            },
+          ]
+        : []
+
+  const variants =
+    product.skus.length > 0
+      ? product.skus.map((sku) => ({
+          id: sku.id,
+          price: sku.price,
+          stockQuantity: sku.stockQuantity,
+          imgUrl: sku.imgUrl ?? "",
+          options: hasVariantOptions(optionDefinitions)
+            ? optionDefinitions.map((definition) => ({
+                optionName: definition.name,
+                value:
+                  sku.options.find(
+                    (option) => option.optionName === definition.name
+                  )?.value ?? "",
+              }))
+            : [],
+        }))
+      : [createSimpleProductVariant(0, 0)]
+
   return {
     name: product.name,
     description: product.description,
     categoryId: product.categoryId,
     brand: product.brand,
-    imgUrl: product.imgUrl ?? "",
+    images,
     isActive: product.isActive,
-    optionAxes,
-    variants:
-      product.skus.length > 0
-        ? product.skus.map((sku) => ({
-            id: sku.id,
-            price: sku.price,
-            stockQuantity: sku.stockQuantity,
-            imgUrl: sku.imgUrl ?? "",
-            options: optionAxes.map((optionName) => ({
-              optionName,
-              value:
-                sku.options.find((o) => o.optionName === optionName)?.value ??
-                "",
-            })),
-          }))
-        : [createDefaultVariant(optionAxes)],
+    basePrice: firstSku?.price ?? 0,
+    baseStock: firstSku?.stockQuantity ?? 0,
+    optionDefinitions,
+    variants,
   }
 }
 
@@ -104,12 +134,19 @@ const isRemoteImageUrl = (url: string | undefined) =>
 
 const cloneFormValues = (values: ProductFormValues): ProductFormValues => ({
   ...values,
-  optionAxes: [...values.optionAxes],
+  images: values.images.map((image) => ({ ...image })),
+  optionDefinitions: values.optionDefinitions.map((definition) => ({
+    ...definition,
+    values: [...definition.values],
+  })),
   variants: values.variants.map((variant) => ({
     ...variant,
     options: variant.options.map((option) => ({ ...option })),
   })),
 })
+
+const getOptionAxes = (values: ProductFormValues) =>
+  values.optionDefinitions.map((definition) => definition.name)
 
 const mapVariantToPayload = (
   variant: ProductFormValues["variants"][number]
@@ -131,9 +168,14 @@ const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
   description: values.description.trim(),
   categoryId: values.categoryId,
   brand: values.brand,
-  imgUrl: isRemoteImageUrl(values.imgUrl) ? values.imgUrl.trim() : "",
+  images: values.images.map((image, index) => ({
+    url: image.url.trim(),
+    publicId: image.publicId.trim(),
+    sortOrder: index,
+    ...(image.alt?.trim() ? { alt: image.alt.trim() } : {}),
+  })),
   isActive: values.isActive,
-  optionAxes: values.optionAxes,
+  optionAxes: getOptionAxes(values),
   variants: values.variants.map(mapVariantToPayload),
 })
 
@@ -141,18 +183,17 @@ const mapFormToPayload = (values: ProductFormValues): CreateProductPayload => ({
 const mapFormToVariantsPayload = (
   values: ProductFormValues
 ): UpdateProductVariantsPayload => ({
-  optionAxes: values.optionAxes,
+  optionAxes: getOptionAxes(values),
   variants: values.variants.map(mapVariantToPayload),
 })
 
 /**
  * Build a PATCH SPU payload from React Hook Form dirtyFields.
- * Include only changed fields; blob images are sent via multipart, not temporary URLs.
+ * Gallery gửi kèm JSON sau khi upload-first lên Cloudinary.
  */
 const buildSpuPatchPayload = (
   values: ProductFormValues,
-  dirtyFields: Record<string, unknown>,
-  hasSpuImage: boolean
+  dirtyFields: Record<string, unknown>
 ): PatchProductSpuPayload => {
   const patch: PatchProductSpuPayload = {}
 
@@ -171,15 +212,29 @@ const buildSpuPatchPayload = (
   if (isFieldDirty(dirtyFields, "isActive")) {
     patch.isActive = values.isActive
   }
-  if (isFieldDirty(dirtyFields, "optionAxes")) {
-    patch.optionAxes = values.optionAxes
+  if (
+    isFieldDirty(dirtyFields, "optionDefinitions") ||
+    isFieldDirty(dirtyFields, "basePrice") ||
+    isFieldDirty(dirtyFields, "baseStock")
+  ) {
+    patch.optionAxes = getOptionAxes(values)
   }
-  if (isFieldDirty(dirtyFields, "imgUrl") || hasSpuImage) {
-    patch.imgUrl = isRemoteImageUrl(values.imgUrl) ? values.imgUrl.trim() : ""
+  if (isFieldDirty(dirtyFields, "images")) {
+    patch.images = values.images.map((image, index) => ({
+      url: image.url.trim(),
+      publicId: image.publicId.trim(),
+      sortOrder: index,
+      ...(image.alt?.trim() ? { alt: image.alt.trim() } : {}),
+    }))
   }
 
   return patch
 }
+
+const collectCommittedImageUrls = (values: ProductFormValues) => [
+  ...values.images.map((image) => image.url),
+  ...values.variants.map((variant) => variant.imgUrl).filter(Boolean),
+]
 
 export function ProductForm() {
   const navigate = useNavigate()
@@ -192,11 +247,11 @@ export function ProductForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
   const isEditMode = Boolean(id)
-  const pendingImagesRef = useRef<{ spu?: File; skus: Record<number, File> }>({
-    skus: {},
-  })
   const committedFormRef = useRef<ProductFormValues | null>(null)
   const variantsSectionRef = useRef<HTMLDivElement>(null)
+  const [committedImageUrls, setCommittedImageUrls] = useState<string[]>([])
+  const { onFieldChange, markAllCurrentAsCommitted, cleanupPending } =
+    useOrphanImageTracker(committedImageUrls)
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -204,23 +259,25 @@ export function ProductForm() {
     mode: "onSubmit",
   })
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, replace } = useFieldArray({
     control: form.control,
     name: "variants",
   })
 
   const watchName = form.watch("name")
   const watchCategoryId = form.watch("categoryId")
-  const watchImgUrl = form.watch("imgUrl")
+  const watchImages = form.watch("images")
   const watchIsActive = form.watch("isActive")
-  const watchOptionAxes = form.watch("optionAxes")
+  const watchOptionDefinitions = form.watch("optionDefinitions")
+  const watchBasePrice = form.watch("basePrice")
+  const watchBaseStock = form.watch("baseStock")
   const watchVariants = form.watch("variants")
   const { isDirty } = form.formState
 
-  const hasPendingImageChanges =
-    Boolean(pendingImagesRef.current.spu) ||
-    Object.keys(pendingImagesRef.current.skus).length > 0
-  const hasUnsavedChanges = isDirty || hasPendingImageChanges
+  const showVariantOptions = hasVariantOptions(watchOptionDefinitions)
+
+  const coverImageUrl = watchImages[0]?.url ?? ""
+  const hasUnsavedChanges = isDirty
 
   const skuStats = useMemo(() => {
     const prices = watchVariants.map((s) => s.price).filter((p) => p > 0)
@@ -271,7 +328,7 @@ export function ProductForm() {
         const formValues = mapSpuToFormValues(product)
         form.reset(formValues)
         committedFormRef.current = cloneFormValues(formValues)
-        pendingImagesRef.current = { skus: {} }
+        setCommittedImageUrls(collectCommittedImageUrls(formValues))
         setLoadedSlug(product.slug)
         setCategoryCatalog((prev) => {
           if (prev.some((c) => c.id === product.categoryId)) return prev
@@ -300,127 +357,89 @@ export function ProductForm() {
     }
   }, [id, form, navigate])
 
-  const syncVariantsToAxes = (axes: string[]) => {
-    const variants = form.getValues("variants")
-    form.setValue(
-      "variants",
-      variants.map((variant) => ({
-        ...variant,
-        options: axes.map((optionName) => ({
-          optionName,
-          value:
-            variant.options.find((o) => o.optionName === optionName)?.value ??
-            "",
-        })),
-      })),
-      { shouldValidate: false }
-    )
+  useEffect(() => {
+    if (showVariantOptions) return
+
+    const currentVariant = form.getValues("variants.0")
+    if (!currentVariant) return
+
+    form.setValue("variants.0.price", watchBasePrice, { shouldDirty: true })
+    form.setValue("variants.0.stockQuantity", watchBaseStock, {
+      shouldDirty: true,
+    })
+  }, [watchBasePrice, watchBaseStock, showVariantOptions, form])
+
+  const handleOptionDefinitionsChange = (
+    definitions: ProductFormValues["optionDefinitions"]
+  ) => {
+    form.setValue("optionDefinitions", definitions, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
   }
 
-  const handleOptionAxesChange = (axes: string[]) => {
-    form.setValue("optionAxes", axes, { shouldValidate: true })
-    syncVariantsToAxes(axes)
+  const handleVariantsReplace = (variants: ProductFormValues["variants"]) => {
+    replace(variants)
+    form.setValue("variants", variants, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
   }
 
-  const handleAddSku = () => {
-    const axes = form.getValues("optionAxes")
-    append(createDefaultVariant(axes))
-  }
-
-  const handleRemoveSku = (index: number) => {
-    if (fields.length <= 1) {
-      toast.error("SPU needs at least 1 SKU")
-      return
-    }
-    remove(index)
-  }
-
-  /** Collect pending image files for multipart upload on save. */
-  const collectPendingImageFiles = (): ProductImageFiles => ({
-    spuImage: pendingImagesRef.current.spu,
-    skuImages: { ...pendingImagesRef.current.skus },
-  })
-
-  const trackSpuImage = (meta?: ImageUploadChangeMeta) => {
-    if (meta?.file) {
-      pendingImagesRef.current.spu = meta.file
-      return
-    }
-    if (meta?.file === null) {
-      delete pendingImagesRef.current.spu
-    }
-  }
-
-  const trackSkuImage = (index: number, meta?: ImageUploadChangeMeta) => {
-    if (meta?.file) {
-      pendingImagesRef.current.skus[index] = meta.file
-      return
-    }
-    if (meta?.file === null) {
-      delete pendingImagesRef.current.skus[index]
-    }
-  }
-
-  /** Sync the store and reset the form after the API returns the latest SPU. */
+  /** Sync store và reset form sau khi API trả SPU mới nhất. */
   const applySavedProduct = (product: SPU) => {
     updateProduct(product.id, product)
-    pendingImagesRef.current = { skus: {} }
     const formValues = mapSpuToFormValues(product)
     form.reset(formValues)
     committedFormRef.current = cloneFormValues(formValues)
+    markAllCurrentAsCommitted(collectCommittedImageUrls(formValues))
+    setCommittedImageUrls(collectCommittedImageUrls(formValues))
     setLoadedSlug(product.slug)
     return product
   }
 
-  /** Save step 1 in edit mode: PATCH partial SPU, skipping when unchanged. */
+  /** Save step 1 edit: PATCH partial SPU. */
   const persistSpuPatch = async (values: ProductFormValues) => {
     if (!id) return
 
-    const hasSpuImage = Boolean(pendingImagesRef.current.spu)
-    const patch = buildSpuPatchPayload(
-      values,
-      form.formState.dirtyFields,
-      hasSpuImage
-    )
+    const patch = buildSpuPatchPayload(values, form.formState.dirtyFields)
+    if (Object.keys(patch).length === 0) return
 
-    if (Object.keys(patch).length === 0 && !hasSpuImage) return
-
-    const product = await patchProductSpu(id, patch, {
-      spuImage: pendingImagesRef.current.spu,
-    })
+    const product = await patchProductSpu(id, patch)
     return applySavedProduct(product)
   }
 
-  /** Save step 2 in edit mode: PUT all variants. */
+  /** Save step 2 edit: PUT all variants. */
   const persistVariants = async (values: ProductFormValues) => {
     if (!id) return
 
     const payload = mapFormToVariantsPayload(values)
-    const product = await updateProductVariants(id, payload, {
-      skuImages: { ...pendingImagesRef.current.skus },
-    })
+    const product = await updateProductVariants(id, payload)
     return applySavedProduct(product)
   }
 
-  /** Create mode: POST full SPU plus SKUs, then switch to edit mode. */
+  /** Create mode: POST full SPU + SKUs. */
   const persistCreate = async (values: ProductFormValues) => {
     const payload = mapFormToPayload(values)
-    const imageFiles = collectPendingImageFiles()
-    const product = await createProduct(payload, imageFiles)
+    const product = await createProduct(payload)
     addProduct(product)
-    pendingImagesRef.current = { skus: {} }
+    markAllCurrentAsCommitted(collectCommittedImageUrls(values))
     navigate(`/admin/products/edit/${product.id}`, { replace: true })
     return product
   }
 
-  /** Revert the form to the last saved snapshot (edit) or empty defaults (create). */
+  /** Revert form về snapshot đã lưu hoặc defaults (create). */
   const handleDiscard = () => {
-    pendingImagesRef.current = { skus: {} }
+    void cleanupPending()
 
     if (isEditMode && committedFormRef.current) {
       form.reset(cloneFormValues(committedFormRef.current))
+      setCommittedImageUrls(
+        collectCommittedImageUrls(committedFormRef.current)
+      )
     } else {
       form.reset(defaultProductFormValues())
+      setCommittedImageUrls([])
     }
 
     setDiscardDialogOpen(false)
@@ -573,7 +592,7 @@ export function ProductForm() {
 
                     <FormField
                       control={form.control}
-                      name="imgUrl"
+                      name="images"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className={adminFormFieldLabelClass}>
@@ -581,15 +600,17 @@ export function ProductForm() {
                           </FormLabel>
                           <FormControl>
                             <div className="mt-2">
-                              <ImageUploadField
+                              <ProductGalleryField
                                 label="Media"
                                 hideLabel
-                                variant="dropzone"
                                 value={field.value}
-                                onChange={(newValue, meta) => {
-                                  trackSpuImage(meta)
-                                  field.onChange(newValue)
-                                }}
+                                onChange={field.onChange}
+                                onImageUploaded={(previousUrl, url, publicId) =>
+                                  onFieldChange(previousUrl, url, publicId)
+                                }
+                                onImageRemoved={(url) =>
+                                  onFieldChange(url, "")
+                                }
                                 onError={(msg) => toast.error(msg)}
                               />
                             </div>
@@ -647,18 +668,24 @@ export function ProductForm() {
                     />
                   </AdminFormCard>
 
+                  <ProductPriceSection
+                    control={form.control}
+                    hidden={showVariantOptions}
+                  />
+
                   <div ref={variantsSectionRef}>
                     <ProductVariantsSection
                       control={form.control}
                       fields={fields}
-                      optionAxes={watchOptionAxes}
                       optionCatalog={optionCatalog}
-                      onOptionAxesChange={handleOptionAxesChange}
                       onCatalogChange={setOptionCatalog}
-                      optionAxesError={
-                        typeof form.formState.errors.optionAxes?.message ===
+                      optionDefinitions={watchOptionDefinitions}
+                      onOptionDefinitionsChange={handleOptionDefinitionsChange}
+                      onVariantsReplace={handleVariantsReplace}
+                      optionDefinitionsError={
+                        typeof form.formState.errors.optionDefinitions?.message ===
                         "string"
-                          ? form.formState.errors.optionAxes.message
+                          ? form.formState.errors.optionDefinitions.message
                           : null
                       }
                       variantsError={
@@ -667,9 +694,6 @@ export function ProductForm() {
                           ? form.formState.errors.variants.message
                           : null
                       }
-                      onAddVariant={handleAddSku}
-                      onRemoveVariant={handleRemoveSku}
-                      onSkuImageChange={trackSkuImage}
                     />
                   </div>
                 </>
@@ -682,7 +706,7 @@ export function ProductForm() {
                   categoryId={watchCategoryId}
                   categoryCatalog={categoryCatalog}
                   isActive={watchIsActive}
-                  imgUrl={watchImgUrl}
+                  coverImageUrl={coverImageUrl}
                   skuCount={fields.length}
                   minPrice={skuStats.minPrice}
                   maxPrice={skuStats.maxPrice}

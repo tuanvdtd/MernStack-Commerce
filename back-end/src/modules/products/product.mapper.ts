@@ -37,6 +37,12 @@ export function toAdminProduct(product: NonNullable<ProductWithRelations>) {
 
   const prices = variants.map((v) => v.price)
   const totalStock = variants.reduce((sum, v) => sum + v.stockQuantity, 0)
+  const images = product.images.map((image) => ({
+    url: image.url,
+    publicId: image.publicId ?? undefined,
+    sortOrder: image.sortOrder,
+    alt: image.alt ?? undefined,
+  }))
 
   return {
     id: product.id,
@@ -47,7 +53,8 @@ export function toAdminProduct(product: NonNullable<ProductWithRelations>) {
     categoryName: product.category.name,
     brand: product.brand,
     optionAxes,
-    imgUrl: product.imgUrl ?? undefined,
+    thumbnail: product.thumbnail ?? images[0]?.url,
+    images,
     isActive: product.isActive,
     skus: variants,
     createdAt: product.createdAt.toISOString(),

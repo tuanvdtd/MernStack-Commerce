@@ -1,5 +1,11 @@
 import type { SPU, Order, DashboardStats, AdminDiscount } from "~/types/admin/index"
 
+/** Derive gallery rows from legacy mock cover URL. */
+const galleryFromCover = (url?: string) =>
+  url
+    ? [{ url, publicId: `legacy:${url}`, sortOrder: 0 }]
+    : []
+
 export const mockProducts: SPU[] = [
   {
     id: "spu-1",
@@ -11,8 +17,11 @@ export const mockProducts: SPU[] = [
     categoryName: "Smartphone",
     brand: "Apple",
     optionAxes: ["Color", "Storage"],
-    imgUrl:
+    thumbnail:
       "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800",
+    images: galleryFromCover(
+      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800"
+    ),
     isActive: true,
     skus: [
       {
@@ -68,8 +77,11 @@ export const mockProducts: SPU[] = [
     categoryName: "Smartphone",
     brand: "Samsung",
     optionAxes: ["Color", "Storage", "RAM"],
-    imgUrl:
+    thumbnail:
       "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800",
+    images: galleryFromCover(
+      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800"
+    ),
     isActive: true,
     skus: [
       {
@@ -115,8 +127,11 @@ export const mockProducts: SPU[] = [
     categoryName: "Laptop",
     brand: "Apple",
     optionAxes: ["Color", "Storage", "RAM"],
-    imgUrl:
+    thumbnail:
       "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800",
+    images: galleryFromCover(
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800"
+    ),
     isActive: true,
     skus: [
       {
@@ -162,8 +177,11 @@ export const mockProducts: SPU[] = [
     categoryName: "Audio",
     brand: "Sony",
     optionAxes: ["Color"],
-    imgUrl:
+    thumbnail:
       "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800",
+    images: galleryFromCover(
+      "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800"
+    ),
     isActive: true,
     skus: [
       {
@@ -201,8 +219,11 @@ export const mockProducts: SPU[] = [
     categoryName: "Tablet",
     brand: "Apple",
     optionAxes: ["Storage", "Connectivity"],
-    imgUrl:
+    thumbnail:
       "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800",
+    images: galleryFromCover(
+      "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800"
+    ),
     isActive: false,
     skus: [
       {

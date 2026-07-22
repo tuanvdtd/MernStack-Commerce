@@ -9,6 +9,13 @@ const imageUrlSchema = z
 
 const optionalImageUrlSchema = z.union([z.literal(''), imageUrlSchema]).optional()
 
+const productImageSchema = z.object({
+  url: imageUrlSchema,
+  publicId: z.string().trim().min(1),
+  sortOrder: z.coerce.number().int().min(0),
+  alt: z.string().trim().max(255).optional(),
+})
+
 const variantOptionSchema = z.object({
   optionName: z.string().trim().min(1),
   value: z.string().trim().min(1),
@@ -19,7 +26,7 @@ const variantSchema = z.object({
   price: z.coerce.number().min(1000),
   stockQuantity: z.coerce.number().int().min(0),
   imgUrl: optionalImageUrlSchema,
-  options: z.array(variantOptionSchema).min(1),
+  options: z.array(variantOptionSchema),
 })
 
 function refineOptionAxes(data: { optionAxes: string[] }, ctx: z.RefinementCtx) {
@@ -76,20 +83,72 @@ function refineVariantsAgainstAxes(
   }
 }
 
+function refineProductImages(
+  images: z.infer<typeof productImageSchema>[],
+  ctx: z.RefinementCtx,
+  path: (string | number)[],
+) {
+  if (images.length > 9) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Product gallery supports at most 9 images',
+      path,
+    })
+  }
+
+  const sortOrders = images.map((img) => img.sortOrder)
+  if (new Set(sortOrders).size !== sortOrders.length) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Duplicate image sortOrder values',
+      path,
+    })
+  }
+
+  const publicIds = images.map((img) => img.publicId)
+  if (new Set(publicIds).size !== publicIds.length) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Duplicate image publicId values',
+      path,
+    })
+  }
+}
+
 const productBodySchema = z
   .object({
     name: z.string().trim().min(3).max(255),
     description: z.string().trim().min(10),
     categoryId: z.string().trim().min(1),
     brand: z.string().trim().min(1).max(100),
-    imgUrl: z.union([z.literal(''), imageUrlSchema]).default(''),
+    images: z.array(productImageSchema).min(1).max(9),
     isActive: z.boolean().default(true),
-    optionAxes: z.array(z.string().trim().min(1)).min(1),
+    optionAxes: z.array(z.string().trim().min(1)).default([]),
     variants: z.array(variantSchema).min(1),
   })
   .superRefine((data, ctx) => {
-    refineOptionAxes(data, ctx)
-    refineVariantsAgainstAxes(data, ctx)
+    if (data.optionAxes.length === 0) {
+      if (data.variants.length !== 1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Simple product must have exactly one SKU',
+          path: ['variants'],
+        })
+      }
+
+      if (data.variants.some((variant) => variant.options.length > 0)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Simple product SKU must not include option values',
+          path: ['variants'],
+        })
+      }
+    } else {
+      refineOptionAxes(data, ctx)
+      refineVariantsAgainstAxes(data, ctx)
+    }
+
+    refineProductImages(data.images, ctx, ['images'])
   })
 
 /** PATCH SPU: ít nhất một field; optionAxes validate khi có gửi. */
@@ -99,9 +158,9 @@ const patchSpuBodySchema = z
     description: z.string().trim().min(10).optional(),
     categoryId: z.string().trim().min(1).optional(),
     brand: z.string().trim().min(1).max(100).optional(),
-    imgUrl: z.union([z.literal(''), imageUrlSchema]).optional(),
+    images: z.array(productImageSchema).min(1).max(9).optional(),
     isActive: z.boolean().optional(),
-    optionAxes: z.array(z.string().trim().min(1)).min(1).optional(),
+    optionAxes: z.array(z.string().trim().min(1)).optional(),
   })
   .superRefine((data, ctx) => {
     if (Object.keys(data).length === 0) {
@@ -111,18 +170,41 @@ const patchSpuBodySchema = z
         path: [],
       })
     }
-    if (data.optionAxes) {
+    if (data.optionAxes && data.optionAxes.length > 0) {
       refineOptionAxes({ optionAxes: data.optionAxes }, ctx)
+    }
+    if (data.images) {
+      refineProductImages(data.images, ctx, ['images'])
     }
   })
 
 /** PUT variants: bắt buộc optionAxes + variants đầy đủ, validate combo không trùng. */
 const updateVariantsBodySchema = z
   .object({
-    optionAxes: z.array(z.string().trim().min(1)).min(1),
+    optionAxes: z.array(z.string().trim().min(1)).default([]),
     variants: z.array(variantSchema).min(1),
   })
   .superRefine((data, ctx) => {
+    if (data.optionAxes.length === 0) {
+      if (data.variants.length !== 1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Simple product must have exactly one SKU',
+          path: ['variants'],
+        })
+      }
+
+      if (data.variants.some((variant) => variant.options.length > 0)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Simple product SKU must not include option values',
+          path: ['variants'],
+        })
+      }
+
+      return
+    }
+
     refineOptionAxes(data, ctx)
     refineVariantsAgainstAxes(data, ctx)
   })

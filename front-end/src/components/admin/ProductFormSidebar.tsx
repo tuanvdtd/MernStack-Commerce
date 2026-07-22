@@ -28,7 +28,7 @@ type ProductFormSidebarProps = {
   categoryId: string
   categoryCatalog: AdminCategory[]
   isActive: boolean
-  imgUrl: string
+  coverImageUrl: string
   skuCount: number
   minPrice: number
   maxPrice: number
@@ -47,7 +47,7 @@ export const ProductFormSidebar = ({
   categoryId,
   categoryCatalog,
   isActive,
-  imgUrl,
+  coverImageUrl,
   skuCount,
   minPrice,
   maxPrice,
@@ -149,9 +149,9 @@ export const ProductFormSidebar = ({
             ) : null}
           </div>
 
-          {imgUrl ? (
+          {coverImageUrl ? (
             <img
-              src={imgUrl}
+              src={coverImageUrl}
               alt=""
               className="aspect-square w-full max-w-[120px] rounded-lg border border-border object-cover"
             />

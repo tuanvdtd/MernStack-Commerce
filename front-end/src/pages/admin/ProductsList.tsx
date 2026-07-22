@@ -303,9 +303,9 @@ export function ProductsList() {
                   >
                     <TableCell className={adminTdClass}>
                       <div className="flex items-center gap-3">
-                        {product.imgUrl ? (
+                        {product.thumbnail ? (
                           <img
-                            src={product.imgUrl}
+                            src={product.thumbnail}
                             alt=""
                             className="size-9 rounded-lg object-cover"
                           />

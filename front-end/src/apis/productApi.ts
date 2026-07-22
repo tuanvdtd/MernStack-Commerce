@@ -1,6 +1,13 @@
 import type { SPU } from "~/types/admin/index"
 import api from "./axiosConfig"
 
+export type ProductImagePayload = {
+  url: string
+  publicId: string
+  sortOrder: number
+  alt?: string
+}
+
 export type CreateProductVariantPayload = {
   id?: string
   price: number
@@ -14,7 +21,7 @@ export type CreateProductPayload = {
   description: string
   categoryId: string
   brand: string
-  imgUrl: string
+  images: ProductImagePayload[]
   isActive: boolean
   optionAxes: string[]
   variants: CreateProductVariantPayload[]
@@ -25,7 +32,7 @@ export type PatchProductSpuPayload = {
   description?: string
   categoryId?: string
   brand?: string
-  imgUrl?: string
+  images?: ProductImagePayload[]
   isActive?: boolean
   optionAxes?: string[]
 }
@@ -33,11 +40,6 @@ export type PatchProductSpuPayload = {
 export type UpdateProductVariantsPayload = {
   optionAxes: string[]
   variants: CreateProductVariantPayload[]
-}
-
-export type ProductImageFiles = {
-  spuImage?: File
-  skuImages?: Record<number, File>
 }
 
 function getErrorMessage(error: unknown): string {
@@ -48,69 +50,30 @@ function getErrorMessage(error: unknown): string {
 const isRemoteImageUrl = (url: string | undefined) =>
   Boolean(url?.trim() && /^https?:\/\//i.test(url.trim()))
 
-function buildFormData(
-  payload: CreateProductPayload | PatchProductSpuPayload | UpdateProductVariantsPayload,
-  files?: ProductImageFiles
-) {
-  const formData = new FormData()
-  formData.append("data", JSON.stringify(payload))
+const mapImagesPayload = (
+  images: ProductImagePayload[]
+): ProductImagePayload[] =>
+  [...images]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((image, index) => ({
+      url: image.url.trim(),
+      publicId: image.publicId.trim(),
+      sortOrder: index,
+      ...(image.alt?.trim() ? { alt: image.alt.trim() } : {}),
+    }))
 
-  if (files?.spuImage) {
-    formData.append("spuImage", files.spuImage)
-  }
-
-  for (const [index, file] of Object.entries(files?.skuImages ?? {})) {
-    formData.append(`skuImage_${index}`, file)
-  }
-
-  return formData
-}
-
-function buildCreateFormData(
-  payload: CreateProductPayload,
-  files?: ProductImageFiles
-) {
-  const normalizedPayload: CreateProductPayload = {
-    ...payload,
-    imgUrl: isRemoteImageUrl(payload.imgUrl) ? payload.imgUrl.trim() : "",
-    variants: payload.variants.map((variant) => {
-      const { imgUrl, ...rest } = variant
-      return {
-        ...rest,
-        ...(imgUrl && isRemoteImageUrl(imgUrl) ? { imgUrl: imgUrl.trim() } : {}),
-      }
-    }),
-  }
-
-  return buildFormData(normalizedPayload, files)
-}
-
-function buildVariantsFormData(
-  payload: UpdateProductVariantsPayload,
-  files?: ProductImageFiles
-) {
-  const normalizedPayload: UpdateProductVariantsPayload = {
-    ...payload,
-    variants: payload.variants.map((variant) => {
-      const { imgUrl, ...rest } = variant
-      return {
-        ...rest,
-        ...(imgUrl && isRemoteImageUrl(imgUrl) ? { imgUrl: imgUrl.trim() } : {}),
-      }
-    }),
-  }
-
-  return buildFormData(normalizedPayload, files)
-}
-
-const multipartConfig = {
-  transformRequest: [
-    (data: unknown, headers?: Record<string, string>) => {
-      if (headers) delete headers["Content-Type"]
-      return data
-    },
-  ],
-}
+const mapVariantPayload = (variant: CreateProductVariantPayload) => ({
+  ...(variant.id ? { id: variant.id } : {}),
+  price: variant.price,
+  stockQuantity: variant.stockQuantity,
+  ...(isRemoteImageUrl(variant.imgUrl)
+    ? { imgUrl: variant.imgUrl!.trim() }
+    : {}),
+  options: variant.options.map((option) => ({
+    optionName: option.optionName,
+    value: option.value.trim(),
+  })),
+})
 
 export async function fetchProducts(): Promise<SPU[]> {
   const response = await api.get<SPU[]>("/products")
@@ -123,42 +86,39 @@ export async function fetchProductById(id: string): Promise<SPU> {
 }
 
 export async function createProduct(
-  payload: CreateProductPayload,
-  files?: ProductImageFiles
+  payload: CreateProductPayload
 ): Promise<SPU> {
-  const response = await api.post<SPU>(
-    "/products",
-    buildCreateFormData(payload, files),
-    multipartConfig
-  )
+  const response = await api.post<SPU>("/products", {
+    ...payload,
+    images: mapImagesPayload(payload.images),
+    variants: payload.variants.map(mapVariantPayload),
+  })
   return response.data
 }
 
-/** Edit step 1: PATCH only changed SPU fields, plus the SPU image if any. */
+/** Edit step 1: PATCH only changed SPU fields, including gallery JSON. */
 export async function patchProductSpu(
   id: string,
-  payload: PatchProductSpuPayload,
-  files?: ProductImageFiles
+  payload: PatchProductSpuPayload
 ): Promise<SPU> {
-  const response = await api.patch<SPU>(
-    `/products/${id}`,
-    buildFormData(payload, files),
-    multipartConfig
-  )
+  const body: PatchProductSpuPayload = { ...payload }
+  if (payload.images) {
+    body.images = mapImagesPayload(payload.images)
+  }
+
+  const response = await api.patch<SPU>(`/products/${id}`, body)
   return response.data
 }
 
-/** Edit step 2: PUT the full SKU list, plus indexed SKU images. */
+/** Edit step 2: PUT the full SKU list. */
 export async function updateProductVariants(
   id: string,
-  payload: UpdateProductVariantsPayload,
-  files?: ProductImageFiles
+  payload: UpdateProductVariantsPayload
 ): Promise<SPU> {
-  const response = await api.put<SPU>(
-    `/products/${id}/variants`,
-    buildVariantsFormData(payload, files),
-    multipartConfig
-  )
+  const response = await api.put<SPU>(`/products/${id}/variants`, {
+    ...payload,
+    variants: payload.variants.map(mapVariantPayload),
+  })
   return response.data
 }
 
