@@ -1,29 +1,40 @@
+import { useEffect, useState } from "react"
 import { MapPin, Plus, Pencil, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
-
-const addresses = [
-  {
-    id: 1,
-    label: "Home",
-    name: "Alex Nguyen",
-    phone: "0901234567",
-    address: "123 Nguyen Van Linh, District 7, Ho Chi Minh City",
-    isDefault: true,
-  },
-  {
-    id: 2,
-    label: "Office",
-    name: "Alex Nguyen",
-    phone: "0901234567",
-    address: "456 Le Van Viet, District 9, Ho Chi Minh City",
-    isDefault: false,
-  },
-]
+import { AddressFormDialog } from "~/components/account/AddressFormDialog"
+import { deleteAddress, fetchAddresses, setDefaultAddress, type Address } from "~/apis/addressApi"
 
 /** Shipping addresses tab. */
 export function AccountAddresses() {
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Address | null>(null)
+
+  const load = () => {
+    fetchAddresses()
+      .then(setAddresses)
+      .finally(() => setIsLoading(false))
+  }
+
+  useEffect(load, [])
+
+  const handleDelete = async (id: string) => {
+    await deleteAddress(id)
+    toast.success("Address removed")
+    load()
+  }
+
+  const handleSetDefault = async (id: string) => {
+    await setDefaultAddress(id)
+    load()
+  }
+
+  if (isLoading) return null
+
   return (
     <div>
       <Card className="py-6">
@@ -33,7 +44,13 @@ export function AccountAddresses() {
               <CardTitle className="text-xl font-semibold">My addresses</CardTitle>
               <CardDescription>{addresses.length} addresses</CardDescription>
             </div>
-            <Button className="bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer">
+            <Button
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
+              onClick={() => {
+                setEditing(null)
+                setDialogOpen(true)
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add address
             </Button>
@@ -67,7 +84,9 @@ export function AccountAddresses() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-slate-900">{addr.label}</h3>
+                        <h3 className="font-semibold text-slate-900">
+                          {addr.label || addr.recipientName}
+                        </h3>
                         {addr.isDefault && (
                           <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[10px]">
                             Default
@@ -75,9 +94,19 @@ export function AccountAddresses() {
                         )}
                       </div>
                       <p className="text-sm text-slate-600">
-                        {addr.name} • {addr.phone}
+                        {addr.recipientName} • {addr.phone}
                       </p>
-                      <p className="text-sm text-slate-500 mt-1">{addr.address}</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        {addr.detail}, {addr.wardName}, {addr.provinceName}
+                      </p>
+                      {!addr.isDefault && (
+                        <button
+                          onClick={() => handleSetDefault(addr.id)}
+                          className="mt-1 text-xs text-cyan-600 hover:underline"
+                        >
+                          Set as default
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -86,6 +115,10 @@ export function AccountAddresses() {
                       size="sm"
                       className="text-slate-400 hover:text-cyan-600 cursor-pointer"
                       aria-label="Edit address"
+                      onClick={() => {
+                        setEditing(addr)
+                        setDialogOpen(true)
+                      }}
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -95,6 +128,7 @@ export function AccountAddresses() {
                         size="sm"
                         className="text-slate-400 hover:text-red-500 cursor-pointer"
                         aria-label="Delete address"
+                        onClick={() => handleDelete(addr.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -106,6 +140,13 @@ export function AccountAddresses() {
           ))}
         </CardContent>
       </Card>
+
+      <AddressFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        address={editing}
+        onSaved={load}
+      />
     </div>
   )
 }
