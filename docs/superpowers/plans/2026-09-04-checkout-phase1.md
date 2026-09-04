@@ -4265,3 +4265,220 @@ In the browser: place an order, note its `orderNumber` and the phone used on the
 git add front-end/src/pages/TrackOrder.tsx
 git commit -m "feat: wire TrackOrder page to public order tracking API"
 ```
+
+---
+
+### Task 21: Wire `admin/OrdersList.tsx` and `admin/OrderDetail.tsx` to the real admin API
+
+This is also where the typecheck breakage introduced in Task 15 (old `Order["status"]`/mock data no longer matching the new type) gets resolved.
+
+**Files:**
+- Modify: `front-end/src/pages/admin/OrdersList.tsx`
+- Modify: `front-end/src/pages/admin/OrderDetail.tsx`
+- Modify: `front-end/src/components/admin/OrderStatusBadge.tsx`
+- Modify: `front-end/src/stores/adminStore.ts`
+- Modify: `front-end/src/mock/adminData.ts` (remove `mockOrders`, or leave other mock exports in that file untouched if it holds unrelated data too — check its contents first)
+
+- [ ] **Step 1: Check what else lives in `mock/adminData.ts` before touching it**
+
+Run: `grep -n "^export" front-end/src/mock/adminData.ts`
+If `mockOrders` is the only order-related export and other exports (e.g. dashboard stats, discounts) are unrelated and still used elsewhere, remove only `mockOrders` and its `Order`/`OrderItem` import usage — leave the rest of the file alone.
+
+- [ ] **Step 2: Update `OrderStatusBadge.tsx`**
+
+Change the prop type from `Order["status"]` to `Order["orderStatus"]` (the component body is otherwise unchanged — it already just calls `getOrderStatusBadgeClass`/`getOrderStatusLabel`, which Task 15 already updated to accept `Order["orderStatus"]`):
+
+```tsx
+type OrderStatusBadgeProps = {
+  status: Order["orderStatus"]
+  className?: string
+}
+```
+
+- [ ] **Step 3: Update `adminStore.ts`'s order slice**
+
+```ts
+// changes to the Orders section of AdminState and its implementation:
+  updateOrderStatus: (id: string, orderStatus: Order['orderStatus']) => void
+// ...
+  updateOrderStatus: (id, orderStatus) => set((state) => ({
+    orders: state.orders.map((o) => (o.id === id ? { ...o, orderStatus } : o))
+  })),
+```
+
+- [ ] **Step 4: Rewrite `OrdersList.tsx` to fetch from the real admin API**
+
+Replace `mockOrders` seeding with a real fetch, and adjust the filter/table logic for the new field names:
+
+```tsx
+// front-end/src/pages/admin/OrdersList.tsx — relevant changes
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import { fetchAdminOrders, getOrderApiError } from "~/apis/orderApi"
+
+const paymentLabels: Record<string, string> = { COD: "COD", ONLINE: "Online" }
+const paymentStatusLabels: Record<string, string> = {
+  UNPAID: "Unpaid", PAID: "Paid", FAILED: "Failed", REFUNDED: "Refunded",
+}
+
+export function OrdersList() {
+  const { orders, setOrders } = useAdminStore()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [paymentFilter, setPaymentFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true)
+      try {
+        const result = await fetchAdminOrders({
+          page: currentPage,
+          orderStatus: statusFilter !== "all" ? statusFilter : undefined,
+          paymentMethod: paymentFilter !== "all" ? paymentFilter.toUpperCase() : undefined,
+          search: searchQuery || undefined,
+        })
+        setOrders(result.items)
+      } catch (error) {
+        toast.error(getOrderApiError(error))
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    load()
+  }, [currentPage, statusFilter, paymentFilter, searchQuery])
+
+  // Filtering/pagination now happens server-side via the API params above, so the
+  // client-side `filteredOrders`/`paginate()` logic from the mock version is no longer
+  // needed — render `orders` directly. Update every `order.status` reference to
+  // `order.orderStatus`, `order.customerName`/`order.customerEmail` search-match UI to
+  // use `order.recipientName`/`order.phone` instead (no denormalized customer name/email
+  // on the backend Order in Phase 1), and `order.items[i].productImage` to
+  // `order.items[i].imageUrl`. The status filter's `<SelectItem>` list drops "processing"
+  // and "refunded" (see Task 15) and uses the real enum values as-is (uppercase).
+}
+```
+
+- [ ] **Step 5: Rewrite `OrderDetail.tsx` to fetch by id from the real admin API**
+
+```tsx
+// front-end/src/pages/admin/OrderDetail.tsx — relevant changes
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import { fetchAdminOrderById, updateAdminOrderStatus, getOrderApiError, type Order } from "~/apis/orderApi"
+
+export function OrderDetail() {
+  const navigate = useNavigate()
+  const { id } = useParams()
+  const [order, setOrder] = useState<Order | null>(null)
+
+  const load = async () => {
+    if (!id) return
+    try {
+      setOrder(await fetchAdminOrderById(id))
+    } catch (error) {
+      toast.error(getOrderApiError(error))
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [id])
+
+  const handleStatusChange = async (newStatus: Order["orderStatus"]) => {
+    if (!order) return
+    try {
+      const updated = await updateAdminOrderStatus(order.id, { orderStatus: newStatus })
+      setOrder(updated)
+      toast.success("Status updated")
+    } catch (error) {
+      toast.error(getOrderApiError(error))
+    }
+  }
+
+  // ...same structure as before, but:
+  // - statusOptions drops "processing"/"refunded" → ["PENDING","CONFIRMED","SHIPPED","DELIVERED","CANCELLED"]
+  // - the timeline array keys change to orderStatus values (PENDING/CONFIRMED/SHIPPED/DELIVERED)
+  // - order.items[i].{productImage,productName,variants,skuId,total} → {imageUrl,productName,variantLabel,variantId}
+  //   (no per-item `total` from the backend — compute it inline as item.price * item.quantity;
+  //   no `variants[]` breakdown, just the single `variantLabel` string)
+  // - order.discount → order.discountAmount
+  // - Customer panel: order.customerName/customerEmail don't exist on the backend Order —
+  //   replace with order.recipientName/order.phone (the backend doesn't denormalize the
+  //   underlying User's name/email onto Order in Phase 1; if admins need to see the
+  //   account holder's email too, that's a `GET /api/admin/orders/:id` response
+  //   enhancement to make later, not something to fetch ad hoc here)
+  // - order.shippingAddress.{ward,district,city} → order.provinceName/order.wardName/order.addressDetail
+  //   (no district — 2-tier address)
+  // - order.paymentMethod comparisons: "cod"/"card"/"ewallet" → "COD"/"ONLINE"
+  // - order.paymentStatus "paid"/"pending"/"failed"/"refunded" → "PAID"/"UNPAID"/"FAILED"/"REFUNDED"
+  // - order.trackingNumber card: remove entirely (no carrier/tracking in Phase 1)
+}
+```
+
+- [ ] **Step 6: Full frontend typecheck**
+
+Run: `cd front-end && npx tsc --noEmit`
+Expected: **zero errors** — this is the point where all the type breakage introduced back in Task 15 is fully resolved.
+
+- [ ] **Step 7: Manual verification**
+
+As an admin: `/admin/orders` lists real orders with working search/status/payment filters; open one, change its status through the dropdown (confirm the same transition restrictions from the backend apply — e.g. trying to jump straight to Delivered from Pending should show an error toast, not silently succeed); confirm the address/payment panels show real data with no leftover "district" or "tracking number" UI.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add front-end/src/pages/admin/OrdersList.tsx front-end/src/pages/admin/OrderDetail.tsx front-end/src/components/admin/OrderStatusBadge.tsx front-end/src/stores/adminStore.ts front-end/src/mock/adminData.ts
+git commit -m "feat: wire admin Orders pages to real admin order API"
+```
+
+---
+
+### Task 22: Full end-to-end manual verification (final task)
+
+**Files:** none — verification only. This is the "actually run it in a browser" step required before claiming this feature works; do not skip it or claim success without doing it.
+
+- [ ] **Step 1: Fresh backend + frontend boot**
+
+```bash
+cd back-end && npm run dev &
+cd front-end && npm run dev &
+```
+
+Confirm both start cleanly with no errors.
+
+- [ ] **Step 2: Full golden-path click-through as a regular user**
+
+1. Register/log in.
+2. Go to a product page, add two different products to the cart (real add-to-cart, from Task 16).
+3. Go to `/cart`, confirm both appear with real prices; deselect one.
+4. Go to `/account/addresses`, add a real address with a real province/ward picked from the dropdowns.
+5. Go to `/checkout` — confirm only the one selected cart item shows, the real address shows, COD is the only usable payment option.
+6. Place the order. Confirm success and a real order number.
+7. Go to `/account/orders` — the new order appears with the right total and status.
+8. Go to `/track-order`, enter the order number and the address phone — confirm it tracks correctly; try a wrong phone — confirm it's rejected.
+9. Cancel the order from `/account/orders`. Confirm it moves to Cancelled and the earlier-deselected cart item is still sitting untouched in `/cart` (never consumed since it wasn't selected).
+
+- [ ] **Step 3: Buy-now path**
+
+From a product page, click "Buy now" for a variant not currently in the cart, complete checkout. Confirm the resulting order has exactly that one item, and the cart's existing contents are unaffected.
+
+- [ ] **Step 4: Duplicate-submission / idempotency check**
+
+On the checkout page, open browser dev tools, throttle the network to "slow 3G", click "Place order" twice in quick succession before the first request resolves (or manually replay the same `POST /api/checkout` request with the same `Idempotency-Key` via dev tools' network panel). Confirm only one order is created (check `/account/orders` for duplicates) and stock was only decremented once (check via admin product edit page or Prisma Studio).
+
+- [ ] **Step 5: Admin path**
+
+Log in as the seeded admin user, go to `/admin/orders`, find one of the orders just created, open its detail, walk it through `PENDING → CONFIRMED → SHIPPED → DELIVERED` one step at a time (confirm each transition succeeds and the customer-facing `/track-order` page reflects each change), then confirm an invalid skip (e.g. `PENDING → DELIVERED` on a fresh order) is rejected with a clear error.
+
+- [ ] **Step 6: Report results**
+
+Note any bugs found during this pass and fix them (with their own small commits) before considering this plan complete. Do not report the feature as "done" if any step above didn't actually work — this task exists specifically to catch that before it reaches the user.
+
+- [ ] **Step 7: Final commit (only if fixes were needed in Step 6)**
+
+```bash
+git add -A
+git commit -m "fix: address issues found during full end-to-end verification"
+```
