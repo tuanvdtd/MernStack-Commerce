@@ -1,115 +1,75 @@
-# Checkout Phase 1 (Cart, Order & COD Checkout) Implementation Plan
+# Checkout Phase 1: Cart, Order & COD Checkout — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a fully working, testable vertical slice of checkout: real Cart API, VN address book, VN province/ward reference data, idempotent COD checkout, order/payment/shipment status tracking, and the existing mock front-end pages wired to real APIs.
+**Goal:** Build a fully working, testable vertical slice of checkout: real Cart API, VN-compliant Address book, idempotent COD order creation (cart-based or "buy now"), order status management, admin order tools, and frontend wiring for the existing mock UI.
 
-**Architecture:** Backend follows the existing `back-end/src/modules/<name>/*.routes|controller|service|repo|validation|types.ts` layering (Express + Prisma/MySQL). New Prisma models (`Order`, `OrderItem`, `Province`, `Ward`) and enums are added alongside a modified `Address`. Idempotency uses the existing soft-fail `~/lib/redis` wrapper. Frontend gets five new `apis/*.ts` modules and eight existing mock pages rewired to them.
+**Architecture:** Express + TypeScript + Prisma/MySQL backend, following the existing `*.routes/controller/service/repo/validation/mapper/types.ts` per-module layout (see `back-end/src/modules/products/` and `back-end/src/modules/reviews/` as references). New backend modules: `cart`, `addresses`, `locations`, `orders`, `checkout`. React frontend rewires existing mock pages to real APIs via new `front-end/src/apis/*Api.ts` files following the existing `axiosConfig` pattern.
 
-**Tech Stack:** Express 5, TypeScript, Prisma 7 (MySQL/MariaDB), Redis (optional/soft-fail), Zod v4, Vitest (new — no test framework exists yet), React 19, React Router 7, Zustand, Axios.
+**Tech Stack:** Express 5, Prisma 7 (MySQL/MariaDB), Zod, Redis (idempotency), Vitest (new — no test framework exists yet), React, Zustand, axios.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-checkout-phase1-design.md` — read this first for the full rationale; this plan does not repeat the "why", only the "how".
+**Spec:** `docs/superpowers/specs/2026-09-04-checkout-phase1-design.md`
 
-> **Note on this file's history:** this exact path was briefly overwritten mid-session by a concurrent Claude Code session working in the same repo directory. That session has been stopped; this is the authoritative version, matching the approved spec (real VN location data fetched from `provinces.open-api.vn` v2 — not a hand-written sample).
+**Scope note (per user decision during planning):** Fetching the real nationwide VN province/ward dataset from `provinces.open-api.vn` is deferred. This plan seeds `Province`/`Ward` with a small **hand-written sample** (3 provinces, a few wards each) so the Location API and Address flow are fully functional and testable now. Loading the full real dataset is an explicit follow-up task, not part of this plan.
 
----
-
-## Before you start
-
-- No backend test framework exists today (verified: no jest/vitest/mocha in `back-end/package.json`, no `tests/` content). Task 1 sets up Vitest.
-- No frontend test framework exists either. Frontend verification in this plan is manual, in-browser (see the final task) — do not claim it works without actually clicking through it.
-- Scaling decision vs. the spec: the spec's "Testing" section calls for an "integration-style test against a real test database" for the checkout transaction rollback. Standing up a dedicated test MySQL instance/CI pipeline is out of scope for this feature (it's infrastructure, not checkout logic). Instead, the Checkout task tests transaction-rollback *wiring* (errors thrown inside `prisma.$transaction` propagate uncaught, so Prisma/MySQL's own rollback applies) using a mocked `prisma.$transaction`, and all business-rule tests (stock, discount, idempotency, cancellation) run as service-level unit tests with the repo layer mocked. This is a deliberate, disclosed scope reduction — flag it in the plan review if you disagree.
-- Run every `git commit` step from the repo root unless told otherwise. `back-end/` and `front-end/` are separate `package.json` roots — `cd` into the right one before running `npm` commands.
-- **Before starting work, check `git status` and `ListAgents`/ask the user whether any other Claude Code session is active in this same working directory.** This plan's own file was clobbered once already by a concurrent session; if another session might be touching the same files, coordinate before writing.
-
-## File Structure
-
-**Backend — new files:**
-```
-back-end/vitest.config.ts
-back-end/src/core/http/errorCodes.ts
-back-end/src/utils/orderNumber.ts
-back-end/prisma/data/vn-locations.json
-back-end/prisma/scripts/fetchVnLocations.ts
-back-end/prisma/scripts/seedLocations.ts
-back-end/src/modules/locations/{location.types,location.repo,location.service,location.controller,location.routes}.ts
-back-end/src/modules/addresses/{address.types,address.validation,address.repo,address.service,address.controller,address.routes}.ts
-back-end/src/modules/cart/{cart.types,cart.validation,cart.mapper,cart.repo,cart.service,cart.controller,cart.routes}.ts
-back-end/src/modules/checkout/{checkout.types,checkout.validation,checkout.idempotency,checkout.repo,checkout.service,checkout.controller,checkout.routes}.ts
-back-end/src/modules/orders/{order.types,order.mapper,order.repo,order.service,order.controller,order.routes,admin-order.controller,admin-order.routes,order.validation}.ts
-back-end/tests/modules/**/*.test.ts (mirrors the module tree above)
-back-end/tests/core/http/errorHandler.test.ts
-```
-
-**Backend — modified files:** `prisma/schema.prisma`, `src/core/http/ApiError.ts`, `src/core/http/errorHandler.ts`, `src/config/env.ts`, `.env.example`, `src/routes/index.ts`, `package.json` (test scripts + vitest devDependency).
-
-**Frontend — new files:**
-```
-front-end/src/apis/{locationApi,addressApi,cartApi,checkoutApi,orderApi}.ts
-front-end/src/types/order.ts
-```
-
-**Frontend — modified files:** `src/pages/Cart.tsx`, `src/pages/ProductDetail.tsx`, `src/pages/Checkout.tsx`, `src/pages/account/AccountAddresses.tsx`, `src/pages/account/AccountOrders.tsx`, `src/pages/TrackOrder.tsx`, `src/pages/admin/OrdersList.tsx`, `src/pages/admin/OrderDetail.tsx`, `src/types/admin/index.ts`, `src/lib/admin/ui.ts`, `src/components/admin/OrderStatusBadge.tsx`, `src/components/checkout/CheckoutPaymentSection.tsx`, `src/stores/adminStore.ts`.
+**Coordination note:** a concurrent Claude Code session in this same repo (`mernstack-commerce-61`) was independently writing a different version of this same plan file (using the real `provinces.open-api.vn` fetch instead of the sample-data approach above). The user has confirmed this file — the sample-data approach — is the one to keep; that other session should be stopped or redirected before it writes to this path again.
 
 ---
 
-# Part A — Backend Foundation
+## Part A — Backend
 
-### Task 1: Add Vitest test framework
+### Task 1: Set up Vitest test framework
+
+No test framework exists in `back-end/` today (no jest/vitest, no `test` script). This task adds one so every later task can follow TDD.
 
 **Files:**
-- Create: `back-end/vitest.config.ts`
 - Modify: `back-end/package.json`
-- Test: `back-end/tests/core/http/ApiError.test.ts`
+- Create: `back-end/vitest.config.ts`
+- Create: `back-end/src/smoke.test.ts`
 
-- [ ] **Step 1: Install vitest**
+- [ ] **Step 1: Install dependencies**
 
-Run: `cd back-end && npm install -D vitest`
-Expected: `vitest` added to `devDependencies` in `back-end/package.json`.
+Run: `cd back-end && npm install -D vitest vitest-mock-extended`
+Expected: adds `vitest` and `vitest-mock-extended` to `devDependencies`.
 
-- [ ] **Step 2: Create the Vitest config with the `~/*` alias**
+- [ ] **Step 2: Create `back-end/vitest.config.ts`**
 
 ```ts
-// back-end/vitest.config.ts
 import path from 'node:path'
-
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  test: {
-    environment: 'node',
-    include: ['tests/**/*.test.ts'],
-    globals: false,
-  },
   resolve: {
     alias: {
       '~': path.resolve(__dirname, 'src'),
     },
   },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+    globals: false,
+  },
 })
 ```
 
-- [ ] **Step 3: Add test scripts to `back-end/package.json`**
+- [ ] **Step 3: Add `test` script to `back-end/package.json`**
 
-Add to `"scripts"`:
+In the `"scripts"` block, add:
+
 ```json
-"test": "vitest run",
-"test:watch": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
 ```
 
-- [ ] **Step 4: Write a smoke-test for the existing `ApiError` to confirm the harness works**
+- [ ] **Step 4: Write a smoke test**
 
 ```ts
-// back-end/tests/core/http/ApiError.test.ts
+// back-end/src/smoke.test.ts
 import { describe, expect, it } from 'vitest'
 
-import { ApiError } from '~/core/http/ApiError'
-
-describe('ApiError', () => {
-  it('builds a 404 with the given message', () => {
-    const err = ApiError.NotFound('Product not found')
-    expect(err.statusCode).toBe(404)
-    expect(err.message).toBe('Product not found')
+describe('vitest setup', () => {
+  it('runs TypeScript tests with the ~ alias resolvable', () => {
+    expect(1 + 1).toBe(2)
   })
 })
 ```
@@ -117,82 +77,60 @@ describe('ApiError', () => {
 - [ ] **Step 5: Run it**
 
 Run: `cd back-end && npm test`
-Expected: `1 passed` (this proves the `~/*` alias resolves and TS-via-Vitest works before we build anything on top of it).
+Expected: `1 passed`, exit code 0.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add back-end/package.json back-end/package-lock.json back-end/vitest.config.ts back-end/tests/core/http/ApiError.test.ts
-git commit -m "test: add vitest test framework to back-end"
+cd back-end
+git add package.json package-lock.json vitest.config.ts src/smoke.test.ts
+git commit -m "test: set up Vitest test framework"
 ```
 
 ---
 
-### Task 2: Add machine-readable `code` to `ApiError` and `errorHandler`
+### Task 2: Extend `ApiError` and `errorHandler` with a `code` field
+
+Per spec, domain error codes (`CART_EMPTY`, `INSUFFICIENT_STOCK`, etc.) need a machine-readable field in the error response. Today `ApiError`/`errorHandler` only carry `statusCode`/`message`/`details`. This is a backward-compatible extension — existing call sites that don't pass `code` are unaffected.
 
 **Files:**
 - Modify: `back-end/src/core/http/ApiError.ts`
 - Modify: `back-end/src/core/http/errorHandler.ts`
-- Create: `back-end/src/core/http/errorCodes.ts`
-- Test: `back-end/tests/core/http/errorHandler.test.ts`
+- Test: `back-end/src/core/http/ApiError.test.ts`
 
-- [ ] **Step 1: Write the failing test for `errorHandler` serializing `code`**
+- [ ] **Step 1: Write the failing test**
 
 ```ts
-// back-end/tests/core/http/errorHandler.test.ts
-import { describe, expect, it, vi } from 'vitest'
-
+// back-end/src/core/http/ApiError.test.ts
+import { describe, expect, it } from 'vitest'
 import { ApiError } from '~/core/http/ApiError'
-import { errorHandler } from '~/core/http/errorHandler'
 
-function mockRes() {
-  const res: { statusCode?: number; body?: unknown; status: (c: number) => typeof res; json: (b: unknown) => typeof res } = {
-    status(code: number) {
-      res.statusCode = code
-      return res
-    },
-    json(body: unknown) {
-      res.body = body
-      return res
-    },
-  }
-  return res
-}
-
-describe('errorHandler', () => {
-  it('serializes the ApiError code when present', () => {
-    const res = mockRes()
-    errorHandler(
-      ApiError.Conflict('Insufficient stock', { variantId: 'v1' }, 'INSUFFICIENT_STOCK'),
-      {} as never,
-      res as never,
-      vi.fn(),
-    )
-    expect(res.statusCode).toBe(409)
-    expect(res.body).toEqual({
-      message: 'Insufficient stock',
-      code: 'INSUFFICIENT_STOCK',
-      details: { variantId: 'v1' },
-    })
+describe('ApiError', () => {
+  it('carries an optional code alongside statusCode/message/details', () => {
+    const err = ApiError.Conflict('Insufficient stock', { variantId: 'v1' }, 'INSUFFICIENT_STOCK')
+    expect(err.statusCode).toBe(409)
+    expect(err.message).toBe('Insufficient stock')
+    expect(err.details).toEqual({ variantId: 'v1' })
+    expect(err.code).toBe('INSUFFICIENT_STOCK')
   })
 
-  it('omits code when the ApiError did not set one (backward compatible)', () => {
-    const res = mockRes()
-    errorHandler(ApiError.NotFound('Product not found'), {} as never, res as never, vi.fn())
-    expect(res.body).toEqual({ message: 'Product not found', code: undefined, details: undefined })
+  it('leaves code undefined when not provided (backward compatible)', () => {
+    const err = ApiError.NotFound('Product not found')
+    expect(err.code).toBeUndefined()
   })
 })
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd back-end && npm test -- errorHandler`
-Expected: FAIL — `ApiError.Conflict` doesn't accept a 3rd `code` argument yet (TS error) and `errorHandler`'s response has no `code` key.
+Run: `cd back-end && npx vitest run src/core/http/ApiError.test.ts`
+Expected: FAIL — `err.code` doesn't exist / TypeScript error on the 3rd argument.
 
-- [ ] **Step 3: Add `code` to `ApiError`**
+- [ ] **Step 3: Update `ApiError.ts`**
+
+Replace the full file content:
 
 ```ts
-// back-end/src/core/http/ApiError.ts
 import { StatusCodes } from 'http-status-codes'
 
 export class ApiError extends Error {
@@ -201,52 +139,57 @@ export class ApiError extends Error {
   code?: string
 
   constructor(statusCode: number, message: string, details?: unknown, code?: string) {
+    // Message cần truyền vào super() để class Error gốc có thể khởi tạo đúng cách và sử dụng được đầy đủ Error.captureStackTrace
     super(message)
     this.statusCode = statusCode
     this.details = details
     this.code = code
-    Object.setPrototypeOf(this, new.target.prototype)
-    Error.captureStackTrace(this, this.constructor)
+    Object.setPrototypeOf(this, new.target.prototype) // Tránh lỗi prototype chain khi kế thừa từ Error (built-in object của JavaScript)
+    Error.captureStackTrace(this, this.constructor) // Làm gọn gàng stack trace, dễ đọc, dễ debug
   }
 
+  /** 400 Bad Request — Dữ liệu đầu vào không hợp lệ */
   static BadRequest(msg = 'Bad Request', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.BAD_REQUEST, msg, details, code)
   }
+  // Sau này mở rộng thêm các static theo mã lỗi...
   static Unauthorized(msg = 'Unauthorized', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.UNAUTHORIZED, msg, details, code)
   }
+
   static Forbidden(msg = 'Forbidden', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.FORBIDDEN, msg, details, code)
   }
+
   static NotFound(msg = 'Not Found', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.NOT_FOUND, msg, details, code)
   }
+
   static Conflict(msg = 'Conflict', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.CONFLICT, msg, details, code)
   }
+
   static UnsupportedMediaType(msg = 'Unsupported Media Type', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.UNSUPPORTED_MEDIA_TYPE, msg, details, code)
   }
+
   static PayloadTooLarge(msg = 'Payload Too Large', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.REQUEST_TOO_LONG, msg, details, code)
   }
+
   static Internal(msg = 'Internal Server Error', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details, code)
   }
+
   static RedisError(msg = 'Redis Error', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details, code)
-  }
-  static NotImplemented(msg = 'Not Implemented', details?: unknown, code?: string) {
-    return new ApiError(StatusCodes.NOT_IMPLEMENTED, msg, details, code)
   }
 }
 ```
 
-(Added `NotImplemented` too — the Checkout module needs a 501 for non-COD `paymentMethod`.)
+- [ ] **Step 4: Update `errorHandler.ts`**
 
-- [ ] **Step 4: Serialize `code` in `errorHandler`**
-
-In `back-end/src/core/http/errorHandler.ts`, change the `ApiError` branch:
+Change the `ApiError` branch (the rest of the file is unchanged):
 
 ```ts
   if (err instanceof ApiError) {
@@ -257,60 +200,98 @@ In `back-end/src/core/http/errorHandler.ts`, change the `ApiError` branch:
   }
 ```
 
-(Leave the rest of the file — Multer branch, fallback branch — unchanged.)
+- [ ] **Step 5: Run test to verify it passes**
 
-- [ ] **Step 5: Run the test again to verify it passes**
+Run: `cd back-end && npx vitest run src/core/http/ApiError.test.ts`
+Expected: PASS, 2 tests.
 
-Run: `cd back-end && npm test -- errorHandler`
-Expected: `2 passed`
+- [ ] **Step 6: Full typecheck (confirms no existing call site broke)**
 
-- [ ] **Step 6: Add the shared error code constants**
+Run: `cd back-end && npm run typecheck`
+Expected: no errors.
 
-```ts
-// back-end/src/core/http/errorCodes.ts
-export const ErrorCode = {
-  CART_EMPTY: 'CART_EMPTY',
-  INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
-  DISCOUNT_INVALID: 'DISCOUNT_INVALID',
-  DISCOUNT_EXPIRED: 'DISCOUNT_EXPIRED',
-  DISCOUNT_LIMIT_REACHED: 'DISCOUNT_LIMIT_REACHED',
-  ADDRESS_NOT_FOUND: 'ADDRESS_NOT_FOUND',
-  ORDER_NOT_CANCELLABLE: 'ORDER_NOT_CANCELLABLE',
-  ORDER_NOT_FOUND: 'ORDER_NOT_FOUND',
-  LOCATION_NOT_FOUND: 'LOCATION_NOT_FOUND',
-  INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
-} as const
-
-export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode]
-```
-
-- [ ] **Step 7: Run the full test suite and typecheck**
-
-Run: `cd back-end && npm test && npm run typecheck`
-Expected: all tests pass, no type errors.
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add back-end/src/core/http/ApiError.ts back-end/src/core/http/errorHandler.ts back-end/src/core/http/errorCodes.ts back-end/tests/core/http/errorHandler.test.ts
-git commit -m "feat: add machine-readable error codes to ApiError/errorHandler"
+cd back-end
+git add src/core/http/ApiError.ts src/core/http/errorHandler.ts src/core/http/ApiError.test.ts
+git commit -m "feat: add machine-readable code field to ApiError"
 ```
 
 ---
 
-### Task 3: Prisma schema — Address, CartItem, Order/OrderItem, Province/Ward
+### Task 3: Add `SHIPPING_FLAT_FEE` config
+
+Phase 1 has no live shipping-provider rate lookup (that's Phase 2); checkout uses a flat, config-driven fee.
+
+**Files:**
+- Modify: `back-end/src/config/env.ts`
+- Modify: `back-end/.env`
+- Modify: `back-end/.env.example`
+
+- [ ] **Step 1: Add to the Zod schema in `env.ts`**
+
+Add this line inside the `schema` object (near the other simple defaults, e.g. after `FRONTEND_BASE_URL`):
+
+```ts
+  // Phase 1 checkout: flat shipping fee in VND until Phase 2 shipping-provider integration.
+  SHIPPING_FLAT_FEE: z.coerce.number().int().min(0).default(30000),
+```
+
+- [ ] **Step 2: Add to `.env` and `.env.example`**
+
+Append to both files:
+
+```
+SHIPPING_FLAT_FEE=30000
+```
+
+- [ ] **Step 3: Verify**
+
+Run: `cd back-end && npx tsx -e "import('./src/config/env.ts').then(m => console.log(m.env.SHIPPING_FLAT_FEE))"`
+Expected: prints `30000`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd back-end
+git add src/config/env.ts .env.example
+git commit -m "feat: add SHIPPING_FLAT_FEE config for Phase 1 checkout"
+```
+
+(`.env` is not committed if gitignored — check `git status`; if it's tracked in this repo, include it too.)
+
+---
+
+### Task 4: Prisma schema changes
+
+Adds/replaces: `Address` (VN 2-tier structure), `CartItem.selected`, `Order`/`OrderItem` + status enums, `Province`/`Ward`. Also adds the required back-relations (`User.orders`, `ProductVariant.orderItems`).
+
+**Safety check first:** `Address` is currently unused by any backend code (confirmed via `grep -rn "Address" back-end/src` — no non-generated matches), so replacing its columns is safe. Still, verify no rows exist before dropping columns.
 
 **Files:**
 - Modify: `back-end/prisma/schema.prisma`
 
-- [ ] **Step 1: Confirm `Address` has no rows (safe to change its columns)**
+- [ ] **Step 1: Confirm Address has no rows**
 
-Run: `cd back-end && node --import tsx -e "import('~/lib/prisma').then(async ({prisma}) => { console.log(await prisma.address.count()); await prisma.\$disconnect() })"`
-Expected: `0`. If not `0`, STOP and check with the user before proceeding — this migration drops the `street`/`city` columns.
+Run: `cd back-end && npx tsx -e "import('./src/lib/prisma.ts').then(async ({prisma}) => { console.log(await prisma.address.count()); await prisma.\$disconnect() })"`
+Expected: `0`. If not `0`, STOP and check with the user before proceeding — this migration drops `street`/`city` columns.
 
 - [ ] **Step 2: Replace the `Address` model**
 
-Find the existing `model Address { ... }` block and replace it entirely:
+In `back-end/prisma/schema.prisma`, replace:
+
+```prisma
+model Address {
+  id     String @id
+  userId String
+  street String
+  city   String
+  user   User   @relation(fields: [userId], references: [id])
+}
+```
+
+with:
 
 ```prisma
 model Address {
@@ -335,15 +316,46 @@ model Address {
 
 - [ ] **Step 3: Add `selected` to `CartItem`**
 
-In the existing `model CartItem { ... }` block, add one field (anywhere before the closing brace, e.g. after `updatedAt`):
+In the `CartItem` model, add a field after `name`:
 
 ```prisma
+model CartItem {
+  id        String         @id
+  cartId    String
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  quantity  Int
+  price     Decimal        @db.Decimal(12, 2)
+  name      String         @db.VarChar(255)
   selected  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([cartId, variantId])
+  @@index([variantId])
+}
 ```
 
-- [ ] **Step 4: Add the new enums and `Order`/`OrderItem` models**
+- [ ] **Step 4: Add `orders` back-relation to `User`**
 
-Add these new blocks anywhere after the `Discount*` models (end of file):
+In the `User` model, add a field (e.g. right after `productReviews`):
+
+```prisma
+  orders         Order[]
+```
+
+- [ ] **Step 5: Add `orderItems` back-relation to `ProductVariant`**
+
+In the `ProductVariant` model, add a field (e.g. right after `cartItems`):
+
+```prisma
+  orderItems    OrderItem[]
+```
+
+- [ ] **Step 6: Append the new enums and models**
+
+At the end of `schema.prisma` (after the `DiscountUserUse` model), append:
 
 ```prisma
 enum OrderStatus {
@@ -387,8 +399,8 @@ model Order {
   addressDetail  String
 
   subtotal       Decimal        @db.Decimal(12, 2)
-  shippingFee    Decimal        @default(0) @db.Decimal(12, 2)
-  discountAmount Decimal        @default(0) @db.Decimal(12, 2)
+  shippingFee    Decimal        @db.Decimal(12, 2) @default(0)
+  discountAmount Decimal        @db.Decimal(12, 2) @default(0)
   discountCode   String?
   total          Decimal        @db.Decimal(12, 2)
 
@@ -398,7 +410,6 @@ model Order {
   shipmentStatus ShipmentStatus @default(NOT_SHIPPED)
 
   note           String?        @db.VarChar(500)
-  idempotencyKey String?        @unique
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -439,194 +450,279 @@ model Ward {
 }
 ```
 
-- [ ] **Step 5: Add the two missing back-relations**
+Note: `Order.idempotencyKey` from the spec is intentionally **not** a DB column — Task 5 implements idempotency purely via Redis (order id keyed by user+key), so no schema field is needed for it. If Redis-based dedup ever proves insufficient, a DB column can be added later; starting without it avoids an unused always-null column today.
 
-Prisma requires both sides of a relation to be declared. Add:
-- On `model User`, alongside the existing `carts Cart[]` line, add: `orders Order[]`
-- On `model ProductVariant`, alongside the existing `cartItems CartItem[]` line, add: `orderItems OrderItem[]`
+- [ ] **Step 7: Run the migration**
 
-- [ ] **Step 6: Generate and run the migration**
+Run: `cd back-end && npx prisma migrate dev --name checkout_phase1_core`
+Expected: prompts (if any) about non-nullable columns without defaults on `Address.recipientName` etc. — since the table is empty this is safe to accept. Ends with "Your database is now in sync with your schema."
 
-Run: `cd back-end && npx prisma migrate dev --name checkout_phase1_cart_order_address`
-Expected: migration created under `prisma/migrations/`, applied to the local dev DB, Prisma Client regenerated into `src/generated/prisma`.
+- [ ] **Step 8: Regenerate Prisma client (migrate dev does this automatically, verify)**
 
-- [ ] **Step 7: Verify the client compiles**
+Run: `cd back-end && npx prisma generate`
+Expected: "Generated Prisma Client" with no errors.
+
+- [ ] **Step 9: Typecheck**
 
 Run: `cd back-end && npm run typecheck`
-Expected: no errors.
+Expected: no errors (User/ProductVariant relation types now include `orders`/`orderItems`).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add back-end/prisma/schema.prisma back-end/prisma/migrations
-git commit -m "feat(db): add Order/OrderItem/Province/Ward models, VN address fields, CartItem.selected"
+cd back-end
+git add prisma/schema.prisma prisma/migrations
+git commit -m "feat: add Order/OrderItem, VN address fields, Province/Ward schema"
 ```
 
 ---
 
-### Task 4: Order number generator
+### Task 5: Idempotency helper
+
+Wraps the existing soft-fail `redis` client (`back-end/src/lib/redis.ts`) for the checkout dedup pattern. Note: since `redis.get/set` already no-op silently when `REDIS_URL` is unset (existing project convention), idempotency degrades gracefully to "no dedup" in that case rather than failing — acceptable here since `REDIS_URL` is configured in this project's `.env`.
 
 **Files:**
-- Create: `back-end/src/utils/orderNumber.ts`
-- Test: `back-end/tests/utils/orderNumber.test.ts`
+- Create: `back-end/src/core/idempotency/idempotency.ts`
+- Test: `back-end/src/core/idempotency/idempotency.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// back-end/tests/utils/orderNumber.test.ts
-import { describe, expect, it } from 'vitest'
+// back-end/src/core/idempotency/idempotency.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { generateOrderNumber } from '~/utils/orderNumber'
+vi.mock('~/lib/redis', () => ({
+  redis: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
+}))
 
-describe('generateOrderNumber', () => {
-  it('matches ORD-YYYYMMDD-XXXXXXXX', () => {
-    const orderNumber = generateOrderNumber()
-    expect(orderNumber).toMatch(/^ORD-\d{8}-[0-9A-F]{8}$/)
+import { redis } from '~/lib/redis'
+import { idempotency } from '~/core/idempotency/idempotency'
+
+describe('idempotency', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('generates distinct values on successive calls', () => {
-    const a = generateOrderNumber()
-    const b = generateOrderNumber()
-    expect(a).not.toBe(b)
+  it('namespaces the key by user and reads via redis.get', async () => {
+    vi.mocked(redis.get).mockResolvedValue('order-123')
+    const result = await idempotency.getOrderId('user-1', 'key-abc')
+    expect(redis.get).toHaveBeenCalledWith('checkout:idem:user-1:key-abc')
+    expect(result).toBe('order-123')
+  })
+
+  it('saves the order id with a 24h TTL', async () => {
+    await idempotency.saveOrderId('user-1', 'key-abc', 'order-123')
+    expect(redis.set).toHaveBeenCalledWith(
+      'checkout:idem:user-1:key-abc',
+      'order-123',
+      60 * 60 * 24,
+    )
   })
 })
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd back-end && npm test -- orderNumber`
-Expected: FAIL — module not found.
+Run: `cd back-end && npx vitest run src/core/idempotency/idempotency.test.ts`
+Expected: FAIL — module `~/core/idempotency/idempotency` doesn't exist.
 
 - [ ] **Step 3: Implement**
 
 ```ts
-// back-end/src/utils/orderNumber.ts
-import { newId } from '~/utils/id'
+// back-end/src/core/idempotency/idempotency.ts
+import { redis } from '~/lib/redis'
 
-/** Human-readable order code: ORD-YYYYMMDD-XXXXXXXX (last 8 hex chars of a UUIDv7). */
-export function generateOrderNumber(now: Date = new Date()): string {
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  const suffix = newId().replace(/-/g, '').slice(-8).toUpperCase()
-  return `ORD-${y}${m}${d}-${suffix}`
+const IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24
+
+function buildKey(userId: string, key: string): string {
+  return `checkout:idem:${userId}:${key}`
+}
+
+export const idempotency = {
+  async getOrderId(userId: string, key: string): Promise<string | null> {
+    return redis.get(buildKey(userId, key))
+  },
+
+  async saveOrderId(userId: string, key: string, orderId: string): Promise<void> {
+    await redis.set(buildKey(userId, key), orderId, IDEMPOTENCY_TTL_SECONDS)
+  },
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd back-end && npm test -- orderNumber`
-Expected: `2 passed`
+Run: `cd back-end && npx vitest run src/core/idempotency/idempotency.test.ts`
+Expected: PASS, 2 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add back-end/src/utils/orderNumber.ts back-end/tests/utils/orderNumber.test.ts
-git commit -m "feat: add order number generator"
+cd back-end
+git add src/core/idempotency
+git commit -m "feat: add Redis-backed idempotency helper for checkout"
 ```
 
 ---
 
-### Task 5: VN province/ward reference data — fetch snapshot + seed script
+### Task 6: `requireIdempotencyKey` middleware
+
+Checkout requires an `Idempotency-Key` header. `validateRequest` only validates body/query/params, so this is a small dedicated middleware.
 
 **Files:**
-- Create: `back-end/prisma/scripts/fetchVnLocations.ts`
-- Create: `back-end/prisma/data/vn-locations.json` (generated by running the script below, not hand-written)
-- Create: `back-end/prisma/scripts/seedLocations.ts`
-- Modify: `back-end/package.json`
+- Create: `back-end/src/core/http/requireIdempotencyKey.ts`
+- Test: `back-end/src/core/http/requireIdempotencyKey.test.ts`
 
-- [ ] **Step 1: Write the fetch script**
-
-This hits the live `provinces.open-api.vn` v2 API (post-July-2025 structure, verified shape: `GET /api/v2/p/` returns provinces with an empty `wards` array; `GET /api/v2/p/{code}?depth=2` returns one province with its `wards` populated as `{code, name, division_type, codename, province_code}`). It fetches the province list once, then each province's wards, and writes a normalized snapshot.
+- [ ] **Step 1: Write the failing test**
 
 ```ts
-// back-end/prisma/scripts/fetchVnLocations.ts
-import { writeFileSync } from 'node:fs'
-import path from 'node:path'
+// back-end/src/core/http/requireIdempotencyKey.test.ts
+import { describe, expect, it, vi } from 'vitest'
+import { requireIdempotencyKey, type IdempotentRequest } from '~/core/http/requireIdempotencyKey'
+import { ApiError } from '~/core/http/ApiError'
 
-const BASE_URL = 'https://provinces.open-api.vn/api/v2'
-const OUTPUT_PATH = path.resolve(import.meta.dirname, '../data/vn-locations.json')
-
-type RawProvince = {
-  code: number
-  name: string
+function makeReq(headerValue: string | undefined): IdempotentRequest {
+  return {
+    header: () => headerValue,
+  } as unknown as IdempotentRequest
 }
 
-type RawProvinceWithWards = RawProvince & {
-  wards: Array<{ code: number; name: string }>
-}
+describe('requireIdempotencyKey', () => {
+  it('throws ApiError.BadRequest when the header is missing', () => {
+    const req = makeReq(undefined)
+    expect(() => requireIdempotencyKey(req, {} as never, vi.fn())).toThrow(ApiError)
+  })
 
-type LocationSnapshot = {
-  provinces: Array<{
-    code: string
-    name: string
-    wards: Array<{ code: string; name: string }>
-  }>
-}
+  it('throws when the header is blank', () => {
+    const req = makeReq('   ')
+    expect(() => requireIdempotencyKey(req, {} as never, vi.fn())).toThrow(ApiError)
+  })
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Request failed: ${url} (${res.status})`)
-  return res.json() as Promise<T>
-}
-
-async function main() {
-  const provinces = await fetchJson<RawProvince[]>(`${BASE_URL}/p/`)
-  console.log(`Fetched ${provinces.length} provinces — fetching wards for each...`)
-
-  const snapshot: LocationSnapshot = { provinces: [] }
-
-  for (const province of provinces) {
-    const detail = await fetchJson<RawProvinceWithWards>(`${BASE_URL}/p/${province.code}?depth=2`)
-    snapshot.provinces.push({
-      code: String(detail.code),
-      name: detail.name,
-      wards: detail.wards.map((w) => ({ code: String(w.code), name: w.name })),
-    })
-    console.log(`  ${detail.name}: ${detail.wards.length} wards`)
-  }
-
-  writeFileSync(OUTPUT_PATH, JSON.stringify(snapshot, null, 2))
-  console.log(`\nWrote ${snapshot.provinces.length} provinces to ${OUTPUT_PATH}`)
-}
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
+  it('sets req.idempotencyKey and calls next when present', () => {
+    const req = makeReq(' abc-123 ')
+    const next = vi.fn()
+    requireIdempotencyKey(req, {} as never, next)
+    expect(req.idempotencyKey).toBe('abc-123')
+    expect(next).toHaveBeenCalledOnce()
+  })
 })
 ```
 
-- [ ] **Step 2: Run it to generate the snapshot**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd back-end && node --import tsx prisma/scripts/fetchVnLocations.ts`
-Expected: prints progress for ~34 provinces, ends with `Wrote 34 provinces to .../vn-locations.json`. **Inspect the resulting file**: confirm it has ~34 top-level provinces and that ward counts are non-zero and plausible (a few dozen to a few hundred per province). If the API's shape has drifted since this plan was written (e.g. `wards` empty even with `depth=2`, or a different field name), fix the script to match what you actually observe before proceeding — don't seed empty data.
+Run: `cd back-end && npx vitest run src/core/http/requireIdempotencyKey.test.ts`
+Expected: FAIL — module doesn't exist.
 
-- [ ] **Step 3: Write the seed script**
+- [ ] **Step 3: Implement**
+
+```ts
+// back-end/src/core/http/requireIdempotencyKey.ts
+import { Request, Response, NextFunction } from 'express'
+
+import { ApiError } from '~/core/http/ApiError'
+
+export type IdempotentRequest = Request & { idempotencyKey?: string }
+
+export function requireIdempotencyKey(
+  req: IdempotentRequest,
+  _res: Response,
+  next: NextFunction,
+) {
+  const key = req.header('Idempotency-Key')
+  if (!key || !key.trim()) {
+    throw ApiError.BadRequest(
+      'Missing required header: Idempotency-Key',
+      undefined,
+      'IDEMPOTENCY_KEY_REQUIRED',
+    )
+  }
+  req.idempotencyKey = key.trim()
+  next()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd back-end && npx vitest run src/core/http/requireIdempotencyKey.test.ts`
+Expected: PASS, 3 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd back-end
+git add src/core/http/requireIdempotencyKey.ts src/core/http/requireIdempotencyKey.test.ts
+git commit -m "feat: add requireIdempotencyKey middleware"
+```
+
+---
+
+### Task 7: VN location sample seed data + seed script
+
+Per the scoped-down decision: a small **hand-written sample** dataset, not the real nationwide dataset (that's an explicit follow-up, not part of this plan). Codes are clearly-fake placeholders so nobody mistakes them for official GSO codes.
+
+**Files:**
+- Create: `back-end/prisma/data/vn-locations.sample.json`
+- Create: `back-end/prisma/scripts/seedLocations.ts`
+- Modify: `back-end/package.json`
+
+- [ ] **Step 1: Create the sample dataset**
+
+```json
+[
+  {
+    "code": "HN",
+    "name": "Thành phố Hà Nội",
+    "wards": [
+      { "code": "HN-BD", "name": "Phường Ba Đình" },
+      { "code": "HN-HK", "name": "Phường Hoàn Kiếm" },
+      { "code": "HN-CG", "name": "Phường Cầu Giấy" }
+    ]
+  },
+  {
+    "code": "HCM",
+    "name": "Thành phố Hồ Chí Minh",
+    "wards": [
+      { "code": "HCM-BN", "name": "Phường Bến Nghé" },
+      { "code": "HCM-BT", "name": "Phường Bến Thành" },
+      { "code": "HCM-TD", "name": "Phường Thủ Đức" }
+    ]
+  },
+  {
+    "code": "DN",
+    "name": "Thành phố Đà Nẵng",
+    "wards": [
+      { "code": "DN-HC", "name": "Phường Hải Châu" },
+      { "code": "DN-TK", "name": "Phường Thanh Khê" }
+    ]
+  }
+]
+```
+
+- [ ] **Step 2: Write the seed script**
 
 ```ts
 // back-end/prisma/scripts/seedLocations.ts
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 import { prisma } from '~/lib/prisma'
 
-const DATA_PATH = path.resolve(import.meta.dirname, '../data/vn-locations.json')
+type WardData = { code: string; name: string }
+type ProvinceData = { code: string; name: string; wards: WardData[] }
 
-type LocationSnapshot = {
-  provinces: Array<{
-    code: string
-    name: string
-    wards: Array<{ code: string; name: string }>
-  }>
-}
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DATA_FILE = path.join(__dirname, '../data/vn-locations.sample.json')
 
 async function seedLocations() {
-  const snapshot: LocationSnapshot = JSON.parse(readFileSync(DATA_PATH, 'utf-8'))
+  const provinces: ProvinceData[] = JSON.parse(readFileSync(DATA_FILE, 'utf-8'))
 
   let provinceCount = 0
   let wardCount = 0
 
-  for (const province of snapshot.provinces) {
+  for (const province of provinces) {
     await prisma.province.upsert({
       where: { code: province.code },
       update: { name: province.name },
@@ -644,7 +740,7 @@ async function seedLocations() {
     }
   }
 
-  console.log(`Seeded ${provinceCount} provinces and ${wardCount} wards`)
+  console.log(`Seeded ${provinceCount} provinces, ${wardCount} wards (sample dataset).`)
 }
 
 seedLocations()
@@ -658,52 +754,55 @@ seedLocations()
   })
 ```
 
-- [ ] **Step 4: Add an npm script and run the seed**
+- [ ] **Step 3: Add a script entry to `package.json`**
 
-Add to `back-end/package.json` `"scripts"`: `"db:seed-locations": "node --import tsx prisma/scripts/seedLocations.ts"`
+```json
+    "db:seed-locations": "node --import tsx prisma/scripts/seedLocations.ts"
+```
+
+- [ ] **Step 4: Run it**
 
 Run: `cd back-end && npm run db:seed-locations`
-Expected: `Seeded 34 provinces and N wards` (N in the low thousands).
+Expected: `Seeded 3 provinces, 8 wards (sample dataset).`
 
-- [ ] **Step 5: Spot-check in the DB**
-
-Run `npx prisma studio` and check the `Province`/`Ward` tables visually, or query counts directly.
-Expected: province count 34, ward count in the low thousands, non-zero.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add back-end/prisma/scripts/fetchVnLocations.ts back-end/prisma/scripts/seedLocations.ts back-end/prisma/data/vn-locations.json back-end/package.json
-git commit -m "feat(db): seed VN province/ward reference data from provinces.open-api.vn v2"
+cd back-end
+git add prisma/data/vn-locations.sample.json prisma/scripts/seedLocations.ts package.json
+git commit -m "feat: add sample VN location seed data and seed script"
 ```
+
+**Follow-up (explicitly out of scope for this plan):** replace the sample dataset with a real snapshot fetched from `provinces.open-api.vn` v2, saved as `back-end/prisma/data/vn-locations.json`, and re-run seeding — track this as a separate task when ready.
 
 ---
 
-# Part B — Location & Address APIs
-
-### Task 6: Location module (public, read-only)
+### Task 8: Locations module (public read API)
 
 **Files:**
 - Create: `back-end/src/modules/locations/location.types.ts`
 - Create: `back-end/src/modules/locations/location.repo.ts`
 - Create: `back-end/src/modules/locations/location.service.ts`
+- Create: `back-end/src/modules/locations/location.mapper.ts`
+- Create: `back-end/src/modules/locations/location.validation.ts`
 - Create: `back-end/src/modules/locations/location.controller.ts`
 - Create: `back-end/src/modules/locations/location.routes.ts`
 - Modify: `back-end/src/routes/index.ts`
-- Test: `back-end/tests/modules/locations/location.service.test.ts`
+- Test: `back-end/src/modules/locations/location.service.test.ts`
 
 - [ ] **Step 1: Types**
 
 ```ts
 // back-end/src/modules/locations/location.types.ts
-export type ProvinceDto = {
+export type ProvinceDTO = {
   code: string
   name: string
 }
 
-export type WardDto = {
+export type WardDTO = {
   code: string
   name: string
+  provinceCode: string
 }
 ```
 
@@ -723,10 +822,7 @@ export const LocationRepo = {
   },
 
   async listWardsByProvince(provinceCode: string) {
-    return prisma.ward.findMany({
-      where: { provinceCode },
-      orderBy: { name: 'asc' },
-    })
+    return prisma.ward.findMany({ where: { provinceCode }, orderBy: { name: 'asc' } })
   },
 
   async findWard(code: string) {
@@ -735,78 +831,127 @@ export const LocationRepo = {
 }
 ```
 
-- [ ] **Step 3: Write the failing service test**
+- [ ] **Step 3: Mapper**
 
 ```ts
-// back-end/tests/modules/locations/location.service.test.ts
+// back-end/src/modules/locations/location.mapper.ts
+import type { Province, Ward } from '~/generated/prisma/client'
+import type { ProvinceDTO, WardDTO } from '~/modules/locations/location.types'
+
+export function toProvinceDTO(province: Province): ProvinceDTO {
+  return { code: province.code, name: province.name }
+}
+
+export function toWardDTO(ward: Ward): WardDTO {
+  return { code: ward.code, name: ward.name, provinceCode: ward.provinceCode }
+}
+```
+
+- [ ] **Step 4: Write the failing service test**
+
+```ts
+// back-end/src/modules/locations/location.service.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError } from '~/core/http/ApiError'
+vi.mock('~/modules/locations/location.repo', () => ({
+  LocationRepo: {
+    listProvinces: vi.fn(),
+    findProvince: vi.fn(),
+    listWardsByProvince: vi.fn(),
+  },
+}))
+
 import { LocationRepo } from '~/modules/locations/location.repo'
 import { LocationService } from '~/modules/locations/location.service'
+import { ApiError } from '~/core/http/ApiError'
 
-vi.mock('~/modules/locations/location.repo')
-
-describe('LocationService.listWards', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it('returns wards when the province exists', async () => {
-    vi.mocked(LocationRepo.findProvince).mockResolvedValue({ code: '1', name: 'Hà Nội' } as never)
-    vi.mocked(LocationRepo.listWardsByProvince).mockResolvedValue([
-      { code: '4', name: 'Phường Ba Đình', provinceCode: '1' } as never,
-    ])
-
-    const wards = await LocationService.listWards('1')
-    expect(wards).toEqual([{ code: '4', name: 'Phường Ba Đình' }])
+describe('LocationService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('throws LOCATION_NOT_FOUND for an unknown province', async () => {
+  it('lists provinces mapped to DTOs', async () => {
+    vi.mocked(LocationRepo.listProvinces).mockResolvedValue([
+      { code: 'HN', name: 'Thành phố Hà Nội' },
+    ] as never)
+
+    const result = await LocationService.listProvinces()
+    expect(result).toEqual([{ code: 'HN', name: 'Thành phố Hà Nội' }])
+  })
+
+  it('throws LOCATION_NOT_FOUND when listing wards for an unknown province', async () => {
     vi.mocked(LocationRepo.findProvince).mockResolvedValue(null)
-    await expect(LocationService.listWards('999')).rejects.toMatchObject({
-      statusCode: 404,
+
+    await expect(LocationService.listWards('XX')).rejects.toMatchObject({
       code: 'LOCATION_NOT_FOUND',
     })
+  })
+
+  it('lists wards for a known province', async () => {
+    vi.mocked(LocationRepo.findProvince).mockResolvedValue({ code: 'HN', name: 'Hà Nội' } as never)
+    vi.mocked(LocationRepo.listWardsByProvince).mockResolvedValue([
+      { code: 'HN-BD', name: 'Phường Ba Đình', provinceCode: 'HN' },
+    ] as never)
+
+    const result = await LocationService.listWards('HN')
+    expect(result).toEqual([{ code: 'HN-BD', name: 'Phường Ba Đình', provinceCode: 'HN' }])
   })
 })
 ```
 
-- [ ] **Step 4: Run to verify it fails**
+- [ ] **Step 5: Run test to verify it fails**
 
-Run: `cd back-end && npm test -- location.service`
-Expected: FAIL — `LocationService` doesn't exist yet.
+Run: `cd back-end && npx vitest run src/modules/locations/location.service.test.ts`
+Expected: FAIL — `location.service` doesn't exist.
 
-- [ ] **Step 5: Implement the service**
+- [ ] **Step 6: Service**
 
 ```ts
 // back-end/src/modules/locations/location.service.ts
 import { ApiError } from '~/core/http/ApiError'
-import { ErrorCode } from '~/core/http/errorCodes'
+import { toProvinceDTO, toWardDTO } from '~/modules/locations/location.mapper'
 import { LocationRepo } from '~/modules/locations/location.repo'
-import type { ProvinceDto, WardDto } from '~/modules/locations/location.types'
 
 export const LocationService = {
-  async listProvinces(): Promise<ProvinceDto[]> {
+  async listProvinces() {
     const provinces = await LocationRepo.listProvinces()
-    return provinces.map((p) => ({ code: p.code, name: p.name }))
+    return provinces.map(toProvinceDTO)
   },
 
-  async listWards(provinceCode: string): Promise<WardDto[]> {
+  async listWards(provinceCode: string) {
     const province = await LocationRepo.findProvince(provinceCode)
     if (!province) {
-      throw ApiError.NotFound('Province not found', { provinceCode }, ErrorCode.LOCATION_NOT_FOUND)
+      throw ApiError.NotFound('Province not found', undefined, 'LOCATION_NOT_FOUND')
     }
     const wards = await LocationRepo.listWardsByProvince(provinceCode)
-    return wards.map((w) => ({ code: w.code, name: w.name }))
+    return wards.map(toWardDTO)
   },
 }
 ```
 
-- [ ] **Step 6: Run to verify it passes**
+- [ ] **Step 7: Run test to verify it passes**
 
-Run: `cd back-end && npm test -- location.service`
-Expected: `2 passed`
+Run: `cd back-end && npx vitest run src/modules/locations/location.service.test.ts`
+Expected: PASS, 3 tests.
 
-- [ ] **Step 7: Controller + routes**
+- [ ] **Step 8: Validation**
+
+```ts
+// back-end/src/modules/locations/location.validation.ts
+import { z } from 'zod'
+
+import { ZodEmptyObject } from '~/core/validate/validateRequest'
+
+export const ListWardsSchema = z.object({
+  body: ZodEmptyObject,
+  query: ZodEmptyObject,
+  params: z.object({
+    code: z.string().trim().min(1),
+  }),
+})
+```
+
+- [ ] **Step 9: Controller**
 
 ```ts
 // back-end/src/modules/locations/location.controller.ts
@@ -827,63 +972,81 @@ export const LocationController = {
 }
 ```
 
+- [ ] **Step 10: Routes**
+
 ```ts
 // back-end/src/modules/locations/location.routes.ts
 import { Router } from 'express'
 
 import { asyncHandler } from '~/core/asyncHandler'
+import { validateRequest } from '~/core/validate/validateRequest'
 import { LocationController } from '~/modules/locations/location.controller'
+import { ListWardsSchema } from '~/modules/locations/location.validation'
 
 const r = Router()
 
-// Public, read-only — no auth required.
 r.get('/provinces', asyncHandler(LocationController.listProvinces))
-r.get('/provinces/:code/wards', asyncHandler(LocationController.listWards))
+r.get(
+  '/provinces/:code/wards',
+  validateRequest(ListWardsSchema),
+  asyncHandler(LocationController.listWards),
+)
 
 export default r
 ```
 
-- [ ] **Step 8: Wire into `routes/index.ts`**
+- [ ] **Step 11: Register in `routes/index.ts`**
 
-Add the import and mount alongside the others:
+Add the import and registration (public route, no auth needed):
+
 ```ts
 import locationRoutes from '~/modules/locations/location.routes'
 // ...
 router.use('/locations', locationRoutes)
 ```
 
-- [ ] **Step 9: Manual smoke test against the running server**
+- [ ] **Step 12: Manual verification**
 
 Run: `cd back-end && npm run dev` (in one terminal), then in another:
-`curl http://localhost:3000/api/locations/provinces | head -c 300`
-Expected: a JSON array of `{code, name}` starting with an actual province. Then `curl http://localhost:3000/api/locations/provinces/1/wards | head -c 300` returns a non-empty array (adjust `1` to whatever code your seeded data actually uses for a real province — check via the provinces call above).
+`curl http://localhost:3000/api/locations/provinces`
+Expected: JSON array of 3 provinces (from Task 7's seed).
+`curl http://localhost:3000/api/locations/provinces/HN/wards`
+Expected: JSON array of 3 wards.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
-git add back-end/src/modules/locations back-end/src/routes/index.ts back-end/tests/modules/locations
-git commit -m "feat: add public VN location (province/ward) API"
+cd back-end
+git add src/modules/locations src/routes/index.ts
+git commit -m "feat: add public VN locations API (provinces/wards)"
 ```
 
 ---
 
-### Task 7: Address module
+### Task 9: Address module — types & validation
 
 **Files:**
 - Create: `back-end/src/modules/addresses/address.types.ts`
 - Create: `back-end/src/modules/addresses/address.validation.ts`
-- Create: `back-end/src/modules/addresses/address.repo.ts`
-- Create: `back-end/src/modules/addresses/address.service.ts`
-- Create: `back-end/src/modules/addresses/address.controller.ts`
-- Create: `back-end/src/modules/addresses/address.routes.ts`
-- Modify: `back-end/src/routes/index.ts`
-- Test: `back-end/tests/modules/addresses/address.service.test.ts`
 
 - [ ] **Step 1: Types**
 
 ```ts
 // back-end/src/modules/addresses/address.types.ts
-export type CreateAddressInput = {
+export type AddressDTO = {
+  id: string
+  label?: string
+  recipientName: string
+  phone: string
+  provinceCode: string
+  provinceName: string
+  wardCode: string
+  wardName: string
+  detail: string
+  isDefault: boolean
+}
+
+export type UpsertAddressInput = {
   label?: string
   recipientName: string
   phone: string
@@ -893,12 +1056,12 @@ export type CreateAddressInput = {
   isDefault?: boolean
 }
 
-export type UpdateAddressInput = Partial<CreateAddressInput>
+export type PatchAddressInput = Partial<UpsertAddressInput>
 ```
 
 - [ ] **Step 2: Validation**
 
-VN phone regex covers current mobile prefixes (3/5/7/8/9) plus the `+84` form, per the spec.
+VN phone regex covers current mobile prefixes (03/05/07/08/09) with `0` or `+84` prefix, per the spec.
 
 ```ts
 // back-end/src/modules/addresses/address.validation.ts
@@ -906,64 +1069,98 @@ import { z } from 'zod'
 
 import { ZodEmptyObject } from '~/core/validate/validateRequest'
 
-const VN_PHONE_REGEX = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
+export const VN_PHONE_REGEX = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
 
-const addressBodySchema = z.object({
+const phoneSchema = z.string().trim().regex(VN_PHONE_REGEX, 'Invalid Vietnamese phone number')
+
+const upsertBodySchema = z.object({
   label: z.string().trim().max(50).optional(),
-  recipientName: z.string().trim().min(1).max(255),
-  phone: z.string().trim().regex(VN_PHONE_REGEX, 'Invalid Vietnamese phone number'),
+  recipientName: z.string().trim().min(1).max(100),
+  phone: phoneSchema,
   provinceCode: z.string().trim().min(1),
   wardCode: z.string().trim().min(1),
-  detail: z.string().trim().min(1).max(500),
+  detail: z.string().trim().min(1).max(255),
   isDefault: z.boolean().optional(),
 })
 
-const patchAddressBodySchema = addressBodySchema.partial().superRefine((data, ctx) => {
-  if (Object.keys(data).length === 0) {
-    ctx.addIssue({ code: 'custom', message: 'At least one field is required', path: [] })
-  }
-})
-
-const idParamsSchema = z.object({ id: z.string().trim().min(1) })
-
 export const CreateAddressSchema = z.object({
-  body: addressBodySchema,
+  body: upsertBodySchema,
   query: ZodEmptyObject,
   params: ZodEmptyObject,
 })
 
-export const UpdateAddressSchema = z.object({
-  body: patchAddressBodySchema,
+const patchBodySchema = upsertBodySchema
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'At least one field is required',
+  })
+
+export const PatchAddressSchema = z.object({
+  body: patchBodySchema,
   query: ZodEmptyObject,
-  params: idParamsSchema,
+  params: z.object({ id: z.string().trim().min(1) }),
 })
 
-export const AddressIdSchema = z.object({
+export const AddressIdParamSchema = z.object({
   body: ZodEmptyObject,
   query: ZodEmptyObject,
-  params: idParamsSchema,
+  params: z.object({ id: z.string().trim().min(1) }),
 })
 ```
 
-- [ ] **Step 3: Repo**
+- [ ] **Step 3: Commit**
+
+```bash
+cd back-end
+git add src/modules/addresses/address.types.ts src/modules/addresses/address.validation.ts
+git commit -m "feat: add address module types and validation"
+```
+
+---
+
+### Task 10: Address module — repo
+
+Implements the single-default-address invariant at the service/repo layer (no DB-level uniqueness constraint is possible for "isDefault=true per user" in Prisma/MySQL).
+
+**Files:**
+- Create: `back-end/src/modules/addresses/address.repo.ts`
+
+- [ ] **Step 1: Implement**
 
 ```ts
 // back-end/src/modules/addresses/address.repo.ts
 import { prisma } from '~/lib/prisma'
 import { newId } from '~/utils/id'
-import type { CreateAddressInput, UpdateAddressInput } from '~/modules/addresses/address.types'
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
+export type AddressRow = {
+  label?: string
+  recipientName: string
+  phone: string
+  provinceCode: string
+  provinceName: string
+  wardCode: string
+  wardName: string
+  detail: string
+}
+
+async function clearDefaultForUser(tx: Tx, userId: string, exceptId?: string) {
+  await tx.address.updateMany({
+    where: { userId, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    data: { isDefault: false },
+  })
+}
+
 export const AddressRepo = {
-  async list(userId: string) {
+  async listByUser(userId: string) {
     return prisma.address.findMany({
       where: { userId },
       orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
     })
   },
 
-  async findOwned(id: string, userId: string) {
+  async findByIdForUser(id: string, userId: string) {
     return prisma.address.findFirst({ where: { id, userId } })
   },
 
@@ -971,24 +1168,257 @@ export const AddressRepo = {
     return prisma.address.count({ where: { userId } })
   },
 
-  async clearDefaultForUser(tx: Tx, userId: string, exceptId?: string) {
-    await tx.address.updateMany({
-      where: { userId, ...(exceptId ? { id: { not: exceptId } } : {}) },
-      data: { isDefault: false },
+  async create(userId: string, row: AddressRow, makeDefault: boolean) {
+    return prisma.$transaction(async (tx) => {
+      if (makeDefault) await clearDefaultForUser(tx, userId)
+      return tx.address.create({
+        data: { id: newId(), userId, isDefault: makeDefault, ...row },
+      })
     })
   },
 
-  async create(
-    tx: Tx,
-    userId: string,
-    provinceName: string,
-    wardName: string,
-    input: CreateAddressInput,
-  ) {
-    return tx.address.create({
-      data: {
-        id: newId(),
-        userId,
+  async update(id: string, userId: string, row: Partial<AddressRow>, makeDefault?: boolean) {
+    return prisma.$transaction(async (tx) => {
+      if (makeDefault) await clearDefaultForUser(tx, userId, id)
+      return tx.address.update({
+        where: { id },
+        data: {
+          ...row,
+          ...(makeDefault !== undefined ? { isDefault: makeDefault } : {}),
+        },
+      })
+    })
+  },
+
+  async setAsDefault(id: string, userId: string) {
+    return prisma.$transaction(async (tx) => {
+      await clearDefaultForUser(tx, userId, id)
+      return tx.address.update({ where: { id }, data: { isDefault: true } })
+    })
+  },
+
+  /** Order stores an address snapshot, not a FK, so deleting an Address never affects past orders. */
+  async delete(id: string, userId: string) {
+    return prisma.$transaction(async (tx) => {
+      const address = await tx.address.delete({ where: { id } })
+      if (address.isDefault) {
+        const next = await tx.address.findFirst({
+          where: { userId },
+          orderBy: { updatedAt: 'desc' },
+        })
+        if (next) {
+          await tx.address.update({ where: { id: next.id }, data: { isDefault: true } })
+        }
+      }
+      return address
+    })
+  },
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+cd back-end
+git add src/modules/addresses/address.repo.ts
+git commit -m "feat: add address repo with single-default-address invariant"
+```
+
+---
+
+### Task 11: Address module — service, mapper, unit tests
+
+**Files:**
+- Create: `back-end/src/modules/addresses/address.mapper.ts`
+- Create: `back-end/src/modules/addresses/address.service.ts`
+- Test: `back-end/src/modules/addresses/address.service.test.ts`
+
+- [ ] **Step 1: Mapper**
+
+```ts
+// back-end/src/modules/addresses/address.mapper.ts
+import type { Address } from '~/generated/prisma/client'
+import type { AddressDTO } from '~/modules/addresses/address.types'
+
+export function toAddressDTO(address: Address): AddressDTO {
+  return {
+    id: address.id,
+    label: address.label ?? undefined,
+    recipientName: address.recipientName,
+    phone: address.phone,
+    provinceCode: address.provinceCode,
+    provinceName: address.provinceName,
+    wardCode: address.wardCode,
+    wardName: address.wardName,
+    detail: address.detail,
+    isDefault: address.isDefault,
+  }
+}
+```
+
+- [ ] **Step 2: Write the failing service test**
+
+```ts
+// back-end/src/modules/addresses/address.service.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('~/modules/addresses/address.repo', () => ({
+  AddressRepo: {
+    listByUser: vi.fn(),
+    findByIdForUser: vi.fn(),
+    countByUser: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    setAsDefault: vi.fn(),
+    delete: vi.fn(),
+  },
+}))
+vi.mock('~/modules/locations/location.repo', () => ({
+  LocationRepo: {
+    findProvince: vi.fn(),
+    findWard: vi.fn(),
+  },
+}))
+
+import { AddressRepo } from '~/modules/addresses/address.repo'
+import { LocationRepo } from '~/modules/locations/location.repo'
+import { AddressService } from '~/modules/addresses/address.service'
+
+const baseAddress = {
+  id: 'addr-1',
+  label: null,
+  recipientName: 'Nguyen Van A',
+  phone: '0901234567',
+  provinceCode: 'HN',
+  provinceName: 'Thành phố Hà Nội',
+  wardCode: 'HN-BD',
+  wardName: 'Phường Ba Đình',
+  detail: '1 Doi Can',
+  isDefault: true,
+}
+
+describe('AddressService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rejects an invalid VN phone number on create', async () => {
+    await expect(
+      AddressService.create('user-1', {
+        recipientName: 'A',
+        phone: '123',
+        provinceCode: 'HN',
+        wardCode: 'HN-BD',
+        detail: 'x',
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('rejects when the ward does not belong to the given province', async () => {
+    vi.mocked(LocationRepo.findWard).mockResolvedValue({
+      code: 'HN-BD',
+      name: 'Phường Ba Đình',
+      provinceCode: 'HN',
+    } as never)
+
+    await expect(
+      AddressService.create('user-1', {
+        recipientName: 'A',
+        phone: '0901234567',
+        provinceCode: 'HCM', // mismatched
+        wardCode: 'HN-BD',
+        detail: 'x',
+      }),
+    ).rejects.toMatchObject({ code: 'LOCATION_NOT_FOUND' })
+  })
+
+  it('makes the first address for a user default automatically', async () => {
+    vi.mocked(LocationRepo.findWard).mockResolvedValue({
+      code: 'HN-BD',
+      name: 'Phường Ba Đình',
+      provinceCode: 'HN',
+    } as never)
+    vi.mocked(LocationRepo.findProvince).mockResolvedValue({
+      code: 'HN',
+      name: 'Thành phố Hà Nội',
+    } as never)
+    vi.mocked(AddressRepo.countByUser).mockResolvedValue(0)
+    vi.mocked(AddressRepo.create).mockResolvedValue(baseAddress as never)
+
+    await AddressService.create('user-1', {
+      recipientName: 'Nguyen Van A',
+      phone: '0901234567',
+      provinceCode: 'HN',
+      wardCode: 'HN-BD',
+      detail: '1 Doi Can',
+    })
+
+    expect(AddressRepo.create).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ provinceName: 'Thành phố Hà Nội', wardName: 'Phường Ba Đình' }),
+      true, // makeDefault
+    )
+  })
+
+  it('throws ADDRESS_NOT_FOUND when updating an address that is not the user\'s', async () => {
+    vi.mocked(AddressRepo.findByIdForUser).mockResolvedValue(null)
+
+    await expect(
+      AddressService.update('user-1', 'addr-999', { recipientName: 'X' }),
+    ).rejects.toMatchObject({ code: 'ADDRESS_NOT_FOUND' })
+  })
+})
+```
+
+- [ ] **Step 3: Run test to verify it fails**
+
+Run: `cd back-end && npx vitest run src/modules/addresses/address.service.test.ts`
+Expected: FAIL — `address.service` doesn't exist.
+
+- [ ] **Step 4: Implement the service**
+
+```ts
+// back-end/src/modules/addresses/address.service.ts
+import { ApiError } from '~/core/http/ApiError'
+import { toAddressDTO } from '~/modules/addresses/address.mapper'
+import { AddressRepo } from '~/modules/addresses/address.repo'
+import { VN_PHONE_REGEX } from '~/modules/addresses/address.validation'
+import { LocationRepo } from '~/modules/locations/location.repo'
+import type { PatchAddressInput, UpsertAddressInput } from '~/modules/addresses/address.types'
+
+function assertValidPhone(phone: string) {
+  if (!VN_PHONE_REGEX.test(phone)) {
+    throw ApiError.BadRequest('Invalid Vietnamese phone number', undefined, 'VALIDATION_ERROR')
+  }
+}
+
+async function resolveLocation(provinceCode: string, wardCode: string) {
+  const ward = await LocationRepo.findWard(wardCode)
+  if (!ward || ward.provinceCode !== provinceCode) {
+    throw ApiError.NotFound('Province or ward not found', undefined, 'LOCATION_NOT_FOUND')
+  }
+  const province = await LocationRepo.findProvince(provinceCode)
+  if (!province) {
+    throw ApiError.NotFound('Province or ward not found', undefined, 'LOCATION_NOT_FOUND')
+  }
+  return { provinceName: province.name, wardName: ward.name }
+}
+
+export const AddressService = {
+  async list(userId: string) {
+    const addresses = await AddressRepo.listByUser(userId)
+    return addresses.map(toAddressDTO)
+  },
+
+  async create(userId: string, input: UpsertAddressInput) {
+    assertValidPhone(input.phone)
+    const { provinceName, wardName } = await resolveLocation(input.provinceCode, input.wardCode)
+    const existingCount = await AddressRepo.countByUser(userId)
+    const makeDefault = existingCount === 0 || Boolean(input.isDefault)
+
+    const address = await AddressRepo.create(
+      userId,
+      {
         label: input.label,
         recipientName: input.recipientName,
         phone: input.phone,
@@ -997,230 +1427,87 @@ export const AddressRepo = {
         wardCode: input.wardCode,
         wardName,
         detail: input.detail,
-        isDefault: Boolean(input.isDefault),
       },
-    })
+      makeDefault,
+    )
+    return toAddressDTO(address)
   },
 
-  async update(
-    tx: Tx,
-    id: string,
-    data: UpdateAddressInput & { provinceName?: string; wardName?: string },
-  ) {
-    return tx.address.update({ where: { id }, data })
-  },
-
-  async delete(id: string) {
-    return prisma.address.delete({ where: { id } })
-  },
-
-  async promoteMostRecentlyUpdated(tx: Tx, userId: string) {
-    const next = await tx.address.findFirst({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-    })
-    if (next) {
-      await tx.address.update({ where: { id: next.id }, data: { isDefault: true } })
+  async update(userId: string, id: string, input: PatchAddressInput) {
+    const existing = await AddressRepo.findByIdForUser(id, userId)
+    if (!existing) {
+      throw ApiError.NotFound('Address not found', undefined, 'ADDRESS_NOT_FOUND')
     }
-  },
-}
-```
 
-- [ ] **Step 4: Write the failing service tests (single-default enforcement is the risky part)**
+    if (input.phone) assertValidPhone(input.phone)
 
-```ts
-// back-end/tests/modules/addresses/address.service.test.ts
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { AddressRepo } from '~/modules/addresses/address.repo'
-import { AddressService } from '~/modules/addresses/address.service'
-import { LocationRepo } from '~/modules/locations/location.repo'
-
-vi.mock('~/modules/addresses/address.repo')
-vi.mock('~/modules/locations/location.repo')
-vi.mock('~/lib/prisma', () => ({
-  prisma: { $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn({})) },
-}))
-
-describe('AddressService.create', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it('validates province/ward exist and the ward belongs to the province', async () => {
-    vi.mocked(LocationRepo.findProvince).mockResolvedValue({ code: 'p1', name: 'Hà Nội' } as never)
-    vi.mocked(LocationRepo.findWard).mockResolvedValue({
-      code: 'w1',
-      name: 'Phường Ba Đình',
-      provinceCode: 'OTHER_PROVINCE',
-    } as never)
-
-    await expect(
-      AddressService.create('user-1', {
-        recipientName: 'A',
-        phone: '0912345678',
-        provinceCode: 'p1',
-        wardCode: 'w1',
-        detail: '1 Đường A',
-      }),
-    ).rejects.toMatchObject({ statusCode: 404, code: 'LOCATION_NOT_FOUND' })
-  })
-
-  it('makes the first address for a user default even if isDefault is not passed', async () => {
-    vi.mocked(LocationRepo.findProvince).mockResolvedValue({ code: 'p1', name: 'Hà Nội' } as never)
-    vi.mocked(LocationRepo.findWard).mockResolvedValue({
-      code: 'w1',
-      name: 'Phường Ba Đình',
-      provinceCode: 'p1',
-    } as never)
-    vi.mocked(AddressRepo.countByUser).mockResolvedValue(0)
-    vi.mocked(AddressRepo.create).mockResolvedValue({ id: 'addr-1', isDefault: true } as never)
-
-    await AddressService.create('user-1', {
-      recipientName: 'A',
-      phone: '0912345678',
-      provinceCode: 'p1',
-      wardCode: 'w1',
-      detail: '1 Đường A',
-    })
-
-    expect(AddressRepo.clearDefaultForUser).toHaveBeenCalledWith(expect.anything(), 'user-1', undefined)
-    expect(AddressRepo.create).toHaveBeenCalledWith(
-      expect.anything(),
-      'user-1',
-      'Hà Nội',
-      'Phường Ba Đình',
-      expect.objectContaining({ isDefault: true }),
-    )
-  })
-})
-
-describe('AddressService.setAsDefault', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it('clears every other address before setting the target as default', async () => {
-    vi.mocked(AddressRepo.findOwned).mockResolvedValue({ id: 'addr-2', userId: 'user-1' } as never)
-
-    await AddressService.setAsDefault('addr-2', 'user-1')
-
-    expect(AddressRepo.clearDefaultForUser).toHaveBeenCalledWith(expect.anything(), 'user-1', 'addr-2')
-    expect(AddressRepo.update).toHaveBeenCalledWith(expect.anything(), 'addr-2', { isDefault: true })
-  })
-
-  it('throws ADDRESS_NOT_FOUND for an address owned by someone else', async () => {
-    vi.mocked(AddressRepo.findOwned).mockResolvedValue(null)
-    await expect(AddressService.setAsDefault('addr-2', 'user-1')).rejects.toMatchObject({
-      statusCode: 404,
-      code: 'ADDRESS_NOT_FOUND',
-    })
-  })
-})
-```
-
-- [ ] **Step 5: Run to verify failure, then implement the service**
-
-Run: `cd back-end && npm test -- address.service` → FAIL (module doesn't exist).
-
-```ts
-// back-end/src/modules/addresses/address.service.ts
-import { ApiError } from '~/core/http/ApiError'
-import { ErrorCode } from '~/core/http/errorCodes'
-import { prisma } from '~/lib/prisma'
-import { AddressRepo } from '~/modules/addresses/address.repo'
-import { LocationRepo } from '~/modules/locations/location.repo'
-import type { CreateAddressInput, UpdateAddressInput } from '~/modules/addresses/address.types'
-
-async function resolveLocationNames(provinceCode: string, wardCode: string) {
-  const province = await LocationRepo.findProvince(provinceCode)
-  if (!province) {
-    throw ApiError.NotFound('Province not found', { provinceCode }, ErrorCode.LOCATION_NOT_FOUND)
-  }
-  const ward = await LocationRepo.findWard(wardCode)
-  if (!ward || ward.provinceCode !== provinceCode) {
-    throw ApiError.NotFound(
-      'Ward not found for this province',
-      { provinceCode, wardCode },
-      ErrorCode.LOCATION_NOT_FOUND,
-    )
-  }
-  return { provinceName: province.name, wardName: ward.name }
-}
-
-export const AddressService = {
-  async list(userId: string) {
-    return AddressRepo.list(userId)
-  },
-
-  async create(userId: string, input: CreateAddressInput) {
-    const { provinceName, wardName } = await resolveLocationNames(input.provinceCode, input.wardCode)
-    const existingCount = await AddressRepo.countByUser(userId)
-    const shouldBeDefault = existingCount === 0 || Boolean(input.isDefault)
-
-    return prisma.$transaction(async (tx) => {
-      if (shouldBeDefault) {
-        await AddressRepo.clearDefaultForUser(tx, userId, undefined)
-      }
-      return AddressRepo.create(tx, userId, provinceName, wardName, {
-        ...input,
-        isDefault: shouldBeDefault,
-      })
-    })
-  },
-
-  async update(id: string, userId: string, input: UpdateAddressInput) {
-    const existing = await AddressRepo.findOwned(id, userId)
-    if (!existing) throw ApiError.NotFound('Address not found', { id }, ErrorCode.ADDRESS_NOT_FOUND)
-
-    let provinceName: string | undefined
-    let wardName: string | undefined
+    let locationFields: { provinceName: string; wardName: string } | undefined
     if (input.provinceCode || input.wardCode) {
-      const resolved = await resolveLocationNames(
-        input.provinceCode ?? existing.provinceCode,
-        input.wardCode ?? existing.wardCode,
-      )
-      provinceName = resolved.provinceName
-      wardName = resolved.wardName
+      const provinceCode = input.provinceCode ?? existing.provinceCode
+      const wardCode = input.wardCode ?? existing.wardCode
+      locationFields = await resolveLocation(provinceCode, wardCode)
     }
 
-    return prisma.$transaction(async (tx) => {
-      if (input.isDefault) {
-        await AddressRepo.clearDefaultForUser(tx, userId, id)
-      }
-      return AddressRepo.update(tx, id, { ...input, provinceName, wardName })
-    })
+    const address = await AddressRepo.update(
+      id,
+      userId,
+      {
+        ...(input.label !== undefined ? { label: input.label } : {}),
+        ...(input.recipientName ? { recipientName: input.recipientName } : {}),
+        ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.provinceCode ? { provinceCode: input.provinceCode } : {}),
+        ...(input.wardCode ? { wardCode: input.wardCode } : {}),
+        ...(input.detail ? { detail: input.detail } : {}),
+        ...(locationFields ?? {}),
+      },
+      input.isDefault,
+    )
+    return toAddressDTO(address)
   },
 
-  async setAsDefault(id: string, userId: string) {
-    const existing = await AddressRepo.findOwned(id, userId)
-    if (!existing) throw ApiError.NotFound('Address not found', { id }, ErrorCode.ADDRESS_NOT_FOUND)
-
-    return prisma.$transaction(async (tx) => {
-      await AddressRepo.clearDefaultForUser(tx, userId, id)
-      return AddressRepo.update(tx, id, { isDefault: true })
-    })
-  },
-
-  async remove(id: string, userId: string) {
-    const existing = await AddressRepo.findOwned(id, userId)
-    if (!existing) throw ApiError.NotFound('Address not found', { id }, ErrorCode.ADDRESS_NOT_FOUND)
-
-    await AddressRepo.delete(id)
-
-    if (existing.isDefault) {
-      await prisma.$transaction(async (tx) => {
-        await AddressRepo.promoteMostRecentlyUpdated(tx, userId)
-      })
+  async setDefault(userId: string, id: string) {
+    const existing = await AddressRepo.findByIdForUser(id, userId)
+    if (!existing) {
+      throw ApiError.NotFound('Address not found', undefined, 'ADDRESS_NOT_FOUND')
     }
+    const address = await AddressRepo.setAsDefault(id, userId)
+    return toAddressDTO(address)
+  },
 
+  async remove(userId: string, id: string) {
+    const existing = await AddressRepo.findByIdForUser(id, userId)
+    if (!existing) {
+      throw ApiError.NotFound('Address not found', undefined, 'ADDRESS_NOT_FOUND')
+    }
+    await AddressRepo.delete(id, userId)
     return { id }
   },
 }
 ```
 
-- [ ] **Step 6: Run to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd back-end && npm test -- address.service`
-Expected: `4 passed`
+Run: `cd back-end && npx vitest run src/modules/addresses/address.service.test.ts`
+Expected: PASS, 4 tests.
 
-- [ ] **Step 7: Controller + routes**
+- [ ] **Step 6: Commit**
+
+```bash
+cd back-end
+git add src/modules/addresses/address.mapper.ts src/modules/addresses/address.service.ts src/modules/addresses/address.service.test.ts
+git commit -m "feat: add address service with phone/location validation and tests"
+```
+
+---
+
+### Task 12: Address module — controller, routes, register
+
+**Files:**
+- Create: `back-end/src/modules/addresses/address.controller.ts`
+- Create: `back-end/src/modules/addresses/address.routes.ts`
+- Modify: `back-end/src/routes/index.ts`
+
+- [ ] **Step 1: Controller**
 
 ```ts
 // back-end/src/modules/addresses/address.controller.ts
@@ -1228,64 +1515,76 @@ import { Response } from 'express'
 
 import { AuthRequest } from '~/core/auth/auth.middleware'
 import { AddressService } from '~/modules/addresses/address.service'
-import type { CreateAddressInput, UpdateAddressInput } from '~/modules/addresses/address.types'
+import type { PatchAddressInput, UpsertAddressInput } from '~/modules/addresses/address.types'
 
 export const AddressController = {
   list: async (req: AuthRequest, res: Response) => {
     const addresses = await AddressService.list(req.user!.id)
     return res.json(addresses)
   },
+
   create: async (req: AuthRequest, res: Response) => {
-    const address = await AddressService.create(req.user!.id, req.body as CreateAddressInput)
+    const address = await AddressService.create(req.user!.id, req.body as UpsertAddressInput)
     return res.status(201).json(address)
   },
+
   update: async (req: AuthRequest, res: Response) => {
     const address = await AddressService.update(
-      String(req.params.id),
       req.user!.id,
-      req.body as UpdateAddressInput,
+      String(req.params.id),
+      req.body as PatchAddressInput,
     )
     return res.json(address)
   },
+
   setDefault: async (req: AuthRequest, res: Response) => {
-    const address = await AddressService.setAsDefault(String(req.params.id), req.user!.id)
+    const address = await AddressService.setDefault(req.user!.id, String(req.params.id))
     return res.json(address)
   },
+
   remove: async (req: AuthRequest, res: Response) => {
-    const result = await AddressService.remove(String(req.params.id), req.user!.id)
+    const result = await AddressService.remove(req.user!.id, String(req.params.id))
     return res.json(result)
   },
 }
 ```
 
+- [ ] **Step 2: Routes**
+
 ```ts
 // back-end/src/modules/addresses/address.routes.ts
 import { Router } from 'express'
 
+import { permissions } from '~/config/rbacConfig'
 import { authenticate } from '~/core/auth/auth.middleware'
+import { requirePermission } from '~/core/auth/requirePermission'
 import { asyncHandler } from '~/core/asyncHandler'
 import { validateRequest } from '~/core/validate/validateRequest'
 import { AddressController } from '~/modules/addresses/address.controller'
 import {
-  AddressIdSchema,
+  AddressIdParamSchema,
   CreateAddressSchema,
-  UpdateAddressSchema,
+  PatchAddressSchema,
 } from '~/modules/addresses/address.validation'
 
 const r = Router()
 
-r.use(authenticate)
+r.use(authenticate, requirePermission(permissions.VIEW_USER))
 
 r.get('/', asyncHandler(AddressController.list))
 r.post('/', validateRequest(CreateAddressSchema), asyncHandler(AddressController.create))
-r.patch('/:id', validateRequest(UpdateAddressSchema), asyncHandler(AddressController.update))
-r.patch('/:id/default', validateRequest(AddressIdSchema), asyncHandler(AddressController.setDefault))
-r.delete('/:id', validateRequest(AddressIdSchema), asyncHandler(AddressController.remove))
+r.patch('/:id', validateRequest(PatchAddressSchema), asyncHandler(AddressController.update))
+r.patch(
+  '/:id/default',
+  validateRequest(AddressIdParamSchema),
+  asyncHandler(AddressController.setDefault),
+)
+r.delete('/:id', validateRequest(AddressIdParamSchema), asyncHandler(AddressController.remove))
 
 export default r
 ```
 
-- [ ] **Step 8: Wire into `routes/index.ts`**
+- [ ] **Step 3: Register in `routes/index.ts`**
 
 ```ts
 import addressRoutes from '~/modules/addresses/address.routes'
@@ -1293,36 +1592,36 @@ import addressRoutes from '~/modules/addresses/address.routes'
 router.use('/addresses', addressRoutes)
 ```
 
-- [ ] **Step 9: Full backend test run + typecheck**
+- [ ] **Step 4: Manual verification**
 
-Run: `cd back-end && npm test && npm run typecheck`
-Expected: all green.
-
-- [ ] **Step 10: Commit**
+Run: `cd back-end && npm run dev`, then (with a valid `ACCESS_TOKEN` from logging in as a seeded user):
 
 ```bash
-git add back-end/src/modules/addresses back-end/src/routes/index.ts back-end/tests/modules/addresses
-git commit -m "feat: add Address CRUD API with single-default enforcement"
+curl -X POST http://localhost:3000/api/addresses \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"recipientName":"Nguyen Van A","phone":"0901234567","provinceCode":"HN","wardCode":"HN-BD","detail":"1 Doi Can"}'
+```
+
+Expected: `201` with the created address, `isDefault: true` (first address).
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd back-end
+git add src/modules/addresses/address.controller.ts src/modules/addresses/address.routes.ts src/routes/index.ts
+git commit -m "feat: expose address CRUD API"
 ```
 
 ---
 
-# Part C — Cart API
-
-### Task 8: Cart module
+### Task 13: Cart module — types, validation, repo
 
 **Files:**
 - Create: `back-end/src/modules/cart/cart.types.ts`
 - Create: `back-end/src/modules/cart/cart.validation.ts`
-- Create: `back-end/src/modules/cart/cart.mapper.ts`
 - Create: `back-end/src/modules/cart/cart.repo.ts`
-- Create: `back-end/src/modules/cart/cart.service.ts`
-- Create: `back-end/src/modules/cart/cart.controller.ts`
-- Create: `back-end/src/modules/cart/cart.routes.ts`
-- Modify: `back-end/src/routes/index.ts`
-- Test: `back-end/tests/modules/cart/cart.service.test.ts`
 
-- [ ] **Step 1: Types + mapper (DTO shape returned to the client)**
+- [ ] **Step 1: Types**
 
 ```ts
 // back-end/src/modules/cart/cart.types.ts
@@ -1336,253 +1635,27 @@ export type UpdateCartItemInput = {
   selected?: boolean
 }
 
-export type CartItemDto = {
+export type CartItemDTO = {
   id: string
   variantId: string
+  productId: string
   productName: string
   variantLabel: string
-  imageUrl: string | null
+  imageUrl?: string
   price: number
   quantity: number
   selected: boolean
   stockQuantity: number
 }
 
-export type CartDto = {
-  id: string
+export type CartDTO = {
+  id: string | null
+  items: CartItemDTO[]
   countProduct: number
-  items: CartItemDto[]
 }
 ```
 
-```ts
-// back-end/src/modules/cart/cart.mapper.ts
-import type { CartDto, CartItemDto } from '~/modules/cart/cart.types'
-import type { CartWithItems } from '~/modules/cart/cart.repo'
-
-export function toCartDto(cart: CartWithItems): CartDto {
-  const items: CartItemDto[] = cart.items.map((item) => ({
-    id: item.id,
-    variantId: item.variantId,
-    productName: item.variant.product.name,
-    variantLabel: item.variant.options.map((o) => o.optionValue.value).join(' / '),
-    imageUrl: item.variant.imgUrl ?? item.variant.product.thumbnail ?? null,
-    // Always the live price, never the stored snapshot — the cart is not an order yet.
-    price: Number(item.variant.price),
-    quantity: item.quantity,
-    selected: item.selected,
-    stockQuantity: item.variant.stockQuantity,
-  }))
-
-  return { id: cart.id, countProduct: cart.countProduct, items }
-}
-```
-
-- [ ] **Step 2: Repo**
-
-```ts
-// back-end/src/modules/cart/cart.repo.ts
-import { prisma } from '~/lib/prisma'
-import { newId } from '~/utils/id'
-
-const cartItemInclude = {
-  variant: {
-    include: {
-      product: { select: { name: true, thumbnail: true } },
-      options: { include: { optionValue: true } },
-    },
-  },
-} as const
-
-const cartInclude = {
-  items: { include: cartItemInclude, orderBy: { createdAt: 'asc' as const } },
-} as const
-
-export type CartWithItems = Awaited<ReturnType<typeof CartRepo.getOrCreateActiveCart>>
-
-export const CartRepo = {
-  async getOrCreateActiveCart(userId: string) {
-    const existing = await prisma.cart.findFirst({
-      where: { userId, state: 'ACTIVE' },
-      include: cartInclude,
-    })
-    if (existing) return existing
-
-    await prisma.cart.create({
-      data: { id: newId(), userId, state: 'ACTIVE' },
-    })
-    return prisma.cart.findFirstOrThrow({
-      where: { userId, state: 'ACTIVE' },
-      include: cartInclude,
-    })
-  },
-
-  async findItem(cartId: string, itemId: string) {
-    return prisma.cartItem.findFirst({ where: { id: itemId, cartId } })
-  },
-
-  async findItemByVariant(cartId: string, variantId: string) {
-    return prisma.cartItem.findUnique({ where: { cartId_variantId: { cartId, variantId } } })
-  },
-
-  async findVariant(variantId: string) {
-    return prisma.productVariant.findUnique({ where: { id: variantId } })
-  },
-
-  /** Recompute countProduct as the number of distinct line items and persist it. */
-  async syncCountProduct(cartId: string) {
-    const count = await prisma.cartItem.count({ where: { cartId } })
-    await prisma.cart.update({ where: { id: cartId }, data: { countProduct: count } })
-  },
-
-  async createItem(cartId: string, variantId: string, quantity: number) {
-    await prisma.cartItem.create({
-      data: { id: newId(), cartId, variantId, quantity, price: 0, name: '', selected: true },
-    })
-    await this.syncCountProduct(cartId)
-  },
-
-  async incrementItemQuantity(itemId: string, by: number) {
-    await prisma.cartItem.update({ where: { id: itemId }, data: { quantity: { increment: by } } })
-  },
-
-  async updateItem(itemId: string, data: { quantity?: number; selected?: boolean }) {
-    await prisma.cartItem.update({ where: { id: itemId }, data })
-  },
-
-  async deleteItem(cartId: string, itemId: string) {
-    await prisma.cartItem.delete({ where: { id: itemId } })
-    await this.syncCountProduct(cartId)
-  },
-
-  async setSelectedForAll(cartId: string, selected: boolean) {
-    await prisma.cartItem.updateMany({ where: { cartId }, data: { selected } })
-  },
-}
-```
-
-Note: `CartItem.price`/`.name` are legacy fields from the original schema (a price/name snapshot taken when the item was added). This module deliberately does **not** rely on them for display — `cart.mapper.ts` always reads the live `variant.price`/`product.name` per the spec ("Prices are always re-read live... never trusted from stale storage"). They're set to placeholder values on insert and otherwise ignored; a future cleanup could drop them from the schema, but that's out of scope here since `checkout.service` also ignores them.
-
-- [ ] **Step 3: Write the failing service tests**
-
-```ts
-// back-end/tests/modules/cart/cart.service.test.ts
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { ApiError } from '~/core/http/ApiError'
-import { CartRepo } from '~/modules/cart/cart.repo'
-import { CartService } from '~/modules/cart/cart.service'
-
-vi.mock('~/modules/cart/cart.repo')
-
-describe('CartService.addItem', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it('rejects when the variant does not exist', async () => {
-    vi.mocked(CartRepo.findVariant).mockResolvedValue(null)
-    await expect(CartService.addItem('user-1', { variantId: 'v1', quantity: 1 })).rejects.toMatchObject({
-      statusCode: 404,
-    })
-  })
-
-  it('merges quantity when the variant is already in the cart', async () => {
-    vi.mocked(CartRepo.findVariant).mockResolvedValue({ id: 'v1', stockQuantity: 10 } as never)
-    vi.mocked(CartRepo.getOrCreateActiveCart).mockResolvedValue({ id: 'cart-1' } as never)
-    vi.mocked(CartRepo.findItemByVariant).mockResolvedValue({ id: 'item-1', quantity: 2 } as never)
-
-    await CartService.addItem('user-1', { variantId: 'v1', quantity: 3 })
-
-    expect(CartRepo.incrementItemQuantity).toHaveBeenCalledWith('item-1', 3)
-    expect(CartRepo.createItem).not.toHaveBeenCalled()
-  })
-
-  it('creates a new line item when the variant is not already in the cart', async () => {
-    vi.mocked(CartRepo.findVariant).mockResolvedValue({ id: 'v1', stockQuantity: 10 } as never)
-    vi.mocked(CartRepo.getOrCreateActiveCart).mockResolvedValue({ id: 'cart-1' } as never)
-    vi.mocked(CartRepo.findItemByVariant).mockResolvedValue(null)
-
-    await CartService.addItem('user-1', { variantId: 'v1', quantity: 2 })
-
-    expect(CartRepo.createItem).toHaveBeenCalledWith('cart-1', 'v1', 2)
-  })
-})
-```
-
-- [ ] **Step 4: Run to verify failure, then implement the service**
-
-Run: `cd back-end && npm test -- cart.service` → FAIL.
-
-```ts
-// back-end/src/modules/cart/cart.service.ts
-import { ApiError } from '~/core/http/ApiError'
-import { CartRepo } from '~/modules/cart/cart.repo'
-import { toCartDto } from '~/modules/cart/cart.mapper'
-import type { AddCartItemInput, UpdateCartItemInput } from '~/modules/cart/cart.types'
-
-export const CartService = {
-  async getCart(userId: string) {
-    const cart = await CartRepo.getOrCreateActiveCart(userId)
-    return toCartDto(cart)
-  },
-
-  async addItem(userId: string, input: AddCartItemInput) {
-    const variant = await CartRepo.findVariant(input.variantId)
-    if (!variant) throw ApiError.NotFound('Product variant not found')
-
-    const cart = await CartRepo.getOrCreateActiveCart(userId)
-    const existingItem = await CartRepo.findItemByVariant(cart.id, input.variantId)
-
-    if (existingItem) {
-      await CartRepo.incrementItemQuantity(existingItem.id, input.quantity)
-    } else {
-      await CartRepo.createItem(cart.id, input.variantId, input.quantity)
-    }
-
-    const refreshed = await CartRepo.getOrCreateActiveCart(userId)
-    return toCartDto(refreshed)
-  },
-
-  async updateItem(userId: string, itemId: string, input: UpdateCartItemInput) {
-    const cart = await CartRepo.getOrCreateActiveCart(userId)
-    const item = await CartRepo.findItem(cart.id, itemId)
-    if (!item) throw ApiError.NotFound('Cart item not found')
-    if (input.quantity !== undefined && input.quantity < 1) {
-      throw ApiError.BadRequest('Quantity must be at least 1')
-    }
-
-    await CartRepo.updateItem(itemId, input)
-
-    const refreshed = await CartRepo.getOrCreateActiveCart(userId)
-    return toCartDto(refreshed)
-  },
-
-  async removeItem(userId: string, itemId: string) {
-    const cart = await CartRepo.getOrCreateActiveCart(userId)
-    const item = await CartRepo.findItem(cart.id, itemId)
-    if (!item) throw ApiError.NotFound('Cart item not found')
-
-    await CartRepo.deleteItem(cart.id, itemId)
-
-    const refreshed = await CartRepo.getOrCreateActiveCart(userId)
-    return toCartDto(refreshed)
-  },
-
-  async setSelectAll(userId: string, selected: boolean) {
-    const cart = await CartRepo.getOrCreateActiveCart(userId)
-    await CartRepo.setSelectedForAll(cart.id, selected)
-
-    const refreshed = await CartRepo.getOrCreateActiveCart(userId)
-    return toCartDto(refreshed)
-  },
-}
-```
-
-- [ ] **Step 5: Run to verify it passes**
-
-Run: `cd back-end && npm test -- cart.service`
-Expected: `3 passed`
-
-- [ ] **Step 6: Validation, controller, routes**
+- [ ] **Step 2: Validation**
 
 ```ts
 // back-end/src/modules/cart/cart.validation.ts
@@ -1593,7 +1666,7 @@ import { ZodEmptyObject } from '~/core/validate/validateRequest'
 export const AddCartItemSchema = z.object({
   body: z.object({
     variantId: z.string().trim().min(1),
-    quantity: z.coerce.number().int().min(1),
+    quantity: z.coerce.number().int().min(1).max(100),
   }),
   query: ZodEmptyObject,
   params: ZodEmptyObject,
@@ -1602,28 +1675,308 @@ export const AddCartItemSchema = z.object({
 export const UpdateCartItemSchema = z.object({
   body: z
     .object({
-      quantity: z.coerce.number().int().min(1).optional(),
+      quantity: z.coerce.number().int().min(1).max(100).optional(),
       selected: z.boolean().optional(),
     })
-    .refine((data) => data.quantity !== undefined || data.selected !== undefined, {
-      message: 'At least one of quantity or selected is required',
+    .refine((b) => b.quantity !== undefined || b.selected !== undefined, {
+      message: 'At least one field is required',
     }),
   query: ZodEmptyObject,
   params: z.object({ id: z.string().trim().min(1) }),
 })
 
-export const CartItemIdSchema = z.object({
+export const RemoveCartItemSchema = z.object({
   body: ZodEmptyObject,
   query: ZodEmptyObject,
   params: z.object({ id: z.string().trim().min(1) }),
 })
 
-export const SelectAllSchema = z.object({
+export const SelectAllCartItemsSchema = z.object({
   body: z.object({ selected: z.boolean() }),
   query: ZodEmptyObject,
   params: ZodEmptyObject,
 })
 ```
+
+- [ ] **Step 3: Repo**
+
+```ts
+// back-end/src/modules/cart/cart.repo.ts
+import { ApiError } from '~/core/http/ApiError'
+import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+const variantInclude = {
+  product: { select: { id: true, name: true } },
+  options: { include: { optionValue: { include: { option: true } } } },
+} as const
+
+const cartInclude = {
+  items: {
+    include: { variant: { include: variantInclude } },
+    orderBy: { createdAt: 'asc' as const },
+  },
+} as const
+
+export type CartWithItems = Awaited<ReturnType<typeof CartRepo.findActiveByUser>>
+
+async function getOrCreateActiveCart(tx: Tx, userId: string) {
+  const existing = await tx.cart.findFirst({ where: { userId, state: 'ACTIVE' } })
+  if (existing) return existing
+  return tx.cart.create({ data: { id: newId(), userId, state: 'ACTIVE' } })
+}
+
+async function syncCountProduct(tx: Tx, cartId: string) {
+  const count = await tx.cartItem.count({ where: { cartId } })
+  await tx.cart.update({ where: { id: cartId }, data: { countProduct: count } })
+}
+
+async function findCartWithItems(tx: Tx, cartId: string) {
+  return tx.cart.findUniqueOrThrow({ where: { id: cartId }, include: cartInclude })
+}
+
+export const CartRepo = {
+  async findActiveByUser(userId: string) {
+    return prisma.cart.findFirst({ where: { userId, state: 'ACTIVE' }, include: cartInclude })
+  },
+
+  async addItem(userId: string, variantId: string, quantity: number) {
+    return prisma.$transaction(async (tx) => {
+      const cart = await getOrCreateActiveCart(tx, userId)
+      const variant = await tx.productVariant.findUnique({
+        where: { id: variantId },
+        include: { product: { select: { name: true } } },
+      })
+      if (!variant) throw ApiError.NotFound('Product variant not found')
+
+      const existingItem = await tx.cartItem.findUnique({
+        where: { cartId_variantId: { cartId: cart.id, variantId } },
+      })
+
+      if (existingItem) {
+        await tx.cartItem.update({
+          where: { id: existingItem.id },
+          data: { quantity: existingItem.quantity + quantity },
+        })
+      } else {
+        await tx.cartItem.create({
+          data: {
+            id: newId(),
+            cartId: cart.id,
+            variantId,
+            quantity,
+            price: variant.price,
+            name: variant.product.name,
+          },
+        })
+      }
+
+      await syncCountProduct(tx, cart.id)
+      return findCartWithItems(tx, cart.id)
+    })
+  },
+
+  async updateItem(userId: string, itemId: string, data: { quantity?: number; selected?: boolean }) {
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.cartItem.findFirst({ where: { id: itemId, cart: { userId } } })
+      if (!item) throw ApiError.NotFound('Cart item not found')
+
+      await tx.cartItem.update({
+        where: { id: itemId },
+        data: {
+          ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+          ...(data.selected !== undefined ? { selected: data.selected } : {}),
+        },
+      })
+
+      return findCartWithItems(tx, item.cartId)
+    })
+  },
+
+  async removeItem(userId: string, itemId: string) {
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.cartItem.findFirst({ where: { id: itemId, cart: { userId } } })
+      if (!item) throw ApiError.NotFound('Cart item not found')
+
+      await tx.cartItem.delete({ where: { id: itemId } })
+      await syncCountProduct(tx, item.cartId)
+      return findCartWithItems(tx, item.cartId)
+    })
+  },
+
+  async selectAll(userId: string, selected: boolean) {
+    return prisma.$transaction(async (tx) => {
+      const cart = await getOrCreateActiveCart(tx, userId)
+      await tx.cartItem.updateMany({ where: { cartId: cart.id }, data: { selected } })
+      return findCartWithItems(tx, cart.id)
+    })
+  },
+}
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd back-end
+git add src/modules/cart/cart.types.ts src/modules/cart/cart.validation.ts src/modules/cart/cart.repo.ts
+git commit -m "feat: add cart module types, validation, and repo"
+```
+
+---
+
+### Task 14: Cart module — mapper, service, unit tests
+
+**Files:**
+- Create: `back-end/src/modules/cart/cart.mapper.ts`
+- Create: `back-end/src/modules/cart/cart.service.ts`
+- Test: `back-end/src/modules/cart/cart.service.test.ts`
+
+- [ ] **Step 1: Mapper**
+
+```ts
+// back-end/src/modules/cart/cart.mapper.ts
+import type { CartWithItems } from '~/modules/cart/cart.repo'
+import type { CartDTO } from '~/modules/cart/cart.types'
+
+function buildVariantLabel(options: Array<{ optionValue: { value: string } }>): string {
+  return options.map((o) => o.optionValue.value).join(' / ') || 'Default'
+}
+
+export function toCartDTO(cart: NonNullable<CartWithItems>): CartDTO {
+  return {
+    id: cart.id,
+    countProduct: cart.countProduct,
+    items: cart.items.map((item) => ({
+      id: item.id,
+      variantId: item.variantId,
+      productId: item.variant.product.id,
+      productName: item.variant.product.name,
+      variantLabel: buildVariantLabel(item.variant.options),
+      imageUrl: item.variant.imgUrl ?? undefined,
+      price: Number(item.variant.price), // always the live price, not the stored snapshot
+      quantity: item.quantity,
+      selected: item.selected,
+      stockQuantity: item.variant.stockQuantity,
+    })),
+  }
+}
+
+export const EMPTY_CART_DTO: CartDTO = { id: null, items: [], countProduct: 0 }
+```
+
+- [ ] **Step 2: Write the failing service test**
+
+```ts
+// back-end/src/modules/cart/cart.service.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('~/modules/cart/cart.repo', () => ({
+  CartRepo: {
+    findActiveByUser: vi.fn(),
+    addItem: vi.fn(),
+    updateItem: vi.fn(),
+    removeItem: vi.fn(),
+    selectAll: vi.fn(),
+  },
+}))
+
+import { CartRepo } from '~/modules/cart/cart.repo'
+import { CartService } from '~/modules/cart/cart.service'
+
+describe('CartService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns an empty cart DTO when the user has no active cart', async () => {
+    vi.mocked(CartRepo.findActiveByUser).mockResolvedValue(null)
+    const result = await CartService.getMyCart('user-1')
+    expect(result).toEqual({ id: null, items: [], countProduct: 0 })
+  })
+
+  it('rejects adding an item with quantity < 1', async () => {
+    await expect(
+      CartService.addItem('user-1', { variantId: 'v1', quantity: 0 }),
+    ).rejects.toThrow()
+    expect(CartRepo.addItem).not.toHaveBeenCalled()
+  })
+})
+```
+
+- [ ] **Step 3: Run test to verify it fails**
+
+Run: `cd back-end && npx vitest run src/modules/cart/cart.service.test.ts`
+Expected: FAIL — `cart.service` doesn't exist.
+
+- [ ] **Step 4: Implement the service**
+
+```ts
+// back-end/src/modules/cart/cart.service.ts
+import { ApiError } from '~/core/http/ApiError'
+import { EMPTY_CART_DTO, toCartDTO } from '~/modules/cart/cart.mapper'
+import { CartRepo } from '~/modules/cart/cart.repo'
+import type { AddCartItemInput, UpdateCartItemInput } from '~/modules/cart/cart.types'
+
+export const CartService = {
+  async getMyCart(userId: string) {
+    const cart = await CartRepo.findActiveByUser(userId)
+    if (!cart) return EMPTY_CART_DTO
+    return toCartDTO(cart)
+  },
+
+  async addItem(userId: string, input: AddCartItemInput) {
+    if (input.quantity < 1) {
+      throw ApiError.BadRequest('Quantity must be at least 1', undefined, 'VALIDATION_ERROR')
+    }
+    const cart = await CartRepo.addItem(userId, input.variantId, input.quantity)
+    return toCartDTO(cart)
+  },
+
+  async updateItem(userId: string, itemId: string, input: UpdateCartItemInput) {
+    if (input.quantity !== undefined && input.quantity < 1) {
+      throw ApiError.BadRequest('Quantity must be at least 1', undefined, 'VALIDATION_ERROR')
+    }
+    const cart = await CartRepo.updateItem(userId, itemId, input)
+    return toCartDTO(cart)
+  },
+
+  async removeItem(userId: string, itemId: string) {
+    const cart = await CartRepo.removeItem(userId, itemId)
+    return toCartDTO(cart)
+  },
+
+  async selectAll(userId: string, selected: boolean) {
+    const cart = await CartRepo.selectAll(userId, selected)
+    return toCartDTO(cart)
+  },
+}
+```
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `cd back-end && npx vitest run src/modules/cart/cart.service.test.ts`
+Expected: PASS, 2 tests.
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd back-end
+git add src/modules/cart/cart.mapper.ts src/modules/cart/cart.service.ts src/modules/cart/cart.service.test.ts
+git commit -m "feat: add cart mapper, service, and tests"
+```
+
+---
+
+### Task 15: Cart module — controller, routes, register
+
+**Files:**
+- Create: `back-end/src/modules/cart/cart.controller.ts`
+- Create: `back-end/src/modules/cart/cart.routes.ts`
+- Modify: `back-end/src/routes/index.ts`
+
+- [ ] **Step 1: Controller**
 
 ```ts
 // back-end/src/modules/cart/cart.controller.ts
@@ -1634,55 +1987,70 @@ import { CartService } from '~/modules/cart/cart.service'
 import type { AddCartItemInput, UpdateCartItemInput } from '~/modules/cart/cart.types'
 
 export const CartController = {
-  get: async (req: AuthRequest, res: Response) => {
-    return res.json(await CartService.getCart(req.user!.id))
+  getMine: async (req: AuthRequest, res: Response) => {
+    const cart = await CartService.getMyCart(req.user!.id)
+    return res.json(cart)
   },
+
   addItem: async (req: AuthRequest, res: Response) => {
-    return res.status(201).json(await CartService.addItem(req.user!.id, req.body as AddCartItemInput))
+    const cart = await CartService.addItem(req.user!.id, req.body as AddCartItemInput)
+    return res.status(201).json(cart)
   },
+
   updateItem: async (req: AuthRequest, res: Response) => {
-    return res.json(
-      await CartService.updateItem(req.user!.id, String(req.params.id), req.body as UpdateCartItemInput),
+    const cart = await CartService.updateItem(
+      req.user!.id,
+      String(req.params.id),
+      req.body as UpdateCartItemInput,
     )
+    return res.json(cart)
   },
+
   removeItem: async (req: AuthRequest, res: Response) => {
-    return res.json(await CartService.removeItem(req.user!.id, String(req.params.id)))
+    const cart = await CartService.removeItem(req.user!.id, String(req.params.id))
+    return res.json(cart)
   },
+
   selectAll: async (req: AuthRequest, res: Response) => {
-    return res.json(await CartService.setSelectAll(req.user!.id, Boolean(req.body.selected)))
+    const cart = await CartService.selectAll(req.user!.id, Boolean(req.body.selected))
+    return res.json(cart)
   },
 }
 ```
+
+- [ ] **Step 2: Routes**
 
 ```ts
 // back-end/src/modules/cart/cart.routes.ts
 import { Router } from 'express'
 
+import { permissions } from '~/config/rbacConfig'
 import { authenticate } from '~/core/auth/auth.middleware'
+import { requirePermission } from '~/core/auth/requirePermission'
 import { asyncHandler } from '~/core/asyncHandler'
 import { validateRequest } from '~/core/validate/validateRequest'
 import { CartController } from '~/modules/cart/cart.controller'
 import {
   AddCartItemSchema,
-  CartItemIdSchema,
-  SelectAllSchema,
+  RemoveCartItemSchema,
+  SelectAllCartItemsSchema,
   UpdateCartItemSchema,
 } from '~/modules/cart/cart.validation'
 
 const r = Router()
 
-r.use(authenticate)
+r.use(authenticate, requirePermission(permissions.VIEW_USER))
 
-r.get('/', asyncHandler(CartController.get))
+r.get('/', asyncHandler(CartController.getMine))
 r.post('/items', validateRequest(AddCartItemSchema), asyncHandler(CartController.addItem))
 r.patch('/items/:id', validateRequest(UpdateCartItemSchema), asyncHandler(CartController.updateItem))
-r.delete('/items/:id', validateRequest(CartItemIdSchema), asyncHandler(CartController.removeItem))
-r.patch('/select-all', validateRequest(SelectAllSchema), asyncHandler(CartController.selectAll))
+r.delete('/items/:id', validateRequest(RemoveCartItemSchema), asyncHandler(CartController.removeItem))
+r.patch('/select-all', validateRequest(SelectAllCartItemsSchema), asyncHandler(CartController.selectAll))
 
 export default r
 ```
 
-- [ ] **Step 7: Wire into `routes/index.ts`**
+- [ ] **Step 3: Register in `routes/index.ts`**
 
 ```ts
 import cartRoutes from '~/modules/cart/cart.routes'
@@ -1690,619 +2058,49 @@ import cartRoutes from '~/modules/cart/cart.routes'
 router.use('/cart', cartRoutes)
 ```
 
-- [ ] **Step 8: Full test run + typecheck**
-
-Run: `cd back-end && npm test && npm run typecheck`
-Expected: all green.
-
-- [ ] **Step 9: Commit**
+- [ ] **Step 4: Manual verification**
 
 ```bash
-git add back-end/src/modules/cart back-end/src/routes/index.ts back-end/tests/modules/cart
-git commit -m "feat: add Cart API (add/update/remove items, select-all, live pricing)"
+curl -X POST http://localhost:3000/api/cart/items \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"variantId":"<a real ProductVariant id from your seeded data>","quantity":2}'
+curl http://localhost:3000/api/cart -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
----
-
-# Part D — Checkout & Order APIs
-
-### Task 9: `DEFAULT_SHIPPING_FEE` env var
-
-**Files:**
-- Modify: `back-end/src/config/env.ts`
-- Modify: `back-end/.env.example`
-- Modify: `back-end/.env`
-
-- [ ] **Step 1: Add the env var to the schema**
-
-In `back-end/src/config/env.ts`, add to the `schema` object:
-```ts
-  // Flat shipping fee (VND) used in Phase 1, before real shipping-provider rates exist (Phase 2).
-  DEFAULT_SHIPPING_FEE: z.coerce.number().min(0).default(30000),
-```
-
-- [ ] **Step 2: Document it in `.env.example`**
-
-Add:
-```
-# Checkout (Phase 1 — flat shipping fee until a real shipping provider is integrated)
-DEFAULT_SHIPPING_FEE=30000
-```
-
-- [ ] **Step 3: Add it to the local `.env`** (same value, or leave unset to use the Zod default)
-
-- [ ] **Step 4: Verify env parsing doesn't break**
-
-Run: `cd back-end && npm run typecheck`
-Expected: no errors.
+Expected: cart with 1 item, `quantity: 2`, live price from the product.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add back-end/src/config/env.ts back-end/.env.example
-git commit -m "feat: add DEFAULT_SHIPPING_FEE env var for Phase 1 checkout"
-```
-
-(Do not commit `.env` — it's gitignored; verify with `git status` that it doesn't appear staged.)
-
----
-
-### Task 10: Checkout module (idempotent COD order creation)
-
-This is the highest-risk part of the plan — read the spec's "Checkout API" section again before starting if anything below is unclear.
-
-**Files:**
-- Create: `back-end/src/modules/checkout/checkout.types.ts`
-- Create: `back-end/src/modules/checkout/checkout.validation.ts`
-- Create: `back-end/src/modules/checkout/checkout.idempotency.ts`
-- Create: `back-end/src/modules/checkout/checkout.repo.ts`
-- Create: `back-end/src/modules/checkout/checkout.service.ts`
-- Create: `back-end/src/modules/checkout/checkout.controller.ts`
-- Create: `back-end/src/modules/checkout/checkout.routes.ts`
-- Modify: `back-end/src/routes/index.ts`
-- Test: `back-end/tests/modules/checkout/checkout.service.test.ts`
-- Test: `back-end/tests/modules/checkout/checkout.repo.test.ts`
-
-- [ ] **Step 1: Types**
-
-```ts
-// back-end/src/modules/checkout/checkout.types.ts
-export type CheckoutLineItem = {
-  variantId: string
-  quantity: number
-}
-
-export type CheckoutInput = {
-  addressId: string
-  paymentMethod: 'cod' | 'online'
-  discountCode?: string
-  buyNowItem?: CheckoutLineItem
-}
-```
-
-- [ ] **Step 2: Validation**
-
-```ts
-// back-end/src/modules/checkout/checkout.validation.ts
-import { z } from 'zod'
-
-import { ZodEmptyObject } from '~/core/validate/validateRequest'
-
-export const CheckoutSchema = z.object({
-  body: z.object({
-    addressId: z.string().trim().min(1),
-    paymentMethod: z.enum(['cod', 'online']),
-    discountCode: z.string().trim().min(1).optional(),
-    buyNowItem: z
-      .object({
-        variantId: z.string().trim().min(1),
-        quantity: z.coerce.number().int().min(1),
-      })
-      .optional(),
-  }),
-  query: ZodEmptyObject,
-  params: ZodEmptyObject,
-})
-```
-
-The `Idempotency-Key` header is read directly in the controller (headers aren't part of this body/query/params validator) and is required — missing it is a 400.
-
-- [ ] **Step 3: Idempotency helper (thin wrapper over the existing soft-fail `~/lib/redis`)**
-
-```ts
-// back-end/src/modules/checkout/checkout.idempotency.ts
-import { redis } from '~/lib/redis'
-
-const TTL_SECONDS = 60 * 60 * 24 // 24h
-
-function key(userId: string, idempotencyKey: string) {
-  return `checkout:idem:${userId}:${idempotencyKey}`
-}
-
-export const CheckoutIdempotency = {
-  /** Returns the previously created order id for this key, or null if unseen (or Redis is unavailable — soft-fail, see ~/lib/redis). */
-  async getOrderId(userId: string, idempotencyKey: string): Promise<string | null> {
-    return redis.get(key(userId, idempotencyKey))
-  },
-
-  async remember(userId: string, idempotencyKey: string, orderId: string): Promise<void> {
-    await redis.set(key(userId, idempotencyKey), orderId, TTL_SECONDS)
-  },
-}
-```
-
-**Known limitation, by design:** `~/lib/redis` no-ops when `REDIS_URL` is unset (see its existing implementation) — in that environment, idempotency dedup silently does not happen (every checkout call creates a fresh order; it doesn't corrupt data, it just won't collapse duplicate submissions). This repo's `.env` already has `REDIS_URL` configured, so dedup is active in this environment; this note is here so nobody is surprised if it's ever unset elsewhere.
-
-- [ ] **Step 4: Repo — the checkout transaction**
-
-```ts
-// back-end/src/modules/checkout/checkout.repo.ts
-import { ApiError } from '~/core/http/ApiError'
-import { ErrorCode } from '~/core/http/errorCodes'
-import { env } from '~/config/env'
-import { prisma } from '~/lib/prisma'
-import { newId } from '~/utils/id'
-import { generateOrderNumber } from '~/utils/orderNumber'
-import type { CheckoutLineItem } from '~/modules/checkout/checkout.types'
-
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-
-const orderInclude = { items: true } as const
-export type OrderWithItems = Awaited<ReturnType<typeof prisma.order.findUniqueOrThrow<{ include: typeof orderInclude }>>>
-
-/** Cart-based flow: the caller's ACTIVE cart's selected items. Buy-now flow: the single given item. */
-async function resolveLineItems(
-  tx: Tx,
-  userId: string,
-  buyNowItem: CheckoutLineItem | undefined,
-): Promise<CheckoutLineItem[]> {
-  if (buyNowItem) return [buyNowItem]
-
-  const cart = await tx.cart.findFirst({ where: { userId, state: 'ACTIVE' } })
-  if (!cart) return []
-
-  const items = await tx.cartItem.findMany({ where: { cartId: cart.id, selected: true } })
-  return items.map((item) => ({ variantId: item.variantId, quantity: item.quantity }))
-}
-
-async function clearConsumedCartItems(tx: Tx, userId: string) {
-  const cart = await tx.cart.findFirst({ where: { userId, state: 'ACTIVE' } })
-  if (!cart) return
-
-  const deleted = await tx.cartItem.deleteMany({ where: { cartId: cart.id, selected: true } })
-  if (deleted.count > 0) {
-    await tx.cart.update({ where: { id: cart.id }, data: { countProduct: { decrement: deleted.count } } })
-  }
-}
-
-function computeDiscountAmount(
-  discount: { type: string; value: unknown; maxValue: unknown },
-  subtotal: number,
-): number {
-  const value = Number(discount.value)
-  const maxValue = Number(discount.maxValue)
-  const raw = discount.type === 'PERCENTAGE' ? (subtotal * value) / 100 : value
-  return Math.min(raw, maxValue, subtotal)
-}
-
-export const CheckoutRepo = {
-  /**
-   * Runs the whole checkout as one transaction: resolve items → validate stock
-   * → validate/apply discount → compute totals → create Order+OrderItems →
-   * decrement stock → bump discount counters → clear consumed cart items.
-   * Throwing anywhere inside rolls the whole thing back (native Prisma/MySQL
-   * transaction semantics — nothing here catches and swallows an error).
-   */
-  async runCheckout(params: {
-    userId: string
-    idempotencyKey: string
-    addressId: string
-    discountCode?: string
-    buyNowItem?: CheckoutLineItem
-  }): Promise<OrderWithItems> {
-    const address = await prisma.address.findFirst({
-      where: { id: params.addressId, userId: params.userId },
-    })
-    if (!address) {
-      throw ApiError.NotFound('Address not found', { addressId: params.addressId }, ErrorCode.ADDRESS_NOT_FOUND)
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const lineItems = await resolveLineItems(tx, params.userId, params.buyNowItem)
-      if (lineItems.length === 0) {
-        throw ApiError.BadRequest('Cart is empty', undefined, ErrorCode.CART_EMPTY)
-      }
-
-      let subtotal = 0
-      const resolvedItems: Array<{
-        variantId: string
-        quantity: number
-        price: number
-        productName: string
-        variantLabel: string
-        imageUrl: string | null
-      }> = []
-
-      for (const line of lineItems) {
-        const variant = await tx.productVariant.findUnique({
-          where: { id: line.variantId },
-          include: {
-            product: { select: { name: true, thumbnail: true } },
-            options: { include: { optionValue: true } },
-          },
-        })
-        if (!variant || variant.stockQuantity < line.quantity) {
-          throw ApiError.Conflict(
-            `Insufficient stock for variant ${line.variantId}`,
-            { variantId: line.variantId },
-            ErrorCode.INSUFFICIENT_STOCK,
-          )
-        }
-
-        const price = Number(variant.price)
-        subtotal += price * line.quantity
-        resolvedItems.push({
-          variantId: line.variantId,
-          quantity: line.quantity,
-          price,
-          productName: variant.product.name,
-          variantLabel: variant.options.map((o) => o.optionValue.value).join(' / '),
-          imageUrl: variant.imgUrl ?? variant.product.thumbnail ?? null,
-        })
-      }
-
-      let discountAmount = 0
-      let discountId: string | null = null
-
-      if (params.discountCode) {
-        const discount = await tx.discount.findUnique({ where: { code: params.discountCode } })
-        const now = new Date()
-
-        if (!discount || !discount.isActive) {
-          throw ApiError.BadRequest('Discount code is invalid', undefined, ErrorCode.DISCOUNT_INVALID)
-        }
-        if (now < discount.startDate || now > discount.endDate) {
-          throw ApiError.BadRequest('Discount code has expired', undefined, ErrorCode.DISCOUNT_EXPIRED)
-        }
-        if (subtotal < Number(discount.minOrderValue)) {
-          throw ApiError.BadRequest(
-            'Order does not meet the minimum value for this discount',
-            undefined,
-            ErrorCode.DISCOUNT_INVALID,
-          )
-        }
-        if (discount.usesCount >= discount.maxUses) {
-          throw ApiError.Conflict('Discount usage limit reached', undefined, ErrorCode.DISCOUNT_LIMIT_REACHED)
-        }
-
-        const userUse = await tx.discountUserUse.findUnique({
-          where: { discountId_userId: { discountId: discount.id, userId: params.userId } },
-        })
-        if (userUse && userUse.usesCount >= discount.maxUsesPerUser) {
-          throw ApiError.Conflict(
-            'You have reached the usage limit for this discount',
-            undefined,
-            ErrorCode.DISCOUNT_LIMIT_REACHED,
-          )
-        }
-
-        discountAmount = computeDiscountAmount(discount, subtotal)
-        discountId = discount.id
-      }
-
-      const shippingFee = env.DEFAULT_SHIPPING_FEE
-      const total = Math.max(0, subtotal + shippingFee - discountAmount)
-      const orderId = newId()
-
-      await tx.order.create({
-        data: {
-          id: orderId,
-          orderNumber: generateOrderNumber(),
-          userId: params.userId,
-          recipientName: address.recipientName,
-          phone: address.phone,
-          provinceName: address.provinceName,
-          wardName: address.wardName,
-          addressDetail: address.detail,
-          subtotal,
-          shippingFee,
-          discountAmount,
-          discountCode: params.discountCode ?? null,
-          total,
-          paymentMethod: 'COD',
-          idempotencyKey: params.idempotencyKey,
-          items: {
-            create: resolvedItems.map((item) => ({
-              id: newId(),
-              variantId: item.variantId,
-              productName: item.productName,
-              variantLabel: item.variantLabel,
-              imageUrl: item.imageUrl,
-              price: item.price,
-              quantity: item.quantity,
-            })),
-          },
-        },
-      })
-
-      for (const item of resolvedItems) {
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: { stockQuantity: { decrement: item.quantity } },
-        })
-      }
-
-      if (discountId) {
-        await tx.discount.update({ where: { id: discountId }, data: { usesCount: { increment: 1 } } })
-        await tx.discountUserUse.upsert({
-          where: { discountId_userId: { discountId, userId: params.userId } },
-          update: { usesCount: { increment: 1 } },
-          create: { discountId, userId: params.userId, usesCount: 1 },
-        })
-      }
-
-      if (!params.buyNowItem) {
-        await clearConsumedCartItems(tx, params.userId)
-      }
-
-      return tx.order.findUniqueOrThrow({ where: { id: orderId }, include: orderInclude })
-    })
-  },
-
-  async findById(id: string) {
-    return prisma.order.findUnique({ where: { id }, include: orderInclude })
-  },
-}
-```
-
-- [ ] **Step 5: Write the repo-level rollback test**
-
-This verifies we never accidentally wrap the transaction body in a try/catch that swallows errors — the actual DB rollback is Prisma/MySQL's job, not ours; our job is to not get in its way.
-
-```ts
-// back-end/tests/modules/checkout/checkout.repo.test.ts
-import { describe, expect, it, vi } from 'vitest'
-
-import { prisma } from '~/lib/prisma'
-import { CheckoutRepo } from '~/modules/checkout/checkout.repo'
-
-vi.mock('~/lib/prisma', () => ({
-  prisma: {
-    address: { findFirst: vi.fn() },
-    $transaction: vi.fn(),
-  },
-}))
-
-describe('CheckoutRepo.runCheckout', () => {
-  it('propagates an error thrown mid-transaction instead of swallowing it', async () => {
-    vi.mocked(prisma.address.findFirst).mockResolvedValue({
-      id: 'addr-1',
-      recipientName: 'A',
-      phone: '0912345678',
-      provinceName: 'Hà Nội',
-      wardName: 'Ba Đình',
-      detail: '1 Đường A',
-    } as never)
-
-    vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: unknown) => unknown) => {
-      // Simulate Prisma invoking the callback and it throwing partway through —
-      // a real $transaction would roll back every write made via `tx` before this point.
-      return fn({
-        cart: { findFirst: vi.fn().mockResolvedValue(null) },
-      } as never)
-    })
-
-    await expect(
-      CheckoutRepo.runCheckout({
-        userId: 'user-1',
-        idempotencyKey: 'key-1',
-        addressId: 'addr-1',
-      }),
-    ).rejects.toMatchObject({ code: 'CART_EMPTY' })
-  })
-})
-```
-
-- [ ] **Step 6: Run it**
-
-Run: `cd back-end && npm test -- checkout.repo`
-Expected: `1 passed` (confirms the error surfaces uncaught — the meaningful guarantee we can verify without a live DB).
-
-- [ ] **Step 7: Write the failing service tests (business rules — the real value of this task's tests)**
-
-```ts
-// back-end/tests/modules/checkout/checkout.service.test.ts
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { CheckoutIdempotency } from '~/modules/checkout/checkout.idempotency'
-import { CheckoutRepo } from '~/modules/checkout/checkout.repo'
-import { CheckoutService } from '~/modules/checkout/checkout.service'
-
-vi.mock('~/modules/checkout/checkout.repo')
-vi.mock('~/modules/checkout/checkout.idempotency')
-
-describe('CheckoutService.checkout', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it('rejects non-COD payment methods with 501', async () => {
-    await expect(
-      CheckoutService.checkout('user-1', 'key-1', { addressId: 'a1', paymentMethod: 'online' }),
-    ).rejects.toMatchObject({ statusCode: 501 })
-    expect(CheckoutRepo.runCheckout).not.toHaveBeenCalled()
-  })
-
-  it('short-circuits on a repeated Idempotency-Key and does not re-run the transaction', async () => {
-    vi.mocked(CheckoutIdempotency.getOrderId).mockResolvedValue('order-1')
-    vi.mocked(CheckoutRepo.findById).mockResolvedValue({ id: 'order-1' } as never)
-
-    const result = await CheckoutService.checkout('user-1', 'key-1', {
-      addressId: 'a1',
-      paymentMethod: 'cod',
-    })
-
-    expect(result).toEqual({ id: 'order-1' })
-    expect(CheckoutRepo.runCheckout).not.toHaveBeenCalled()
-  })
-
-  it('runs the transaction and remembers the idempotency key on a fresh request', async () => {
-    vi.mocked(CheckoutIdempotency.getOrderId).mockResolvedValue(null)
-    vi.mocked(CheckoutRepo.runCheckout).mockResolvedValue({ id: 'order-2' } as never)
-
-    const result = await CheckoutService.checkout('user-1', 'key-2', {
-      addressId: 'a1',
-      paymentMethod: 'cod',
-    })
-
-    expect(result).toEqual({ id: 'order-2' })
-    expect(CheckoutIdempotency.remember).toHaveBeenCalledWith('user-1', 'key-2', 'order-2')
-  })
-})
-```
-
-- [ ] **Step 8: Run to verify failure, then implement the service**
-
-Run: `cd back-end && npm test -- checkout.service` → FAIL.
-
-```ts
-// back-end/src/modules/checkout/checkout.service.ts
-import { ApiError } from '~/core/http/ApiError'
-import { CheckoutIdempotency } from '~/modules/checkout/checkout.idempotency'
-import { CheckoutRepo } from '~/modules/checkout/checkout.repo'
-import type { CheckoutInput } from '~/modules/checkout/checkout.types'
-
-export const CheckoutService = {
-  async checkout(userId: string, idempotencyKey: string, input: CheckoutInput) {
-    if (input.paymentMethod !== 'cod') {
-      throw ApiError.NotImplemented('Only COD is supported in this phase')
-    }
-
-    const cachedOrderId = await CheckoutIdempotency.getOrderId(userId, idempotencyKey)
-    if (cachedOrderId) {
-      const existing = await CheckoutRepo.findById(cachedOrderId)
-      if (existing) return existing
-    }
-
-    const order = await CheckoutRepo.runCheckout({
-      userId,
-      idempotencyKey,
-      addressId: input.addressId,
-      discountCode: input.discountCode,
-      buyNowItem: input.buyNowItem,
-    })
-
-    await CheckoutIdempotency.remember(userId, idempotencyKey, order.id)
-    return order
-  },
-}
-```
-
-- [ ] **Step 9: Run to verify it passes**
-
-Run: `cd back-end && npm test -- checkout.service`
-Expected: `3 passed`
-
-- [ ] **Step 10: Controller + routes**
-
-```ts
-// back-end/src/modules/checkout/checkout.controller.ts
-import { Response } from 'express'
-
-import { ApiError } from '~/core/http/ApiError'
-import { AuthRequest } from '~/core/auth/auth.middleware'
-import { CheckoutService } from '~/modules/checkout/checkout.service'
-import type { CheckoutInput } from '~/modules/checkout/checkout.types'
-
-export const CheckoutController = {
-  checkout: async (req: AuthRequest, res: Response) => {
-    const idempotencyKey = req.header('Idempotency-Key')
-    if (!idempotencyKey) {
-      throw ApiError.BadRequest('Idempotency-Key header is required')
-    }
-    const order = await CheckoutService.checkout(req.user!.id, idempotencyKey, req.body as CheckoutInput)
-    return res.status(201).json(order)
-  },
-}
-```
-
-```ts
-// back-end/src/modules/checkout/checkout.routes.ts
-import { Router } from 'express'
-
-import { authenticate } from '~/core/auth/auth.middleware'
-import { asyncHandler } from '~/core/asyncHandler'
-import { validateRequest } from '~/core/validate/validateRequest'
-import { CheckoutController } from '~/modules/checkout/checkout.controller'
-import { CheckoutSchema } from '~/modules/checkout/checkout.validation'
-
-const r = Router()
-
-r.post('/', authenticate, validateRequest(CheckoutSchema), asyncHandler(CheckoutController.checkout))
-
-export default r
-```
-
-- [ ] **Step 11: Wire into `routes/index.ts`**
-
-```ts
-import checkoutRoutes from '~/modules/checkout/checkout.routes'
-// ...
-router.use('/checkout', checkoutRoutes)
-```
-
-- [ ] **Step 12: Full test run + typecheck**
-
-Run: `cd back-end && npm test && npm run typecheck`
-Expected: all green.
-
-- [ ] **Step 13: Manual end-to-end smoke test against the running dev server**
-
-This is worth doing now, before building the read/cancel/admin endpoints on top — it's the core of the whole feature.
-
-1. Log in via the existing auth endpoints (or grab a token from the seeded users in `prisma/seed.ts`) to get a Bearer token.
-2. `POST /api/addresses` with a real seeded province/ward code (from Task 6/7) to create an address.
-3. `POST /api/cart/items` with a real `variantId` from your seeded product data.
-4. `POST /api/checkout` with `Idempotency-Key: test-key-1`, the created `addressId`, `paymentMethod: "cod"`.
-   Expected: `201` with the order, `total = subtotal + DEFAULT_SHIPPING_FEE`, the cart item gone from a follow-up `GET /api/cart`, and the variant's `stockQuantity` decremented (check via `GET /api/products/:id` as admin, or Prisma Studio).
-5. Repeat the exact same `POST /api/checkout` call with the same `Idempotency-Key: test-key-1`.
-   Expected: `201` with the **same** order id, and stock is **not** decremented a second time.
-
-- [ ] **Step 14: Commit**
-
-```bash
-git add back-end/src/modules/checkout back-end/src/routes/index.ts back-end/tests/modules/checkout
-git commit -m "feat: add idempotent COD checkout endpoint"
+cd back-end
+git add src/modules/cart/cart.controller.ts src/modules/cart/cart.routes.ts src/routes/index.ts
+git commit -m "feat: expose cart API"
 ```
 
 ---
 
-### Task 11: Order module (user list/detail/cancel + public tracking)
+### Task 16: Order module — types, validation
 
 **Files:**
 - Create: `back-end/src/modules/orders/order.types.ts`
 - Create: `back-end/src/modules/orders/order.validation.ts`
-- Create: `back-end/src/modules/orders/order.mapper.ts`
-- Create: `back-end/src/modules/orders/order.repo.ts`
-- Create: `back-end/src/modules/orders/order.service.ts`
-- Create: `back-end/src/modules/orders/order.controller.ts`
-- Create: `back-end/src/modules/orders/order.routes.ts`
-- Modify: `back-end/src/routes/index.ts`
-- Test: `back-end/tests/modules/orders/order.service.test.ts`
 
 - [ ] **Step 1: Types**
 
 ```ts
 // back-end/src/modules/orders/order.types.ts
-export type OrderItemDto = {
+export type OrderItemDTO = {
   id: string
   variantId: string
   productName: string
   variantLabel: string
-  imageUrl: string | null
+  imageUrl?: string
   price: number
   quantity: number
+  total: number
 }
 
-export type OrderDto = {
+export type OrderDTO = {
   id: string
   orderNumber: string
   userId: string
@@ -2311,25 +2109,58 @@ export type OrderDto = {
   provinceName: string
   wardName: string
   addressDetail: string
-  items: OrderItemDto[]
+  items: OrderItemDTO[]
   subtotal: number
   shippingFee: number
   discountAmount: number
-  discountCode: string | null
+  discountCode?: string
   total: number
   orderStatus: string
   paymentMethod: string
   paymentStatus: string
   shipmentStatus: string
-  note: string | null
+  note?: string
   createdAt: string
   updatedAt: string
 }
 
-export type ListOrdersFilters = {
+export type OrderTrackingDTO = Pick<
+  OrderDTO,
+  | 'orderNumber'
+  | 'orderStatus'
+  | 'shipmentStatus'
+  | 'createdAt'
+  | 'items'
+  | 'total'
+  | 'provinceName'
+  | 'wardName'
+  | 'addressDetail'
+>
+
+export type OrderListFilters = {
+  userId: string
   page: number
   limit: number
   orderStatus?: string
+}
+
+export type AdminOrderListFilters = {
+  page: number
+  limit: number
+  orderStatus?: string
+  paymentMethod?: string
+  search?: string
+}
+
+export type PaginatedResult<T> = {
+  items: T[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+export type UpdateOrderStatusInput = {
+  orderStatus?: 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+  paymentStatus?: 'UNPAID' | 'PAID' | 'FAILED' | 'REFUNDED'
+  shipmentStatus?: 'NOT_SHIPPED' | 'SHIPPED' | 'DELIVERED' | 'RETURNED'
 }
 ```
 
@@ -2341,52 +2172,107 @@ import { z } from 'zod'
 
 import { ZodEmptyObject } from '~/core/validate/validateRequest'
 
-const orderIdParams = z.object({ id: z.string().trim().min(1) })
+const orderStatusEnum = z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'])
+const paymentStatusEnum = z.enum(['UNPAID', 'PAID', 'FAILED', 'REFUNDED'])
+const shipmentStatusEnum = z.enum(['NOT_SHIPPED', 'SHIPPED', 'DELIVERED', 'RETURNED'])
 
-export const ListOrdersSchema = z.object({
+export const listMyOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  orderStatus: orderStatusEnum.optional(),
+})
+
+export const ListMyOrdersSchema = z.object({
   body: ZodEmptyObject,
-  query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(50).default(20),
-    orderStatus: z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
-  }),
+  query: listMyOrdersQuerySchema,
   params: ZodEmptyObject,
 })
 
-export const OrderIdSchema = z.object({
+export const GetOrderSchema = z.object({
   body: ZodEmptyObject,
   query: ZodEmptyObject,
-  params: orderIdParams,
+  params: z.object({ id: z.string().trim().min(1) }),
+})
+
+export const trackOrderQuerySchema = z.object({
+  orderNumber: z.string().trim().min(1),
+  phone: z.string().trim().min(1),
 })
 
 export const TrackOrderSchema = z.object({
   body: ZodEmptyObject,
-  query: z.object({
-    orderNumber: z.string().trim().min(1),
-    phone: z.string().trim().min(1),
-  }),
+  query: trackOrderQuerySchema,
   params: ZodEmptyObject,
+})
+
+export const listAdminOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  orderStatus: orderStatusEnum.optional(),
+  paymentMethod: z.enum(['COD', 'ONLINE']).optional(),
+  search: z.string().trim().min(1).optional(),
+})
+
+export const ListAdminOrdersSchema = z.object({
+  body: ZodEmptyObject,
+  query: listAdminOrdersQuerySchema,
+  params: ZodEmptyObject,
+})
+
+export const UpdateOrderStatusSchema = z.object({
+  body: z
+    .object({
+      orderStatus: orderStatusEnum.optional(),
+      paymentStatus: paymentStatusEnum.optional(),
+      shipmentStatus: shipmentStatusEnum.optional(),
+    })
+    .refine((b) => b.orderStatus ?? b.paymentStatus ?? b.shipmentStatus, {
+      message: 'At least one status field is required',
+    }),
+  query: ZodEmptyObject,
+  params: z.object({ id: z.string().trim().min(1) }),
 })
 ```
 
-- [ ] **Step 3: Mapper**
+- [ ] **Step 3: Commit**
+
+```bash
+cd back-end
+git add src/modules/orders/order.types.ts src/modules/orders/order.validation.ts
+git commit -m "feat: add order module types and validation"
+```
+
+---
+
+### Task 17: Order module — mapper, repo
+
+**Files:**
+- Create: `back-end/src/modules/orders/order.mapper.ts`
+- Create: `back-end/src/modules/orders/order.repo.ts`
+
+- [ ] **Step 1: Mapper**
 
 ```ts
 // back-end/src/modules/orders/order.mapper.ts
-import type { OrderDto, OrderItemDto } from '~/modules/orders/order.types'
-import type { OrderWithItems } from '~/modules/checkout/checkout.repo'
+import type { Order, OrderItem } from '~/generated/prisma/client'
+import type { OrderDTO, OrderItemDTO, OrderTrackingDTO } from '~/modules/orders/order.types'
 
-export function toOrderDto(order: OrderWithItems): OrderDto {
-  const items: OrderItemDto[] = order.items.map((item) => ({
+type OrderWithItems = Order & { items: OrderItem[] }
+
+function toOrderItemDTO(item: OrderItem): OrderItemDTO {
+  return {
     id: item.id,
     variantId: item.variantId,
     productName: item.productName,
     variantLabel: item.variantLabel,
-    imageUrl: item.imageUrl,
+    imageUrl: item.imageUrl ?? undefined,
     price: Number(item.price),
     quantity: item.quantity,
-  }))
+    total: Number(item.price) * item.quantity,
+  }
+}
 
+export function toOrderDTO(order: OrderWithItems): OrderDTO {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -2396,60 +2282,55 @@ export function toOrderDto(order: OrderWithItems): OrderDto {
     provinceName: order.provinceName,
     wardName: order.wardName,
     addressDetail: order.addressDetail,
-    items,
+    items: order.items.map(toOrderItemDTO),
     subtotal: Number(order.subtotal),
     shippingFee: Number(order.shippingFee),
     discountAmount: Number(order.discountAmount),
-    discountCode: order.discountCode,
+    discountCode: order.discountCode ?? undefined,
     total: Number(order.total),
     orderStatus: order.orderStatus,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     shipmentStatus: order.shipmentStatus,
-    note: order.note,
+    note: order.note ?? undefined,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
   }
 }
+
+/** Trimmed view for public order tracking — no unrelated PII beyond what's already order-facing. */
+export function toOrderTrackingDTO(order: OrderWithItems): OrderTrackingDTO {
+  const dto = toOrderDTO(order)
+  return {
+    orderNumber: dto.orderNumber,
+    orderStatus: dto.orderStatus,
+    shipmentStatus: dto.shipmentStatus,
+    createdAt: dto.createdAt,
+    items: dto.items,
+    total: dto.total,
+    provinceName: dto.provinceName,
+    wardName: dto.wardName,
+    addressDetail: dto.addressDetail,
+  }
+}
 ```
 
-Note: `CheckoutController.checkout` and `OrderController` both need to return the same DTO shape. Update `checkout.controller.ts` (Task 10) to map through `toOrderDto` too — go back and change:
-```ts
-    const order = await CheckoutService.checkout(req.user!.id, idempotencyKey, req.body as CheckoutInput)
-    return res.status(201).json(order)
-```
-to:
-```ts
-    const order = await CheckoutService.checkout(req.user!.id, idempotencyKey, req.body as CheckoutInput)
-    return res.status(201).json(toOrderDto(order))
-```
-(with the corresponding `import { toOrderDto } from '~/modules/orders/order.mapper'` added). This does introduce a `checkout` → `orders` module dependency (one direction only — `orders` never imports from `checkout`), which is fine.
-
-- [ ] **Step 4: Repo**
+- [ ] **Step 2: Repo**
 
 ```ts
 // back-end/src/modules/orders/order.repo.ts
 import { prisma } from '~/lib/prisma'
+import type {
+  AdminOrderListFilters,
+  OrderListFilters,
+  UpdateOrderStatusInput,
+} from '~/modules/orders/order.types'
 
 const orderInclude = { items: true } as const
 
 export const OrderRepo = {
-  async list(userId: string, filters: { page: number; limit: number; orderStatus?: string }) {
-    const where = { userId, ...(filters.orderStatus ? { orderStatus: filters.orderStatus as never } : {}) }
-    const skip = (filters.page - 1) * filters.limit
-
-    const [items, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: orderInclude,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: filters.limit,
-      }),
-      prisma.order.count({ where }),
-    ])
-
-    return { items, total }
+  async findById(id: string) {
+    return prisma.order.findUnique({ where: { id }, include: orderInclude })
   },
 
   async findByIdForUser(id: string, userId: string) {
@@ -2460,14 +2341,57 @@ export const OrderRepo = {
     return prisma.order.findFirst({ where: { orderNumber, phone }, include: orderInclude })
   },
 
-  async findById(id: string) {
-    return prisma.order.findUnique({ where: { id }, include: orderInclude })
+  async listForUser(filters: OrderListFilters) {
+    const where = {
+      userId: filters.userId,
+      ...(filters.orderStatus ? { orderStatus: filters.orderStatus as never } : {}),
+    }
+    const skip = (filters.page - 1) * filters.limit
+    const [items, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: filters.limit,
+      }),
+      prisma.order.count({ where }),
+    ])
+    return { items, total }
   },
 
-  /** Cancels the order and, in the same transaction, restores stock and any discount usage. */
-  async cancel(id: string) {
+  async listForAdmin(filters: AdminOrderListFilters) {
+    const where: Record<string, unknown> = {}
+    if (filters.orderStatus) where.orderStatus = filters.orderStatus
+    if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod
+    if (filters.search?.trim()) {
+      where.OR = [
+        { orderNumber: { contains: filters.search.trim() } },
+        { recipientName: { contains: filters.search.trim() } },
+      ]
+    }
+    const skip = (filters.page - 1) * filters.limit
+    const [items, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: filters.limit,
+      }),
+      prisma.order.count({ where }),
+    ])
+    return { items, total }
+  },
+
+  /** Cancel: restock items, reverse discount usage counters, mark CANCELLED — one transaction. */
+  async cancel(orderId: string) {
     return prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUniqueOrThrow({ where: { id }, include: orderInclude })
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: { orderStatus: 'CANCELLED' },
+        include: orderInclude,
+      })
 
       for (const item of order.items) {
         await tx.productVariant.update({
@@ -2479,51 +2403,88 @@ export const OrderRepo = {
       if (order.discountCode) {
         const discount = await tx.discount.findUnique({ where: { code: order.discountCode } })
         if (discount) {
-          await tx.discount.update({ where: { id: discount.id }, data: { usesCount: { decrement: 1 } } })
+          await tx.discount.update({
+            where: { id: discount.id },
+            data: { usesCount: { decrement: 1 } },
+          })
           await tx.discountUserUse.updateMany({
-            where: { discountId: discount.id, userId: order.userId, usesCount: { gt: 0 } },
+            where: { discountId: discount.id, userId: order.userId },
             data: { usesCount: { decrement: 1 } },
           })
         }
-        // If the discount was deleted since this order was placed, there's nothing to restore — not an error.
       }
 
-      return tx.order.update({
-        where: { id },
-        data: { orderStatus: 'CANCELLED' },
-        include: orderInclude,
-      })
+      return order
+    })
+  },
+
+  async updateStatus(id: string, input: UpdateOrderStatusInput) {
+    return prisma.order.update({
+      where: { id },
+      data: {
+        ...(input.orderStatus ? { orderStatus: input.orderStatus } : {}),
+        ...(input.paymentStatus ? { paymentStatus: input.paymentStatus } : {}),
+        ...(input.shipmentStatus ? { shipmentStatus: input.shipmentStatus } : {}),
+      },
+      include: orderInclude,
     })
   },
 }
 ```
 
-- [ ] **Step 5: Write the failing service tests (cancellation state machine + stock/discount restore are the risky parts)**
+- [ ] **Step 3: Commit**
+
+```bash
+cd back-end
+git add src/modules/orders/order.mapper.ts src/modules/orders/order.repo.ts
+git commit -m "feat: add order mapper and repo (list/cancel/admin-update)"
+```
+
+---
+
+### Task 18: Order module — service, unit tests
+
+**Files:**
+- Create: `back-end/src/modules/orders/order.service.ts`
+- Test: `back-end/src/modules/orders/order.service.test.ts`
+
+- [ ] **Step 1: Write the failing test**
 
 ```ts
-// back-end/tests/modules/orders/order.service.test.ts
+// back-end/src/modules/orders/order.service.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('~/modules/orders/order.repo', () => ({
+  OrderRepo: {
+    findById: vi.fn(),
+    findByIdForUser: vi.fn(),
+    findByOrderNumberAndPhone: vi.fn(),
+    listForUser: vi.fn(),
+    listForAdmin: vi.fn(),
+    cancel: vi.fn(),
+    updateStatus: vi.fn(),
+  },
+}))
 
 import { OrderRepo } from '~/modules/orders/order.repo'
 import { OrderService } from '~/modules/orders/order.service'
 
-vi.mock('~/modules/orders/order.repo')
-
 const baseOrder = {
   id: 'order-1',
-  orderNumber: 'ORD-20260101-ABCDEF12',
+  orderNumber: 'ORD20260904000001',
   userId: 'user-1',
   recipientName: 'A',
-  phone: '0912345678',
+  phone: '0901234567',
   provinceName: 'Hà Nội',
   wardName: 'Ba Đình',
-  addressDetail: '1 Đường A',
+  addressDetail: '1 x',
   items: [],
   subtotal: 100000,
   shippingFee: 30000,
   discountAmount: 0,
   discountCode: null,
   total: 130000,
+  orderStatus: 'PENDING',
   paymentMethod: 'COD',
   paymentStatus: 'UNPAID',
   shipmentStatus: 'NOT_SHIPPED',
@@ -2532,410 +2493,80 @@ const baseOrder = {
   updatedAt: new Date(),
 }
 
-describe('OrderService.cancel', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it.each(['PENDING', 'CONFIRMED'])('allows cancelling from %s', async (orderStatus) => {
-    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue({ ...baseOrder, orderStatus } as never)
-    vi.mocked(OrderRepo.cancel).mockResolvedValue({ ...baseOrder, orderStatus: 'CANCELLED' } as never)
-
-    const result = await OrderService.cancel('user-1', 'order-1')
-    expect(result.orderStatus).toBe('CANCELLED')
-    expect(OrderRepo.cancel).toHaveBeenCalledWith('order-1')
+describe('OrderService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it.each(['SHIPPED', 'DELIVERED', 'CANCELLED'])('rejects cancelling from %s', async (orderStatus) => {
-    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue({ ...baseOrder, orderStatus } as never)
+  it('allows cancelling a PENDING order and restocks items', async () => {
+    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue(baseOrder as never)
+    vi.mocked(OrderRepo.cancel).mockResolvedValue({ ...baseOrder, orderStatus: 'CANCELLED' } as never)
 
-    await expect(OrderService.cancel('user-1', 'order-1')).rejects.toMatchObject({
-      statusCode: 409,
+    const result = await OrderService.cancelForUser('order-1', 'user-1')
+    expect(OrderRepo.cancel).toHaveBeenCalledWith('order-1')
+    expect(result.orderStatus).toBe('CANCELLED')
+  })
+
+  it('rejects cancelling a SHIPPED order', async () => {
+    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue({
+      ...baseOrder,
+      orderStatus: 'SHIPPED',
+    } as never)
+
+    await expect(OrderService.cancelForUser('order-1', 'user-1')).rejects.toMatchObject({
       code: 'ORDER_NOT_CANCELLABLE',
     })
     expect(OrderRepo.cancel).not.toHaveBeenCalled()
   })
 
-  it('throws ORDER_NOT_FOUND for an order owned by someone else', async () => {
+  it('rejects cancelling an order that does not belong to the user', async () => {
     vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue(null)
 
-    await expect(OrderService.cancel('user-1', 'order-999')).rejects.toMatchObject({
-      statusCode: 404,
+    await expect(OrderService.cancelForUser('order-1', 'user-2')).rejects.toMatchObject({
       code: 'ORDER_NOT_FOUND',
     })
   })
-})
 
-describe('OrderService.track', () => {
-  beforeEach(() => vi.resetAllMocks())
+  it('rejects an invalid admin status transition', async () => {
+    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'CANCELLED' } as never)
 
-  it('returns the order when orderNumber + phone match', async () => {
-    vi.mocked(OrderRepo.findByOrderNumberAndPhone).mockResolvedValue({ ...baseOrder, orderStatus: 'CONFIRMED' } as never)
-    const result = await OrderService.track('ORD-20260101-ABCDEF12', '0912345678')
-    expect(result.orderNumber).toBe('ORD-20260101-ABCDEF12')
+    await expect(
+      OrderService.updateStatusForAdmin('order-1', { orderStatus: 'CONFIRMED' }),
+    ).rejects.toMatchObject({ code: 'INVALID_ORDER_TRANSITION' })
   })
 
-  it('throws ORDER_NOT_FOUND when they do not match (prevents order-number enumeration)', async () => {
-    vi.mocked(OrderRepo.findByOrderNumberAndPhone).mockResolvedValue(null)
-    await expect(OrderService.track('ORD-XXXX', '0000000000')).rejects.toMatchObject({
-      statusCode: 404,
-      code: 'ORDER_NOT_FOUND',
-    })
+  it('allows a valid admin status transition', async () => {
+    vi.mocked(OrderRepo.findById).mockResolvedValue(baseOrder as never)
+    vi.mocked(OrderRepo.updateStatus).mockResolvedValue({ ...baseOrder, orderStatus: 'CONFIRMED' } as never)
+
+    const result = await OrderService.updateStatusForAdmin('order-1', { orderStatus: 'CONFIRMED' })
+    expect(result.orderStatus).toBe('CONFIRMED')
   })
 })
 ```
 
-- [ ] **Step 6: Run to verify failure, then implement the service**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd back-end && npm test -- order.service` → FAIL.
+Run: `cd back-end && npx vitest run src/modules/orders/order.service.test.ts`
+Expected: FAIL — `order.service` doesn't exist.
+
+- [ ] **Step 3: Implement**
 
 ```ts
 // back-end/src/modules/orders/order.service.ts
 import { ApiError } from '~/core/http/ApiError'
-import { ErrorCode } from '~/core/http/errorCodes'
-import { toOrderDto } from '~/modules/orders/order.mapper'
+import { toOrderDTO, toOrderTrackingDTO } from '~/modules/orders/order.mapper'
 import { OrderRepo } from '~/modules/orders/order.repo'
-import type { ListOrdersFilters } from '~/modules/orders/order.types'
+import type {
+  AdminOrderListFilters,
+  OrderListFilters,
+  PaginatedResult,
+  UpdateOrderStatusInput,
+} from '~/modules/orders/order.types'
 
 const CANCELLABLE_STATUSES = new Set(['PENDING', 'CONFIRMED'])
 
-export const OrderService = {
-  async list(userId: string, filters: ListOrdersFilters) {
-    const { items, total } = await OrderRepo.list(userId, filters)
-    return {
-      items: items.map(toOrderDto),
-      pagination: {
-        page: filters.page,
-        limit: filters.limit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / filters.limit)),
-      },
-    }
-  },
-
-  async getById(userId: string, id: string) {
-    const order = await OrderRepo.findByIdForUser(id, userId)
-    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
-    return toOrderDto(order)
-  },
-
-  async cancel(userId: string, id: string) {
-    const order = await OrderRepo.findByIdForUser(id, userId)
-    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
-
-    if (!CANCELLABLE_STATUSES.has(order.orderStatus)) {
-      throw ApiError.Conflict(
-        `Order cannot be cancelled from status ${order.orderStatus}`,
-        { orderStatus: order.orderStatus },
-        ErrorCode.ORDER_NOT_CANCELLABLE,
-      )
-    }
-
-    const cancelled = await OrderRepo.cancel(id)
-    return toOrderDto(cancelled)
-  },
-
-  async track(orderNumber: string, phone: string) {
-    const order = await OrderRepo.findByOrderNumberAndPhone(orderNumber, phone)
-    if (!order) {
-      throw ApiError.NotFound('Order not found', undefined, ErrorCode.ORDER_NOT_FOUND)
-    }
-    return toOrderDto(order)
-  },
-}
-```
-
-- [ ] **Step 7: Run to verify it passes**
-
-Run: `cd back-end && npm test -- order.service`
-Expected: `8 passed` (2 statuses × cancel-allowed + 3 statuses × cancel-rejected + 1 not-found + 2 track tests).
-
-- [ ] **Step 8: Controller + routes (user + public track)**
-
-```ts
-// back-end/src/modules/orders/order.controller.ts
-import { Response, Request } from 'express'
-
-import { AuthRequest } from '~/core/auth/auth.middleware'
-import { OrderService } from '~/modules/orders/order.service'
-
-export const OrderController = {
-  list: async (req: AuthRequest, res: Response) => {
-    const { page, limit, orderStatus } = req.query as unknown as {
-      page: number
-      limit: number
-      orderStatus?: string
-    }
-    return res.json(await OrderService.list(req.user!.id, { page, limit, orderStatus }))
-  },
-
-  getById: async (req: AuthRequest, res: Response) => {
-    return res.json(await OrderService.getById(req.user!.id, String(req.params.id)))
-  },
-
-  cancel: async (req: AuthRequest, res: Response) => {
-    return res.json(await OrderService.cancel(req.user!.id, String(req.params.id)))
-  },
-
-  track: async (req: Request, res: Response) => {
-    const { orderNumber, phone } = req.query as { orderNumber: string; phone: string }
-    return res.json(await OrderService.track(orderNumber, phone))
-  },
-}
-```
-
-```ts
-// back-end/src/modules/orders/order.routes.ts
-import { Router } from 'express'
-
-import { authenticate } from '~/core/auth/auth.middleware'
-import { asyncHandler } from '~/core/asyncHandler'
-import { validateRequest } from '~/core/validate/validateRequest'
-import { OrderController } from '~/modules/orders/order.controller'
-import { ListOrdersSchema, OrderIdSchema, TrackOrderSchema } from '~/modules/orders/order.validation'
-
-const r = Router()
-
-// Public — no auth. Must be registered before the authenticated `/:id` routes below
-// so it isn't shadowed, and to avoid ever needing to disambiguate "track" from an order id.
-r.get('/track', validateRequest(TrackOrderSchema), asyncHandler(OrderController.track))
-
-r.use(authenticate)
-r.get('/', validateRequest(ListOrdersSchema), asyncHandler(OrderController.list))
-r.get('/:id', validateRequest(OrderIdSchema), asyncHandler(OrderController.getById))
-r.post('/:id/cancel', validateRequest(OrderIdSchema), asyncHandler(OrderController.cancel))
-
-export default r
-```
-
-- [ ] **Step 9: Wire into `routes/index.ts`**
-
-```ts
-import orderRoutes from '~/modules/orders/order.routes'
-// ...
-router.use('/orders', orderRoutes)
-```
-
-- [ ] **Step 10: Also fix the Task 10 checkout controller per Step 3's note above**
-
-Apply the `toOrderDto` change to `checkout.controller.ts` now (it couldn't be done until this module existed).
-
-- [ ] **Step 11: Full test run + typecheck**
-
-Run: `cd back-end && npm test && npm run typecheck`
-Expected: all green.
-
-- [ ] **Step 12: Manual verification**
-
-Using the order created in Task 10 Step 13:
-- `GET /api/orders` (as the same user) → the order appears.
-- `GET /api/orders/track?orderNumber=<the order number>&phone=<the address phone>` (no auth header) → same order, trimmed.
-- `POST /api/orders/:id/cancel` → `200`, `orderStatus: "CANCELLED"`, and the variant's `stockQuantity` back to its pre-checkout value.
-
-- [ ] **Step 13: Commit**
-
-```bash
-git add back-end/src/modules/orders back-end/src/modules/checkout/checkout.controller.ts back-end/src/routes/index.ts back-end/tests/modules/orders
-git commit -m "feat: add user order list/detail/cancel and public order tracking"
-```
-
----
-
-### Task 12: Admin order module (list/detail/manual status update)
-
-**Files:**
-- Create: `back-end/src/modules/orders/admin-order.types.ts`
-- Create: `back-end/src/modules/orders/admin-order.validation.ts`
-- Modify: `back-end/src/modules/orders/order.repo.ts` (add admin list/status-update queries)
-- Modify: `back-end/src/modules/orders/order.service.ts` (add admin methods + the transition table)
-- Create: `back-end/src/modules/orders/admin-order.controller.ts`
-- Create: `back-end/src/modules/orders/admin-order.routes.ts`
-- Modify: `back-end/src/routes/index.ts`
-- Test: `back-end/tests/modules/orders/admin-order.service.test.ts`
-
-- [ ] **Step 1: Types + validation**
-
-```ts
-// back-end/src/modules/orders/admin-order.types.ts
-export type AdminListOrdersFilters = {
-  page: number
-  limit: number
-  orderStatus?: string
-  paymentMethod?: string
-  search?: string
-}
-
-export type UpdateOrderStatusInput = {
-  orderStatus?: string
-  paymentStatus?: string
-  shipmentStatus?: string
-}
-```
-
-```ts
-// back-end/src/modules/orders/admin-order.validation.ts
-import { z } from 'zod'
-
-import { ZodEmptyObject } from '~/core/validate/validateRequest'
-
-export const AdminListOrdersSchema = z.object({
-  body: ZodEmptyObject,
-  query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(50).default(20),
-    orderStatus: z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
-    paymentMethod: z.enum(['COD', 'ONLINE']).optional(),
-    search: z.string().trim().min(1).optional(),
-  }),
-  params: ZodEmptyObject,
-})
-
-export const UpdateOrderStatusSchema = z.object({
-  body: z
-    .object({
-      orderStatus: z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
-      paymentStatus: z.enum(['UNPAID', 'PAID', 'FAILED', 'REFUNDED']).optional(),
-      shipmentStatus: z.enum(['NOT_SHIPPED', 'SHIPPED', 'DELIVERED', 'RETURNED']).optional(),
-    })
-    .refine((b) => b.orderStatus || b.paymentStatus || b.shipmentStatus, {
-      message: 'At least one status field is required',
-    }),
-  query: ZodEmptyObject,
-  params: z.object({ id: z.string().trim().min(1) }),
-})
-```
-
-- [ ] **Step 2: Add admin queries to `order.repo.ts`**
-
-Append to the `OrderRepo` object (don't remove the existing methods):
-
-```ts
-  async adminList(filters: {
-    page: number
-    limit: number
-    orderStatus?: string
-    paymentMethod?: string
-    search?: string
-  }) {
-    const where = {
-      ...(filters.orderStatus ? { orderStatus: filters.orderStatus as never } : {}),
-      ...(filters.paymentMethod ? { paymentMethod: filters.paymentMethod as never } : {}),
-      ...(filters.search
-        ? {
-            OR: [
-              { orderNumber: { contains: filters.search } },
-              { recipientName: { contains: filters.search } },
-              { phone: { contains: filters.search } },
-            ],
-          }
-        : {}),
-    }
-    const skip = (filters.page - 1) * filters.limit
-
-    const [items, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: orderInclude,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: filters.limit,
-      }),
-      prisma.order.count({ where }),
-    ])
-
-    return { items, total }
-  },
-
-  async updateStatus(
-    id: string,
-    data: { orderStatus?: string; paymentStatus?: string; shipmentStatus?: string },
-  ) {
-    return prisma.order.update({
-      where: { id },
-      data: data as never,
-      include: orderInclude,
-    })
-  },
-```
-
-(`prisma` is already imported at the top of this file from Step 4 of Task 11.)
-
-- [ ] **Step 3: Write the failing service test for the status-transition table**
-
-```ts
-// back-end/tests/modules/orders/admin-order.service.test.ts
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { OrderRepo } from '~/modules/orders/order.repo'
-import { OrderService } from '~/modules/orders/order.service'
-
-vi.mock('~/modules/orders/order.repo')
-
-const baseOrder = {
-  id: 'order-1',
-  orderNumber: 'ORD-1',
-  userId: 'user-1',
-  recipientName: 'A',
-  phone: '0912345678',
-  provinceName: 'Hà Nội',
-  wardName: 'Ba Đình',
-  addressDetail: 'x',
-  items: [],
-  subtotal: 100000,
-  shippingFee: 30000,
-  discountAmount: 0,
-  discountCode: null,
-  total: 130000,
-  paymentMethod: 'COD',
-  paymentStatus: 'UNPAID',
-  shipmentStatus: 'NOT_SHIPPED',
-  note: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
-
-describe('OrderService.adminUpdateStatus', () => {
-  beforeEach(() => vi.resetAllMocks())
-
-  it('allows PENDING -> CONFIRMED', async () => {
-    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'PENDING' } as never)
-    vi.mocked(OrderRepo.updateStatus).mockResolvedValue({ ...baseOrder, orderStatus: 'CONFIRMED' } as never)
-
-    const result = await OrderService.adminUpdateStatus('order-1', { orderStatus: 'CONFIRMED' })
-    expect(result.orderStatus).toBe('CONFIRMED')
-  })
-
-  it('rejects CANCELLED -> CONFIRMED (terminal state)', async () => {
-    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'CANCELLED' } as never)
-
-    await expect(
-      OrderService.adminUpdateStatus('order-1', { orderStatus: 'CONFIRMED' }),
-    ).rejects.toMatchObject({ statusCode: 409, code: 'INVALID_STATUS_TRANSITION' })
-    expect(OrderRepo.updateStatus).not.toHaveBeenCalled()
-  })
-
-  it('rejects skipping straight from PENDING to DELIVERED', async () => {
-    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'PENDING' } as never)
-
-    await expect(
-      OrderService.adminUpdateStatus('order-1', { orderStatus: 'DELIVERED' }),
-    ).rejects.toMatchObject({ code: 'INVALID_STATUS_TRANSITION' })
-  })
-
-  it('throws ORDER_NOT_FOUND for an unknown order', async () => {
-    vi.mocked(OrderRepo.findById).mockResolvedValue(null)
-    await expect(
-      OrderService.adminUpdateStatus('order-999', { orderStatus: 'CONFIRMED' }),
-    ).rejects.toMatchObject({ statusCode: 404, code: 'ORDER_NOT_FOUND' })
-  })
-})
-```
-
-- [ ] **Step 4: Run to verify failure, then extend `order.service.ts`**
-
-Run: `cd back-end && npm test -- admin-order.service` → FAIL (`adminUpdateStatus`/`adminList` don't exist).
-
-Append to `order.service.ts` (keep the existing exports from Task 11):
-
-```ts
+// Allowed forward transitions for admin manual status updates. CANCELLED/DELIVERED are terminal.
 const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['SHIPPED', 'CANCELLED'],
@@ -2944,92 +2575,156 @@ const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
   CANCELLED: [],
 }
 
-// ...inside the OrderService object, add:
-  async adminList(filters: import('~/modules/orders/admin-order.types').AdminListOrdersFilters) {
-    const { items, total } = await OrderRepo.adminList(filters)
-    return {
-      items: items.map(toOrderDto),
-      pagination: {
-        page: filters.page,
-        limit: filters.limit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / filters.limit)),
-      },
+function paginationOf(page: number, limit: number, total: number) {
+  return { page, limit, total, totalPages: total === 0 ? 0 : Math.ceil(total / limit) }
+}
+
+export const OrderService = {
+  async listForUser(filters: OrderListFilters): Promise<PaginatedResult<ReturnType<typeof toOrderDTO>>> {
+    const { items, total } = await OrderRepo.listForUser(filters)
+    return { items: items.map(toOrderDTO), pagination: paginationOf(filters.page, filters.limit, total) }
+  },
+
+  async getForUser(id: string, userId: string) {
+    const order = await OrderRepo.findByIdForUser(id, userId)
+    if (!order) throw ApiError.NotFound('Order not found', undefined, 'ORDER_NOT_FOUND')
+    return toOrderDTO(order)
+  },
+
+  async cancelForUser(id: string, userId: string) {
+    const order = await OrderRepo.findByIdForUser(id, userId)
+    if (!order) throw ApiError.NotFound('Order not found', undefined, 'ORDER_NOT_FOUND')
+    if (!CANCELLABLE_STATUSES.has(order.orderStatus)) {
+      throw ApiError.Conflict('Order can no longer be cancelled', undefined, 'ORDER_NOT_CANCELLABLE')
     }
+    const cancelled = await OrderRepo.cancel(id)
+    return toOrderDTO(cancelled)
   },
 
-  async adminGetById(id: string) {
-    const order = await OrderRepo.findById(id)
-    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
-    return toOrderDto(order)
+  async track(orderNumber: string, phone: string) {
+    const order = await OrderRepo.findByOrderNumberAndPhone(orderNumber, phone)
+    if (!order) throw ApiError.NotFound('Order not found', undefined, 'ORDER_NOT_FOUND')
+    return toOrderTrackingDTO(order)
   },
 
-  async adminUpdateStatus(
-    id: string,
-    input: import('~/modules/orders/admin-order.types').UpdateOrderStatusInput,
-  ) {
-    const order = await OrderRepo.findById(id)
-    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
+  async listForAdmin(filters: AdminOrderListFilters) {
+    const { items, total } = await OrderRepo.listForAdmin(filters)
+    return { items: items.map(toOrderDTO), pagination: paginationOf(filters.page, filters.limit, total) }
+  },
 
-    if (input.orderStatus && input.orderStatus !== order.orderStatus) {
-      const allowed = ORDER_STATUS_TRANSITIONS[order.orderStatus] ?? []
+  async getForAdmin(id: string) {
+    const order = await OrderRepo.findById(id)
+    if (!order) throw ApiError.NotFound('Order not found', undefined, 'ORDER_NOT_FOUND')
+    return toOrderDTO(order)
+  },
+
+  async updateStatusForAdmin(id: string, input: UpdateOrderStatusInput) {
+    const existing = await OrderRepo.findById(id)
+    if (!existing) throw ApiError.NotFound('Order not found', undefined, 'ORDER_NOT_FOUND')
+
+    if (input.orderStatus && input.orderStatus !== existing.orderStatus) {
+      const allowed = ORDER_STATUS_TRANSITIONS[existing.orderStatus] ?? []
       if (!allowed.includes(input.orderStatus)) {
-        throw ApiError.Conflict(
-          `Cannot transition order from ${order.orderStatus} to ${input.orderStatus}`,
-          { from: order.orderStatus, to: input.orderStatus },
-          ErrorCode.INVALID_STATUS_TRANSITION,
+        throw ApiError.BadRequest(
+          `Cannot transition order from ${existing.orderStatus} to ${input.orderStatus}`,
+          undefined,
+          'INVALID_ORDER_TRANSITION',
         )
       }
     }
 
     const updated = await OrderRepo.updateStatus(id, input)
-    return toOrderDto(updated)
-  },
-```
-
-(Using an inline `import('...').Type` avoids a circular top-level import between `order.service.ts` and `admin-order.types.ts`; feel free to hoist it to a normal top-of-file `import type` instead if you prefer — both work, the inline form here is just to make the diff against Task 11's version minimal.)
-
-- [ ] **Step 5: Run to verify it passes**
-
-Run: `cd back-end && npm test -- admin-order.service`
-Expected: `4 passed`
-
-- [ ] **Step 6: Controller + routes**
-
-```ts
-// back-end/src/modules/orders/admin-order.controller.ts
-import { Response } from 'express'
-
-import { AuthRequest } from '~/core/auth/auth.middleware'
-import { OrderService } from '~/modules/orders/order.service'
-import type { UpdateOrderStatusInput } from '~/modules/orders/admin-order.types'
-
-export const AdminOrderController = {
-  list: async (req: AuthRequest, res: Response) => {
-    const { page, limit, orderStatus, paymentMethod, search } = req.query as unknown as {
-      page: number
-      limit: number
-      orderStatus?: string
-      paymentMethod?: string
-      search?: string
-    }
-    return res.json(await OrderService.adminList({ page, limit, orderStatus, paymentMethod, search }))
-  },
-
-  getById: async (req: AuthRequest, res: Response) => {
-    return res.json(await OrderService.adminGetById(String(req.params.id)))
-  },
-
-  updateStatus: async (req: AuthRequest, res: Response) => {
-    return res.json(
-      await OrderService.adminUpdateStatus(String(req.params.id), req.body as UpdateOrderStatusInput),
-    )
+    return toOrderDTO(updated)
   },
 }
 ```
 
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd back-end && npx vitest run src/modules/orders/order.service.test.ts`
+Expected: PASS, 5 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd back-end
+git add src/modules/orders/order.service.ts src/modules/orders/order.service.test.ts
+git commit -m "feat: add order service with cancel and admin status transition rules"
+```
+
+---
+
+### Task 19: Order module — controller, routes (user + public + admin), register
+
+**Files:**
+- Create: `back-end/src/modules/orders/order.controller.ts`
+- Create: `back-end/src/modules/orders/order.routes.ts`
+- Create: `back-end/src/modules/orders/order.admin.routes.ts`
+- Modify: `back-end/src/routes/index.ts`
+
+- [ ] **Step 1: Controller**
+
 ```ts
-// back-end/src/modules/orders/admin-order.routes.ts
+// back-end/src/modules/orders/order.controller.ts
+import { Response } from 'express'
+
+import { AuthRequest } from '~/core/auth/auth.middleware'
+import { OrderService } from '~/modules/orders/order.service'
+import {
+  listAdminOrdersQuerySchema,
+  listMyOrdersQuerySchema,
+  trackOrderQuerySchema,
+} from '~/modules/orders/order.validation'
+import type { UpdateOrderStatusInput } from '~/modules/orders/order.types'
+
+export const OrderController = {
+  listMine: async (req: AuthRequest, res: Response) => {
+    const query = listMyOrdersQuerySchema.parse(req.query)
+    const result = await OrderService.listForUser({ userId: req.user!.id, ...query })
+    return res.json(result)
+  },
+
+  getMine: async (req: AuthRequest, res: Response) => {
+    const order = await OrderService.getForUser(String(req.params.id), req.user!.id)
+    return res.json(order)
+  },
+
+  cancelMine: async (req: AuthRequest, res: Response) => {
+    const order = await OrderService.cancelForUser(String(req.params.id), req.user!.id)
+    return res.json(order)
+  },
+
+  track: async (req: AuthRequest, res: Response) => {
+    const query = trackOrderQuerySchema.parse(req.query)
+    const order = await OrderService.track(query.orderNumber, query.phone)
+    return res.json(order)
+  },
+
+  listAdmin: async (req: AuthRequest, res: Response) => {
+    const query = listAdminOrdersQuerySchema.parse(req.query)
+    const result = await OrderService.listForAdmin(query)
+    return res.json(result)
+  },
+
+  getAdmin: async (req: AuthRequest, res: Response) => {
+    const order = await OrderService.getForAdmin(String(req.params.id))
+    return res.json(order)
+  },
+
+  updateStatusAdmin: async (req: AuthRequest, res: Response) => {
+    const order = await OrderService.updateStatusForAdmin(
+      String(req.params.id),
+      req.body as UpdateOrderStatusInput,
+    )
+    return res.json(order)
+  },
+}
+```
+
+- [ ] **Step 2: User + public routes**
+
+```ts
+// back-end/src/modules/orders/order.routes.ts
 import { Router } from 'express'
 
 import { permissions } from '~/config/rbacConfig'
@@ -3037,112 +2732,890 @@ import { authenticate } from '~/core/auth/auth.middleware'
 import { requirePermission } from '~/core/auth/requirePermission'
 import { asyncHandler } from '~/core/asyncHandler'
 import { validateRequest } from '~/core/validate/validateRequest'
-import { AdminOrderController } from '~/modules/orders/admin-order.controller'
-import { AdminListOrdersSchema, UpdateOrderStatusSchema } from '~/modules/orders/admin-order.validation'
-import { OrderIdSchema } from '~/modules/orders/order.validation'
+import { OrderController } from '~/modules/orders/order.controller'
+import { GetOrderSchema, ListMyOrdersSchema, TrackOrderSchema } from '~/modules/orders/order.validation'
+
+const r = Router()
+
+// Public — no auth. Must come before the authenticate() gate below.
+r.get('/track', validateRequest(TrackOrderSchema), asyncHandler(OrderController.track))
+
+r.use(authenticate, requirePermission(permissions.VIEW_USER))
+
+r.get('/', validateRequest(ListMyOrdersSchema), asyncHandler(OrderController.listMine))
+r.get('/:id', validateRequest(GetOrderSchema), asyncHandler(OrderController.getMine))
+r.post('/:id/cancel', validateRequest(GetOrderSchema), asyncHandler(OrderController.cancelMine))
+
+export default r
+```
+
+- [ ] **Step 3: Admin routes**
+
+```ts
+// back-end/src/modules/orders/order.admin.routes.ts
+import { Router } from 'express'
+
+import { permissions } from '~/config/rbacConfig'
+import { authenticate } from '~/core/auth/auth.middleware'
+import { requirePermission } from '~/core/auth/requirePermission'
+import { asyncHandler } from '~/core/asyncHandler'
+import { validateRequest } from '~/core/validate/validateRequest'
+import { OrderController } from '~/modules/orders/order.controller'
+import {
+  GetOrderSchema,
+  ListAdminOrdersSchema,
+  UpdateOrderStatusSchema,
+} from '~/modules/orders/order.validation'
 
 const r = Router()
 
 r.use(authenticate, requirePermission(permissions.VIEW_ADMIN))
 
-r.get('/', validateRequest(AdminListOrdersSchema), asyncHandler(AdminOrderController.list))
-r.get('/:id', validateRequest(OrderIdSchema), asyncHandler(AdminOrderController.getById))
+r.get('/', validateRequest(ListAdminOrdersSchema), asyncHandler(OrderController.listAdmin))
+r.get('/:id', validateRequest(GetOrderSchema), asyncHandler(OrderController.getAdmin))
 r.patch(
   '/:id/status',
   validateRequest(UpdateOrderStatusSchema),
-  asyncHandler(AdminOrderController.updateStatus),
+  asyncHandler(OrderController.updateStatusAdmin),
 )
 
 export default r
 ```
 
-- [ ] **Step 7: Wire into `routes/index.ts`**
+- [ ] **Step 4: Register both in `routes/index.ts`**
 
 ```ts
-import adminOrderRoutes from '~/modules/orders/admin-order.routes'
+import orderRoutes from '~/modules/orders/order.routes'
+import orderAdminRoutes from '~/modules/orders/order.admin.routes'
 // ...
-router.use('/admin/orders', adminOrderRoutes)
+router.use('/orders', orderRoutes)
+router.use('/admin/orders', orderAdminRoutes)
 ```
 
-- [ ] **Step 8: Full test run + typecheck**
-
-Run: `cd back-end && npm test && npm run typecheck`
-Expected: all green.
-
-- [ ] **Step 9: Manual verification**
-
-As an admin user: `GET /api/admin/orders` lists all orders across users; `PATCH /api/admin/orders/:id/status` with `{"orderStatus":"CONFIRMED"}` succeeds on a `PENDING` order; retrying with `{"orderStatus":"DELIVERED"}` on that same now-`CONFIRMED` order returns `409 INVALID_STATUS_TRANSITION` (since `CONFIRMED → DELIVERED` isn't in the allowed table — it must go through `SHIPPED` first).
-
-- [ ] **Step 10: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add back-end/src/modules/orders back-end/src/routes/index.ts back-end/tests/modules/orders/admin-order.service.test.ts
-git commit -m "feat: add admin order list/detail/status-update with transition validation"
+cd back-end
+git add src/modules/orders/order.controller.ts src/modules/orders/order.routes.ts src/modules/orders/order.admin.routes.ts src/routes/index.ts
+git commit -m "feat: expose order API (user, public tracking, admin)"
 ```
+
+(Manual end-to-end verification of these endpoints happens in Task 23, after checkout can actually create orders.)
 
 ---
 
-### Task 13: Full backend verification pass
-
-**Files:** none (verification only).
-
-- [ ] **Step 1: Run the full test suite**
-
-Run: `cd back-end && npm test`
-Expected: every test across all 8 modules from Tasks 1–12 passes.
-
-- [ ] **Step 2: Typecheck and lint**
-
-Run: `cd back-end && npm run typecheck && npm run lint`
-Expected: no errors. Fix any lint issues with `npm run lint:fix` and re-verify.
-
-- [ ] **Step 3: Confirm every new route is registered**
-
-Run: `grep -n "router.use" back-end/src/routes/index.ts`
-Expected: lines for `/locations`, `/addresses`, `/cart`, `/checkout`, `/orders`, `/admin/orders` alongside the pre-existing ones.
-
-- [ ] **Step 4: Re-run the full manual smoke flow end-to-end once, back to back**
-
-Using `curl` or Postman with a fresh user: create an address → add 2 different variants to the cart → deselect one via `PATCH /api/cart/items/:id` `{"selected":false}` → checkout (only the selected item should appear on the order, confirmed via `GET /api/cart` still showing the deselected item still in the cart afterward) → `GET /api/orders` → cancel it → confirm stock restored → track it via the public endpoint.
-
-- [ ] **Step 5: Commit** (only if Step 2 required fixes; otherwise nothing to commit)
-
-```bash
-git add -A back-end
-git commit -m "fix: address lint/typecheck issues found in full backend verification"
-```
-
----
-
-# Part E — Frontend API Clients & Shared Types
-
-### Task 14: Front-end API modules (location, address, cart, checkout, order)
-
-Follows the existing `front-end/src/apis/*.ts` pattern (`api` from `./axiosConfig`, typed request/response, a small `getXApiError` helper mirroring `productApi.ts`'s `getProductApiError`).
+### Task 20: Checkout module — types, validation
 
 **Files:**
-- Create: `front-end/src/apis/locationApi.ts`
-- Create: `front-end/src/apis/addressApi.ts`
-- Create: `front-end/src/apis/cartApi.ts`
-- Create: `front-end/src/apis/checkoutApi.ts`
-- Create: `front-end/src/apis/orderApi.ts`
+- Create: `back-end/src/modules/checkout/checkout.types.ts`
+- Create: `back-end/src/modules/checkout/checkout.validation.ts`
 
-- [ ] **Step 1: `locationApi.ts`**
+- [ ] **Step 1: Types**
 
 ```ts
-// front-end/src/apis/locationApi.ts
+// back-end/src/modules/checkout/checkout.types.ts
+export type CheckoutItemInput = {
+  variantId: string
+  quantity: number
+}
+
+export type CheckoutInput = {
+  addressId: string
+  paymentMethod: 'cod' | 'online'
+  discountCode?: string
+  buyNowItem?: CheckoutItemInput
+}
+```
+
+- [ ] **Step 2: Validation**
+
+```ts
+// back-end/src/modules/checkout/checkout.validation.ts
+import { z } from 'zod'
+
+import { ZodEmptyObject } from '~/core/validate/validateRequest'
+
+const buyNowItemSchema = z.object({
+  variantId: z.string().trim().min(1),
+  quantity: z.coerce.number().int().min(1).max(100),
+})
+
+const checkoutBodySchema = z.object({
+  addressId: z.string().trim().min(1),
+  paymentMethod: z.enum(['cod', 'online']),
+  discountCode: z.string().trim().min(1).optional(),
+  buyNowItem: buyNowItemSchema.optional(),
+})
+
+export const CheckoutSchema = z.object({
+  body: checkoutBodySchema,
+  query: ZodEmptyObject,
+  params: ZodEmptyObject,
+})
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+cd back-end
+git add src/modules/checkout/checkout.types.ts src/modules/checkout/checkout.validation.ts
+git commit -m "feat: add checkout module types and validation"
+```
+
+---
+
+### Task 21: Checkout module — repo (the atomic checkout transaction)
+
+This is the core of the feature: one Prisma transaction that resolves line items (cart-based or buy-now), re-validates stock and discount live, computes totals, creates the order, decrements stock, updates discount counters, and cleans up the cart. Mirrors the existing `ProductRepo.create`-style pattern of a repo function owning its own `prisma.$transaction`.
+
+**Files:**
+- Create: `back-end/src/modules/checkout/checkout.repo.ts`
+
+- [ ] **Step 1: Implement**
+
+```ts
+// back-end/src/modules/checkout/checkout.repo.ts
+import { Prisma } from '~/generated/prisma/client'
+import { env } from '~/config/env'
+import { ApiError } from '~/core/http/ApiError'
+import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
+import { generateOrderNumber } from '~/utils/orderNumber'
+import type { CheckoutInput } from '~/modules/checkout/checkout.types'
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+const variantInclude = {
+  product: { select: { id: true, name: true } },
+  options: { include: { optionValue: { include: { option: true } } } },
+} as const
+
+type VariantWithRelations = Awaited<ReturnType<Tx['productVariant']['findUnique']>> & {
+  product: { id: string; name: string }
+  options: Array<{ optionValue: { value: string } }>
+}
+
+function buildVariantLabel(variant: VariantWithRelations): string {
+  return variant.options.map((o) => o.optionValue.value).join(' / ') || 'Default'
+}
+
+async function resolveLineItems(tx: Tx, userId: string, input: CheckoutInput) {
+  if (input.buyNowItem) {
+    const variant = await tx.productVariant.findUnique({
+      where: { id: input.buyNowItem.variantId },
+      include: variantInclude,
+    })
+    if (!variant) throw ApiError.NotFound('Product variant not found')
+    return {
+      lines: [{ variant: variant as VariantWithRelations, quantity: input.buyNowItem.quantity }],
+      cartId: null as string | null,
+      cartItemIds: [] as string[],
+    }
+  }
+
+  const cart = await tx.cart.findFirst({
+    where: { userId, state: 'ACTIVE' },
+    include: { items: { where: { selected: true }, include: { variant: { include: variantInclude } } } },
+  })
+
+  const selectedItems = cart?.items ?? []
+  if (selectedItems.length === 0) {
+    throw ApiError.BadRequest('No items selected for checkout', undefined, 'CART_EMPTY')
+  }
+
+  return {
+    lines: selectedItems.map((item) => ({
+      variant: item.variant as VariantWithRelations,
+      quantity: item.quantity,
+    })),
+    cartId: cart!.id,
+    cartItemIds: selectedItems.map((item) => item.id),
+  }
+}
+
+async function validateAndPriceStock(
+  tx: Tx,
+  lines: Array<{ variant: VariantWithRelations; quantity: number }>,
+) {
+  let subtotal = new Prisma.Decimal(0)
+
+  for (const line of lines) {
+    // Re-read live inside the transaction so two concurrent checkouts can't both succeed on the last unit.
+    const fresh = await tx.productVariant.findUniqueOrThrow({ where: { id: line.variant.id } })
+    if (fresh.stockQuantity < line.quantity) {
+      throw ApiError.Conflict(
+        `Insufficient stock for variant ${fresh.id}`,
+        { variantId: fresh.id },
+        'INSUFFICIENT_STOCK',
+      )
+    }
+    subtotal = subtotal.add(fresh.price.mul(line.quantity))
+  }
+
+  return subtotal
+}
+
+async function validateDiscount(
+  tx: Tx,
+  userId: string,
+  code: string | undefined,
+  subtotal: Prisma.Decimal,
+  productIds: string[],
+) {
+  if (!code) return { discount: null, discountAmount: new Prisma.Decimal(0) }
+
+  const discount = await tx.discount.findUnique({ where: { code }, include: { products: true } })
+  if (!discount || !discount.isActive) {
+    throw ApiError.BadRequest('Discount code is invalid', undefined, 'DISCOUNT_INVALID')
+  }
+
+  const now = new Date()
+  if (now < discount.startDate || now > discount.endDate) {
+    throw ApiError.BadRequest('Discount code has expired', undefined, 'DISCOUNT_EXPIRED')
+  }
+
+  if (subtotal.lt(discount.minOrderValue)) {
+    throw ApiError.BadRequest(
+      'Order does not meet the minimum value for this discount',
+      undefined,
+      'DISCOUNT_INVALID',
+    )
+  }
+
+  // appliesTo=SPECIFIC scopes the discount to certain products via DiscountProduct — enforce it,
+  // otherwise a "specific products only" discount would incorrectly apply to any order.
+  if (discount.appliesTo === 'SPECIFIC') {
+    const eligible = discount.products.some((p) => productIds.includes(p.productId))
+    if (!eligible) {
+      throw ApiError.BadRequest(
+        'Discount code does not apply to items in this order',
+        undefined,
+        'DISCOUNT_INVALID',
+      )
+    }
+  }
+
+  if (discount.usesCount >= discount.maxUses) {
+    throw ApiError.Conflict('Discount code has reached its usage limit', undefined, 'DISCOUNT_LIMIT_REACHED')
+  }
+
+  const userUse = await tx.discountUserUse.findUnique({
+    where: { discountId_userId: { discountId: discount.id, userId } },
+  })
+  if ((userUse?.usesCount ?? 0) >= discount.maxUsesPerUser) {
+    throw ApiError.Conflict(
+      'You have reached the usage limit for this discount',
+      undefined,
+      'DISCOUNT_LIMIT_REACHED',
+    )
+  }
+
+  const rawAmount =
+    discount.type === 'PERCENTAGE' ? subtotal.mul(discount.value).div(100) : discount.value
+  const discountAmount = rawAmount.gt(discount.maxValue) ? discount.maxValue : rawAmount
+
+  return { discount, discountAmount }
+}
+
+export const CheckoutRepo = {
+  async checkout(userId: string, input: CheckoutInput) {
+    return prisma.$transaction(async (tx) => {
+      const { lines, cartId, cartItemIds } = await resolveLineItems(tx, userId, input)
+
+      const address = await tx.address.findFirst({ where: { id: input.addressId, userId } })
+      if (!address) {
+        throw ApiError.NotFound('Address not found', undefined, 'ADDRESS_NOT_FOUND')
+      }
+
+      const subtotal = await validateAndPriceStock(tx, lines)
+      const productIds = lines.map((l) => l.variant.product.id)
+      const { discount, discountAmount } = await validateDiscount(
+        tx,
+        userId,
+        input.discountCode,
+        subtotal,
+        productIds,
+      )
+
+      const shippingFee = new Prisma.Decimal(env.SHIPPING_FLAT_FEE)
+      const total = subtotal.sub(discountAmount).add(shippingFee)
+
+      let order: Awaited<ReturnType<Tx['order']['create']>> | undefined
+      for (let attempt = 0; attempt < 3 && !order; attempt++) {
+        try {
+          order = await tx.order.create({
+            data: {
+              id: newId(),
+              orderNumber: generateOrderNumber(),
+              userId,
+              recipientName: address.recipientName,
+              phone: address.phone,
+              provinceName: address.provinceName,
+              wardName: address.wardName,
+              addressDetail: address.detail,
+              subtotal,
+              shippingFee,
+              discountAmount,
+              discountCode: discount?.code,
+              total,
+              paymentMethod: 'COD',
+              items: {
+                create: lines.map((line) => ({
+                  id: newId(),
+                  variantId: line.variant.id,
+                  productName: line.variant.product.name,
+                  variantLabel: buildVariantLabel(line.variant),
+                  imageUrl: line.variant.imgUrl ?? undefined,
+                  price: line.variant.price,
+                  quantity: line.quantity,
+                })),
+              },
+            },
+            include: { items: true },
+          })
+        } catch (error) {
+          const isCollision =
+            error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+          if (!isCollision) throw error
+          // orderNumber collision — loop retries with a freshly generated number.
+        }
+      }
+      if (!order) throw ApiError.Internal('Failed to generate a unique order number')
+
+      for (const line of lines) {
+        await tx.productVariant.update({
+          where: { id: line.variant.id },
+          data: { stockQuantity: { decrement: line.quantity } },
+        })
+      }
+
+      if (discount) {
+        await tx.discount.update({ where: { id: discount.id }, data: { usesCount: { increment: 1 } } })
+        await tx.discountUserUse.upsert({
+          where: { discountId_userId: { discountId: discount.id, userId } },
+          create: { discountId: discount.id, userId, usesCount: 1 },
+          update: { usesCount: { increment: 1 } },
+        })
+      }
+
+      if (cartId && cartItemIds.length > 0) {
+        await tx.cartItem.deleteMany({ where: { id: { in: cartItemIds } } })
+        const remaining = await tx.cartItem.count({ where: { cartId } })
+        await tx.cart.update({ where: { id: cartId }, data: { countProduct: remaining } })
+      }
+
+      return order
+    })
+  },
+}
+```
+
+- [ ] **Step 2: Add the `generateOrderNumber` util**
+
+```ts
+// back-end/src/utils/orderNumber.ts
+/** Human-readable order code, e.g. ORD20260904483920. Uniqueness enforced by Order.orderNumber @unique + retry. */
+export function generateOrderNumber(): string {
+  const now = new Date()
+  const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
+    now.getDate(),
+  ).padStart(2, '0')}`
+  const randomPart = Math.floor(100000 + Math.random() * 900000)
+  return `ORD${datePart}${randomPart}`
+}
+```
+
+- [ ] **Step 3: Typecheck**
+
+Run: `cd back-end && npm run typecheck`
+Expected: no errors. (If Prisma's generated transaction-callback types don't line up exactly with the `Tx['order']['create']` inference used above, simplify by typing `order` as `Awaited<ReturnType<typeof tx.order.create>> | undefined` inline instead — adjust to whatever the generated client actually infers.)
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd back-end
+git add src/modules/checkout/checkout.repo.ts src/utils/orderNumber.ts
+git commit -m "feat: implement atomic checkout transaction (repo layer)"
+```
+
+---
+
+### Task 22: Checkout module — service, unit tests
+
+Orchestrates idempotency (Redis) around the repo transaction and rejects non-COD payment methods.
+
+**Files:**
+- Create: `back-end/src/modules/checkout/checkout.service.ts`
+- Test: `back-end/src/modules/checkout/checkout.service.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+// back-end/src/modules/checkout/checkout.service.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('~/modules/checkout/checkout.repo', () => ({
+  CheckoutRepo: { checkout: vi.fn() },
+}))
+vi.mock('~/modules/orders/order.repo', () => ({
+  OrderRepo: { findById: vi.fn() },
+}))
+vi.mock('~/core/idempotency/idempotency', () => ({
+  idempotency: { getOrderId: vi.fn(), saveOrderId: vi.fn() },
+}))
+
+import { CheckoutRepo } from '~/modules/checkout/checkout.repo'
+import { OrderRepo } from '~/modules/orders/order.repo'
+import { idempotency } from '~/core/idempotency/idempotency'
+import { CheckoutService } from '~/modules/checkout/checkout.service'
+
+const fakeOrder = { id: 'order-1', items: [] }
+
+describe('CheckoutService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rejects payment methods other than cod', async () => {
+    await expect(
+      CheckoutService.checkout('user-1', { addressId: 'a1', paymentMethod: 'online' }, 'key-1'),
+    ).rejects.toMatchObject({ statusCode: 501 })
+    expect(CheckoutRepo.checkout).not.toHaveBeenCalled()
+  })
+
+  it('creates a new order and saves the idempotency mapping on first call', async () => {
+    vi.mocked(idempotency.getOrderId).mockResolvedValue(null)
+    vi.mocked(CheckoutRepo.checkout).mockResolvedValue(fakeOrder as never)
+
+    const result = await CheckoutService.checkout(
+      'user-1',
+      { addressId: 'a1', paymentMethod: 'cod' },
+      'key-1',
+    )
+
+    expect(CheckoutRepo.checkout).toHaveBeenCalledOnce()
+    expect(idempotency.saveOrderId).toHaveBeenCalledWith('user-1', 'key-1', 'order-1')
+    expect(result.id).toBe('order-1')
+  })
+
+  it('returns the previously created order on a duplicate Idempotency-Key without re-processing', async () => {
+    vi.mocked(idempotency.getOrderId).mockResolvedValue('order-1')
+    vi.mocked(OrderRepo.findById).mockResolvedValue(fakeOrder as never)
+
+    const result = await CheckoutService.checkout(
+      'user-1',
+      { addressId: 'a1', paymentMethod: 'cod' },
+      'key-1',
+    )
+
+    expect(CheckoutRepo.checkout).not.toHaveBeenCalled()
+    expect(result.id).toBe('order-1')
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd back-end && npx vitest run src/modules/checkout/checkout.service.test.ts`
+Expected: FAIL — `checkout.service` doesn't exist.
+
+- [ ] **Step 3: Implement**
+
+```ts
+// back-end/src/modules/checkout/checkout.service.ts
+import { ApiError } from '~/core/http/ApiError'
+import { idempotency } from '~/core/idempotency/idempotency'
+import { CheckoutRepo } from '~/modules/checkout/checkout.repo'
+import type { CheckoutInput } from '~/modules/checkout/checkout.types'
+import { toOrderDTO } from '~/modules/orders/order.mapper'
+import { OrderRepo } from '~/modules/orders/order.repo'
+
+export const CheckoutService = {
+  async checkout(userId: string, input: CheckoutInput, idempotencyKey: string) {
+    if (input.paymentMethod !== 'cod') {
+      throw ApiError.NotImplemented(
+        'Online payment is not implemented yet (Phase 3)',
+        undefined,
+        'PAYMENT_METHOD_NOT_IMPLEMENTED',
+      )
+    }
+
+    const existingOrderId = await idempotency.getOrderId(userId, idempotencyKey)
+    if (existingOrderId) {
+      const existingOrder = await OrderRepo.findById(existingOrderId)
+      if (existingOrder) return toOrderDTO(existingOrder)
+      // Mapped order id no longer resolves (e.g. Redis TTL outlived a deleted test order) — fall through and reprocess.
+    }
+
+    const order = await CheckoutRepo.checkout(userId, input)
+    await idempotency.saveOrderId(userId, idempotencyKey, order.id)
+    return toOrderDTO(order)
+  },
+}
+```
+
+- [ ] **Step 3b: Add a `NotImplemented` (501) factory to `ApiError`**
+
+`ApiError` doesn't have this yet. In `back-end/src/core/http/ApiError.ts`, add after `static Internal`:
+
+```ts
+  static NotImplemented(msg = 'Not Implemented', details?: unknown, code?: string) {
+    return new ApiError(StatusCodes.NOT_IMPLEMENTED, msg, details, code)
+  }
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd back-end && npx vitest run src/modules/checkout/checkout.service.test.ts`
+Expected: PASS, 3 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd back-end
+git add src/core/http/ApiError.ts src/modules/checkout/checkout.service.ts src/modules/checkout/checkout.service.test.ts
+git commit -m "feat: add checkout service with idempotent order creation"
+```
+
+---
+
+### Task 23: Checkout module — controller, routes, register; full manual smoke test
+
+**Files:**
+- Create: `back-end/src/modules/checkout/checkout.controller.ts`
+- Create: `back-end/src/modules/checkout/checkout.routes.ts`
+- Modify: `back-end/src/routes/index.ts`
+
+- [ ] **Step 1: Controller**
+
+```ts
+// back-end/src/modules/checkout/checkout.controller.ts
+import { Response } from 'express'
+
+import { AuthRequest } from '~/core/auth/auth.middleware'
+import type { IdempotentRequest } from '~/core/http/requireIdempotencyKey'
+import { CheckoutService } from '~/modules/checkout/checkout.service'
+import type { CheckoutInput } from '~/modules/checkout/checkout.types'
+
+type Req = AuthRequest & IdempotentRequest
+
+export const CheckoutController = {
+  checkout: async (req: Req, res: Response) => {
+    const order = await CheckoutService.checkout(
+      req.user!.id,
+      req.body as CheckoutInput,
+      req.idempotencyKey!,
+    )
+    return res.status(201).json(order)
+  },
+}
+```
+
+- [ ] **Step 2: Routes**
+
+```ts
+// back-end/src/modules/checkout/checkout.routes.ts
+import { Router } from 'express'
+
+import { permissions } from '~/config/rbacConfig'
+import { authenticate } from '~/core/auth/auth.middleware'
+import { requirePermission } from '~/core/auth/requirePermission'
+import { requireIdempotencyKey } from '~/core/http/requireIdempotencyKey'
+import { asyncHandler } from '~/core/asyncHandler'
+import { validateRequest } from '~/core/validate/validateRequest'
+import { CheckoutController } from '~/modules/checkout/checkout.controller'
+import { CheckoutSchema } from '~/modules/checkout/checkout.validation'
+
+const r = Router()
+
+r.post(
+  '/',
+  authenticate,
+  requirePermission(permissions.VIEW_USER),
+  requireIdempotencyKey,
+  validateRequest(CheckoutSchema),
+  asyncHandler(CheckoutController.checkout),
+)
+
+export default r
+```
+
+- [ ] **Step 3: Register in `routes/index.ts`**
+
+```ts
+import checkoutRoutes from '~/modules/checkout/checkout.routes'
+// ...
+router.use('/checkout', checkoutRoutes)
+```
+
+- [ ] **Step 4: Full manual smoke test**
+
+With the dev server running and `$ACCESS_TOKEN` set from a logged-in seeded user:
+
+```bash
+# 1. Add an item to cart (use a real ProductVariant id)
+curl -s -X POST http://localhost:3000/api/cart/items \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"variantId":"<variant-id>","quantity":1}'
+
+# 2. Create an address (skip if one already exists from Task 12)
+curl -s -X POST http://localhost:3000/api/addresses \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"recipientName":"Nguyen Van A","phone":"0901234567","provinceCode":"HN","wardCode":"HN-BD","detail":"1 Doi Can"}'
+
+# 3. Checkout (note the address id from step 2's response)
+curl -s -X POST http://localhost:3000/api/checkout \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"addressId":"<address-id>","paymentMethod":"cod"}'
+```
+
+Expected: `201` with the created order (`orderStatus: PENDING`, `paymentStatus: UNPAID`, `shipmentStatus: NOT_SHIPPED`, `total = subtotal + 30000`).
+
+```bash
+# 4. Re-run the exact same checkout request with the SAME Idempotency-Key
+```
+
+Expected: `201` again, with the **same** `id`/`orderNumber` as step 3 — proves dedup works.
+
+```bash
+# 5. List my orders and cancel it
+curl -s http://localhost:3000/api/orders -H "Authorization: Bearer $ACCESS_TOKEN"
+curl -s -X POST http://localhost:3000/api/orders/<order-id>/cancel -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# 6. Track it publicly
+curl -s "http://localhost:3000/api/orders/track?orderNumber=<orderNumber>&phone=0901234567"
+
+# 7. As an admin user, list and update status
+curl -s http://localhost:3000/api/admin/orders -H "Authorization: Bearer $ADMIN_ACCESS_TOKEN"
+```
+
+Expected: cancel restores stock (verify via `GET /api/products/:id` admin endpoint that `stockQuantity` went back up), tracking returns the trimmed view, admin list/detail work.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd back-end
+git add src/modules/checkout/checkout.controller.ts src/modules/checkout/checkout.routes.ts src/routes/index.ts
+git commit -m "feat: expose checkout API and verify full COD flow end-to-end"
+```
+
+---
+
+### Task 24: Checkout integration test (real DB, transaction rollback)
+
+Per spec, verify the checkout transaction actually rolls back on a mid-transaction failure. No separate test database exists in this project yet; this test runs against the same dev database (already reachable per `back-end/.env`) and cleans up everything it creates in `afterAll`, rather than standing up new test-DB infrastructure — a pragmatic choice given no test DB convention exists yet in this codebase.
+
+**Files:**
+- Create: `back-end/src/modules/checkout/checkout.integration.test.ts`
+
+- [ ] **Step 1: Write the test**
+
+```ts
+// back-end/src/modules/checkout/checkout.integration.test.ts
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import { prisma } from '~/lib/prisma'
+import { newId } from '~/utils/id'
+import { CheckoutRepo } from '~/modules/checkout/checkout.repo'
+
+describe('CheckoutRepo.checkout (integration, real DB)', () => {
+  let userId: string
+  let roleId: string
+  let categoryId: string
+  let productId: string
+  let variantId: string
+  let addressId: string
+
+  beforeAll(async () => {
+    const role = await prisma.role.upsert({
+      where: { name: 'USER' },
+      update: {},
+      create: { id: newId(), name: 'USER' },
+    })
+    roleId = role.id
+
+    const user = await prisma.user.create({
+      data: {
+        id: newId(),
+        email: `checkout-integration-${Date.now()}@test.local`,
+        name: 'Integration Test User',
+        password: 'unused',
+        roleId,
+        isActive: true,
+      },
+    })
+    userId = user.id
+
+    const category = await prisma.category.create({
+      data: { id: newId(), name: `Integration Cat ${Date.now()}`, slug: `integration-cat-${Date.now()}` },
+    })
+    categoryId = category.id
+
+    const product = await prisma.product.create({
+      data: {
+        id: newId(),
+        name: 'Integration Test Product',
+        slug: `integration-product-${Date.now()}`,
+        categoryId,
+        brand: 'TestBrand',
+      },
+    })
+    productId = product.id
+
+    const variant = await prisma.productVariant.create({
+      data: { id: newId(), productId, price: 100000, stockQuantity: 1 },
+    })
+    variantId = variant.id
+
+    const address = await prisma.address.create({
+      data: {
+        id: newId(),
+        userId,
+        recipientName: 'Integration Tester',
+        phone: '0901234567',
+        provinceCode: 'HN',
+        provinceName: 'Thành phố Hà Nội',
+        wardCode: 'HN-BD',
+        wardName: 'Phường Ba Đình',
+        detail: '1 Test St',
+        isDefault: true,
+      },
+    })
+    addressId = address.id
+  })
+
+  afterAll(async () => {
+    await prisma.order.deleteMany({ where: { userId } })
+    await prisma.address.deleteMany({ where: { userId } })
+    await prisma.productVariant.deleteMany({ where: { productId } })
+    await prisma.product.deleteMany({ where: { id: productId } })
+    await prisma.category.deleteMany({ where: { id: categoryId } })
+    await prisma.user.deleteMany({ where: { id: userId } })
+    await prisma.$disconnect()
+  })
+
+  it('rolls back the whole transaction when a mid-transaction step fails', async () => {
+    // Request 2 units against a variant that only has 1 in stock — validateAndPriceStock throws
+    // partway through, after resolveLineItems already ran but before the order is created.
+    await expect(
+      CheckoutRepo.checkout(userId, {
+        addressId,
+        paymentMethod: 'cod',
+        buyNowItem: { variantId, quantity: 2 },
+      }),
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK' })
+
+    const orders = await prisma.order.findMany({ where: { userId } })
+    expect(orders).toHaveLength(0)
+
+    const variant = await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })
+    expect(variant.stockQuantity).toBe(1) // unchanged — proves the decrement never committed
+  })
+
+  it('succeeds end-to-end for a valid buy-now checkout', async () => {
+    const order = await CheckoutRepo.checkout(userId, {
+      addressId,
+      paymentMethod: 'cod',
+      buyNowItem: { variantId, quantity: 1 },
+    })
+
+    expect(order.orderStatus).toBe('PENDING')
+    expect(order.items).toHaveLength(1)
+
+    const variant = await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })
+    expect(variant.stockQuantity).toBe(0) // decremented
+  })
+})
+```
+
+- [ ] **Step 2: Run it**
+
+Run: `cd back-end && npx vitest run src/modules/checkout/checkout.integration.test.ts`
+Expected: PASS, 2 tests. Requires the dev MySQL/MariaDB from `back-end/.env` to be running and reachable.
+
+- [ ] **Step 3: Run the full test suite**
+
+Run: `cd back-end && npm test`
+Expected: all tests pass (unit + this integration test).
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd back-end
+git add src/modules/checkout/checkout.integration.test.ts
+git commit -m "test: add checkout transaction-rollback integration test"
+```
+
+---
+
+## Part B — Frontend
+
+**Scope boundary (important, discovered during planning):** `Home.tsx`, `Category.tsx`, and `ProductDetail.tsx` are **entirely mock data** — `ProductDetail.tsx` shows a hardcoded fake iPhone with fake images/colors/reviews with no connection to any real product, and `Category.tsx` reads from `~/mock/productData`. Wiring the storefront browsing experience to the real `catalog` API is a separate, larger pre-existing gap, unrelated to checkout/payment/shipping, and is **out of scope for this plan**. Because of this, "Add to cart" / "Buy now" on `ProductDetail.tsx` are **not** wired in this plan — doing so would mean associating a real backend variant with a fake displayed product, which is misleading rather than useful. The backend Cart/Checkout API already supports a `buyNowItem` for whenever that follow-up work wires the storefront to real data.
+
+What this plan **does** wire to real APIs: `Cart.tsx`, `Checkout.tsx`, `AccountAddresses.tsx` (with a new address form), `AccountOrders.tsx`, `TrackOrder.tsx`, and the admin `OrdersList.tsx`/`OrderDetail.tsx`. Manual end-to-end testing seeds the cart via `curl` (as already done in backend Task 23) since there's no real "browse and add a real product" path yet.
+
+No frontend test framework exists (`front-end/package.json` has no `test` script, no Vitest/RTL) — matching the spec's own testing section, verification here is manual, in the browser.
+
+### Task 25: Frontend API modules
+
+**Files:**
+- Create: `front-end/src/apis/cartApi.ts`
+- Create: `front-end/src/apis/addressApi.ts`
+- Create: `front-end/src/apis/locationApi.ts`
+- Create: `front-end/src/apis/orderApi.ts`
+- Create: `front-end/src/apis/checkoutApi.ts`
+
+- [ ] **Step 1: `cartApi.ts`**
+
+```ts
+// front-end/src/apis/cartApi.ts
 import api from "./axiosConfig"
 
-export type Province = { code: string; name: string }
-export type Ward = { code: string; name: string }
+export type CartItem = {
+  id: string
+  variantId: string
+  productId: string
+  productName: string
+  variantLabel: string
+  imageUrl?: string
+  price: number
+  quantity: number
+  selected: boolean
+  stockQuantity: number
+}
 
-export async function fetchProvinces(): Promise<Province[]> {
-  const response = await api.get<Province[]>("/locations/provinces")
+export type Cart = {
+  id: string | null
+  items: CartItem[]
+  countProduct: number
+}
+
+export async function fetchCart(): Promise<Cart> {
+  const response = await api.get<Cart>("/cart")
   return response.data
 }
 
-export async function fetchWards(provinceCode: string): Promise<Ward[]> {
-  const response = await api.get<Ward[]>(`/locations/provinces/${provinceCode}/wards`)
+export async function addCartItem(variantId: string, quantity: number): Promise<Cart> {
+  const response = await api.post<Cart>("/cart/items", { variantId, quantity })
+  return response.data
+}
+
+export async function updateCartItem(
+  itemId: string,
+  data: { quantity?: number; selected?: boolean }
+): Promise<Cart> {
+  const response = await api.patch<Cart>(`/cart/items/${itemId}`, data)
+  return response.data
+}
+
+export async function removeCartItem(itemId: string): Promise<Cart> {
+  const response = await api.delete<Cart>(`/cart/items/${itemId}`)
+  return response.data
+}
+
+export async function selectAllCartItems(selected: boolean): Promise<Cart> {
+  const response = await api.patch<Cart>("/cart/select-all", { selected })
   return response.data
 }
 ```
@@ -3202,136 +3675,29 @@ export async function setDefaultAddress(id: string): Promise<Address> {
 export async function deleteAddress(id: string): Promise<void> {
   await api.delete(`/addresses/${id}`)
 }
-
-function getErrorMessage(error: unknown): string {
-  const err = error as { response?: { data?: { message?: string; code?: string } } }
-  return err.response?.data?.message || "Unable to process the request"
-}
-
-export { getErrorMessage as getAddressApiError }
 ```
 
-- [ ] **Step 3: `cartApi.ts`**
+- [ ] **Step 3: `locationApi.ts`**
 
 ```ts
-// front-end/src/apis/cartApi.ts
+// front-end/src/apis/locationApi.ts
 import api from "./axiosConfig"
 
-export type CartItem = {
-  id: string
-  variantId: string
-  productName: string
-  variantLabel: string
-  imageUrl: string | null
-  price: number
-  quantity: number
-  selected: boolean
-  stockQuantity: number
-}
+export type Province = { code: string; name: string }
+export type Ward = { code: string; name: string; provinceCode: string }
 
-export type Cart = {
-  id: string
-  countProduct: number
-  items: CartItem[]
-}
-
-export async function fetchCart(): Promise<Cart> {
-  const response = await api.get<Cart>("/cart")
+export async function fetchProvinces(): Promise<Province[]> {
+  const response = await api.get<Province[]>("/locations/provinces")
   return response.data
 }
 
-export async function addCartItem(variantId: string, quantity: number): Promise<Cart> {
-  const response = await api.post<Cart>("/cart/items", { variantId, quantity })
+export async function fetchWards(provinceCode: string): Promise<Ward[]> {
+  const response = await api.get<Ward[]>(`/locations/provinces/${provinceCode}/wards`)
   return response.data
 }
-
-export async function updateCartItem(
-  id: string,
-  payload: { quantity?: number; selected?: boolean }
-): Promise<Cart> {
-  const response = await api.patch<Cart>(`/cart/items/${id}`, payload)
-  return response.data
-}
-
-export async function removeCartItem(id: string): Promise<Cart> {
-  const response = await api.delete<Cart>(`/cart/items/${id}`)
-  return response.data
-}
-
-export async function setSelectAll(selected: boolean): Promise<Cart> {
-  const response = await api.patch<Cart>("/cart/select-all", { selected })
-  return response.data
-}
-
-function getErrorMessage(error: unknown): string {
-  const err = error as { response?: { data?: { message?: string; code?: string } } }
-  return err.response?.data?.message || "Unable to process the request"
-}
-
-export { getErrorMessage as getCartApiError }
 ```
 
-- [ ] **Step 4: `checkoutApi.ts`**
-
-Generates a fresh `Idempotency-Key` (UUID) per checkout *attempt* — the caller must generate one before the first submit and re-send the same one on any client-side retry of that same attempt (e.g. a network-timeout retry), but generate a new one for a genuinely new checkout click. See Task 16 for exactly where this is created and held.
-
-```ts
-// front-end/src/apis/checkoutApi.ts
-import api from "./axiosConfig"
-import type { Cart } from "./cartApi"
-
-export type BuyNowItem = { variantId: string; quantity: number }
-
-export type CheckoutPayload = {
-  addressId: string
-  paymentMethod: "cod" | "online"
-  discountCode?: string
-  buyNowItem?: BuyNowItem
-}
-
-export type CheckoutOrder = {
-  id: string
-  orderNumber: string
-  subtotal: number
-  shippingFee: number
-  discountAmount: number
-  total: number
-  orderStatus: string
-  paymentMethod: string
-  paymentStatus: string
-}
-
-export async function checkout(
-  payload: CheckoutPayload,
-  idempotencyKey: string
-): Promise<CheckoutOrder> {
-  const response = await api.post<CheckoutOrder>("/checkout", payload, {
-    headers: { "Idempotency-Key": idempotencyKey },
-  })
-  return response.data
-}
-
-export type CheckoutErrorCode =
-  | "CART_EMPTY"
-  | "INSUFFICIENT_STOCK"
-  | "DISCOUNT_INVALID"
-  | "DISCOUNT_EXPIRED"
-  | "DISCOUNT_LIMIT_REACHED"
-  | "ADDRESS_NOT_FOUND"
-
-export function getCheckoutApiError(error: unknown): { message: string; code?: CheckoutErrorCode } {
-  const err = error as { response?: { data?: { message?: string; code?: CheckoutErrorCode } } }
-  return {
-    message: err.response?.data?.message || "Unable to place order",
-    code: err.response?.data?.code,
-  }
-}
-
-// Re-exported for convenience so pages can import cart types alongside checkout types from one place if useful.
-export type { Cart }
-```
-
-- [ ] **Step 5: `orderApi.ts`**
+- [ ] **Step 4: `orderApi.ts`**
 
 ```ts
 // front-end/src/apis/orderApi.ts
@@ -3342,9 +3708,10 @@ export type OrderItem = {
   variantId: string
   productName: string
   variantLabel: string
-  imageUrl: string | null
+  imageUrl?: string
   price: number
   quantity: number
+  total: number
 }
 
 export type Order = {
@@ -3360,149 +3727,1360 @@ export type Order = {
   subtotal: number
   shippingFee: number
   discountAmount: number
-  discountCode: string | null
+  discountCode?: string
   total: number
   orderStatus: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED"
   paymentMethod: "COD" | "ONLINE"
   paymentStatus: "UNPAID" | "PAID" | "FAILED" | "REFUNDED"
   shipmentStatus: "NOT_SHIPPED" | "SHIPPED" | "DELIVERED" | "RETURNED"
-  note: string | null
+  note?: string
   createdAt: string
   updatedAt: string
 }
 
-export type OrderListResponse = {
+export type PaginatedOrders = {
   items: Order[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
-export async function fetchOrders(params?: { page?: number; orderStatus?: string }): Promise<OrderListResponse> {
-  const response = await api.get<OrderListResponse>("/orders", { params })
+export type OrderTrackingResult = {
+  orderNumber: string
+  orderStatus: Order["orderStatus"]
+  shipmentStatus: Order["shipmentStatus"]
+  createdAt: string
+  items: OrderItem[]
+  total: number
+  provinceName: string
+  wardName: string
+  addressDetail: string
+}
+
+export async function fetchMyOrders(params?: {
+  page?: number
+  limit?: number
+  orderStatus?: string
+}): Promise<PaginatedOrders> {
+  const response = await api.get<PaginatedOrders>("/orders", { params })
   return response.data
 }
 
-export async function fetchOrderById(id: string): Promise<Order> {
+export async function fetchMyOrder(id: string): Promise<Order> {
   const response = await api.get<Order>(`/orders/${id}`)
   return response.data
 }
 
-export async function cancelOrder(id: string): Promise<Order> {
-  const response = await api.post<Order>(`/orders/${id}/cancel`, {})
+export async function cancelMyOrder(id: string): Promise<Order> {
+  const response = await api.post<Order>(`/orders/${id}/cancel`)
   return response.data
 }
 
-/** Public — no auth header needed (axiosConfig adds one anyway if a token exists, which the backend ignores on this route). */
-export async function trackOrder(orderNumber: string, phone: string): Promise<Order> {
-  const response = await api.get<Order>("/orders/track", { params: { orderNumber, phone } })
+export async function trackOrder(orderNumber: string, phone: string): Promise<OrderTrackingResult> {
+  const response = await api.get<OrderTrackingResult>("/orders/track", {
+    params: { orderNumber, phone },
+  })
   return response.data
 }
-
-// --- Admin ---
 
 export async function fetchAdminOrders(params?: {
   page?: number
+  limit?: number
   orderStatus?: string
   paymentMethod?: string
   search?: string
-}): Promise<OrderListResponse> {
-  const response = await api.get<OrderListResponse>("/admin/orders", { params })
+}): Promise<PaginatedOrders> {
+  const response = await api.get<PaginatedOrders>("/admin/orders", { params })
   return response.data
 }
 
-export async function fetchAdminOrderById(id: string): Promise<Order> {
+export async function fetchAdminOrder(id: string): Promise<Order> {
   const response = await api.get<Order>(`/admin/orders/${id}`)
   return response.data
 }
 
 export async function updateAdminOrderStatus(
   id: string,
-  payload: { orderStatus?: Order["orderStatus"]; paymentStatus?: Order["paymentStatus"]; shipmentStatus?: Order["shipmentStatus"] }
+  data: Partial<Pick<Order, "orderStatus" | "paymentStatus" | "shipmentStatus">>
 ): Promise<Order> {
-  const response = await api.patch<Order>(`/admin/orders/${id}/status`, payload)
+  const response = await api.patch<Order>(`/admin/orders/${id}/status`, data)
   return response.data
 }
-
-function getErrorMessage(error: unknown): string {
-  const err = error as { response?: { data?: { message?: string } } }
-  return err.response?.data?.message || "Unable to process the request"
-}
-
-export { getErrorMessage as getOrderApiError }
 ```
 
-- [ ] **Step 6: Typecheck the frontend**
+- [ ] **Step 5: `checkoutApi.ts`**
 
-Run: `cd front-end && npm run build` (or `npx tsc --noEmit` if a faster typecheck-only script exists — check `front-end/package.json` `"scripts"`; use whichever this project already uses for type-checking without a full Vite build)
-Expected: no type errors (these files aren't imported anywhere yet, so this mainly checks they're internally well-typed).
+```ts
+// front-end/src/apis/checkoutApi.ts
+import api from "./axiosConfig"
+import type { Order } from "./orderApi"
+
+export type CheckoutPayload = {
+  addressId: string
+  paymentMethod: "cod"
+  discountCode?: string
+}
+
+export async function checkout(payload: CheckoutPayload): Promise<Order> {
+  const response = await api.post<Order>("/checkout", payload, {
+    headers: { "Idempotency-Key": crypto.randomUUID() },
+  })
+  return response.data
+}
+```
+
+- [ ] **Step 6: Typecheck**
+
+Run: `cd front-end && npx tsc --noEmit` (or the project's existing typecheck script if one exists — check `front-end/package.json`)
+Expected: no errors.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add front-end/src/apis/locationApi.ts front-end/src/apis/addressApi.ts front-end/src/apis/cartApi.ts front-end/src/apis/checkoutApi.ts front-end/src/apis/orderApi.ts
-git commit -m "feat: add frontend API clients for location/address/cart/checkout/order"
+cd front-end
+git add src/apis/cartApi.ts src/apis/addressApi.ts src/apis/locationApi.ts src/apis/orderApi.ts src/apis/checkoutApi.ts
+git commit -m "feat: add cart/address/location/order/checkout API modules"
 ```
 
 ---
 
-### Task 15: Update admin `Order` types and status UI for the new backend enums
-
-The existing `types/admin/index.ts` `Order` type predates the real backend and has status values that no longer match it: `"processing"` doesn't exist in the new `orderStatus` enum, and `"refunded"` moves from `orderStatus` to `paymentStatus`. `ShippingAddress` also has a `district` field that no longer exists (2-tier VN address). This task updates the type and the two files that branch on status values (`lib/admin/ui.ts`, `OrderStatusBadge.tsx` — no change needed to the badge component itself, only its lookup tables).
+### Task 26: Rewire `Cart.tsx` to the real Cart API
 
 **Files:**
-- Modify: `front-end/src/types/admin/index.ts`
-- Modify: `front-end/src/lib/admin/ui.ts`
+- Modify: `front-end/src/pages/Cart.tsx`
 
-- [ ] **Step 1: Replace the `Order`-related types in `types/admin/index.ts`**
+- [ ] **Step 1: Replace the full file content**
 
-Replace the existing `OrderItem`, `ShippingAddress`, and `Order` interfaces with:
+```tsx
+// front-end/src/pages/Cart.tsx
+import { useEffect, useState } from "react"
+import { Trash2 } from "lucide-react"
+import { CartEmptyState } from "~/components/cart/CartEmptyState"
+import { CartLineItem, type CartItemData } from "~/components/cart/CartLineItem"
+import { CartOrderSummary } from "~/components/cart/CartOrderSummary"
+import { CartPageHeader } from "~/components/cart/CartPageHeader"
+import { Button } from "~/components/ui/button"
+import { Checkbox } from "~/components/ui/checkbox"
+import { storeTokens } from "~/lib/categoryTheme"
+import {
+  fetchCart,
+  removeCartItem,
+  selectAllCartItems,
+  updateCartItem,
+  type Cart as CartData,
+} from "~/apis/cartApi"
 
-```ts
-export interface OrderItem {
-  id: string
-  variantId: string
-  productName: string
-  variantLabel: string
-  imageUrl: string | null
-  price: number
-  quantity: number
+const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
+
+const EMPTY_CART: CartData = { id: null, items: [], countProduct: 0 }
+
+function toCartItemData(cart: CartData): CartItemData[] {
+  return cart.items.map((item) => ({
+    id: item.id,
+    productId: item.productId,
+    name: item.productName,
+    variant: item.variantLabel,
+    image: item.imageUrl ?? "",
+    price: item.price,
+    quantity: item.quantity,
+    selected: item.selected,
+  }))
 }
 
-export interface ShippingAddress {
-  recipientName: string
-  phone: string
-  provinceName: string
-  wardName: string
-  addressDetail: string
-}
+export function Cart() {
+  const [cart, setCart] = useState<CartData>(EMPTY_CART)
+  const [voucherCode, setVoucherCode] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
 
-export interface Order {
-  id: string
-  orderNumber: string
-  userId: string
-  items: OrderItem[]
-  subtotal: number
-  shippingFee: number
-  discountAmount: number
-  discountCode: string | null
-  total: number
-  orderStatus: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED"
-  paymentMethod: "COD" | "ONLINE"
-  paymentStatus: "UNPAID" | "PAID" | "FAILED" | "REFUNDED"
-  shipmentStatus: "NOT_SHIPPED" | "SHIPPED" | "DELIVERED" | "RETURNED"
-  shippingAddress: ShippingAddress
-  note?: string
-  createdAt: string
-  updatedAt: string
+  useEffect(() => {
+    fetchCart()
+      .then(setCart)
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const cartItems = toCartItemData(cart)
+  const selectedItems = cartItems.filter((item) => item.selected)
+  const selectAll = cartItems.length > 0 && cartItems.every((item) => item.selected)
+  const someSelected = cartItems.some((item) => item.selected)
+
+  const subtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const shipping = selectedItems.length > 0 ? 35_000 : 0
+  const voucherDiscount = selectedItems.length > 0 && voucherCode.trim().length > 0 ? 150_000 : 0
+  const total = Math.max(0, subtotal + shipping - voucherDiscount)
+
+  const toggleSelectAll = async (checked: boolean) => {
+    setCart(await selectAllCartItems(checked))
+  }
+
+  const toggleItemSelection = async (id: string) => {
+    const item = cart.items.find((i) => i.id === id)
+    if (!item) return
+    setCart(await updateCartItem(id, { selected: !item.selected }))
+  }
+
+  const updateQuantity = async (id: string, delta: number) => {
+    const item = cart.items.find((i) => i.id === id)
+    if (!item) return
+    setCart(await updateCartItem(id, { quantity: Math.max(1, item.quantity + delta) }))
+  }
+
+  const removeItem = async (id: string) => {
+    setCart(await removeCartItem(id))
+  }
+
+  const removeSelected = async () => {
+    const selectedIds = cart.items.filter((i) => i.selected).map((i) => i.id)
+    let updated = cart
+    for (const id of selectedIds) {
+      updated = await removeCartItem(id)
+    }
+    setCart(updated)
+  }
+
+  if (isLoading) return null
+
+  return (
+    <div className={`min-h-[100dvh] ${storeTokens.pageBg} py-5 sm:py-6`}>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <CartPageHeader itemCount={cartItems.length} selectedCount={selectedItems.length} />
+
+        {cartItems.length === 0 ? (
+          <CartEmptyState />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:gap-5 xl:grid-cols-[1fr_360px]">
+            <section
+              className={`overflow-hidden rounded-lg border ${storeTokens.border} ${storeTokens.surface}`}
+            >
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 ${storeTokens.bandBg}`}
+              >
+                <label className="flex cursor-pointer items-center gap-2.5">
+                  <Checkbox
+                    checked={selectAll}
+                    onCheckedChange={(checked) => toggleSelectAll(checked === true)}
+                    aria-label="Select all products"
+                    className="size-[18px] border-gray-300 data-checked:border-[#00cbfd] data-checked:bg-[#00cbfd]"
+                  />
+                  <span className="text-sm text-[#2b2f32]">
+                    Select all ({cartItems.length})
+                  </span>
+                </label>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={removeSelected}
+                  disabled={!someSelected}
+                  className="h-8 text-[#ee4d2d] hover:bg-[#fff5f3] hover:text-[#d73211] disabled:opacity-40"
+                >
+                  <Trash2 className="mr-1.5 size-3.5" aria-hidden="true" />
+                  Remove selected
+                </Button>
+              </div>
+
+              <div role="list">
+                {cartItems.map((item) => (
+                  <CartLineItem
+                    key={item.id}
+                    item={item}
+                    onToggleSelect={toggleItemSelection}
+                    onUpdateQuantity={updateQuantity}
+                    onRemove={removeItem}
+                    formatPrice={formatPrice}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <CartOrderSummary
+              selectedCount={selectedItems.reduce((sum, item) => sum + item.quantity, 0)}
+              subtotal={subtotal}
+              shipping={shipping}
+              discount={voucherDiscount}
+              total={total}
+              voucherCode={voucherCode}
+              onVoucherChange={setVoucherCode}
+              formatPrice={formatPrice}
+              checkoutDisabled={selectedItems.length === 0}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 ```
 
-This drops `customerId`/`customerName`/`customerEmail`/`trackingNumber` (the backend `Order` doesn't carry a denormalized customer name/email or a tracking number in Phase 1 — `admin/OrderDetail.tsx`'s customer panel in Task 22 will need a small adjustment for this, noted there) and renames the status field from `status` to `orderStatus` to match the backend.
+Note: `CartLineItem`'s `onToggleSelect`/`onUpdateQuantity`/`onRemove` props are typed as returning `void`; passing an `async` function (returning `Promise<void>`) is valid TypeScript here since a `void`-typed callback accepts any return value.
 
-- [ ] **Step 2: Update `lib/admin/ui.ts`'s status maps**
+- [ ] **Step 2: Manual verification**
 
-Replace `ORDER_STATUS_LABELS` and `ORDER_STATUS_BADGE_CLASS`:
+1. Seed a real cart item via curl first (backend Task 15's example), using a variant belonging to a real seeded product.
+2. Run `cd front-end && npm run dev`, log in as that same user, navigate to `/cart`.
+3. Expected: the real item appears with its live price; toggling its checkbox, changing quantity, and removing it all persist (reload the page — the change should still be there, since it's now backed by the real API, not local state).
+
+- [ ] **Step 3: Commit**
+
+```bash
+cd front-end
+git add src/pages/Cart.tsx
+git commit -m "feat: wire Cart page to real cart API"
+```
+
+---
+
+### Task 27: Address book — form dialog + `AccountAddresses.tsx`
+
+**Files:**
+- Create: `front-end/src/components/account/AddressFormDialog.tsx`
+- Modify: `front-end/src/pages/account/AccountAddresses.tsx`
+
+- [ ] **Step 1: Confirm `DialogFooter` is exported**
+
+Run: `grep -n "DialogFooter" front-end/src/components/ui/dialog.tsx`
+Expected: an export. If it's not exported, use a plain `<div className="flex justify-end gap-2 mt-4">` instead of `<DialogFooter>` in Step 2 below.
+
+- [ ] **Step 2: Create the address form dialog**
+
+```tsx
+// front-end/src/components/account/AddressFormDialog.tsx
+import { useEffect, useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog"
+import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
+import { Checkbox } from "~/components/ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select"
+import { toast } from "sonner"
+import {
+  createAddress,
+  updateAddress,
+  type Address,
+  type UpsertAddressPayload,
+} from "~/apis/addressApi"
+import { fetchProvinces, fetchWards, type Province, type Ward } from "~/apis/locationApi"
+
+type AddressFormDialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  address: Address | null // null = create mode
+  onSaved: () => void
+}
+
+const EMPTY_FORM: UpsertAddressPayload = {
+  label: "",
+  recipientName: "",
+  phone: "",
+  provinceCode: "",
+  wardCode: "",
+  detail: "",
+  isDefault: false,
+}
+
+export function AddressFormDialog({
+  open,
+  onOpenChange,
+  address,
+  onSaved,
+}: AddressFormDialogProps) {
+  const [form, setForm] = useState<UpsertAddressPayload>(EMPTY_FORM)
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [wards, setWards] = useState<Ward[]>([])
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    fetchProvinces().then(setProvinces)
+    setForm(
+      address
+        ? {
+            label: address.label ?? "",
+            recipientName: address.recipientName,
+            phone: address.phone,
+            provinceCode: address.provinceCode,
+            wardCode: address.wardCode,
+            detail: address.detail,
+            isDefault: address.isDefault,
+          }
+        : EMPTY_FORM
+    )
+  }, [open, address])
+
+  useEffect(() => {
+    if (!form.provinceCode) {
+      setWards([])
+      return
+    }
+    fetchWards(form.provinceCode).then(setWards)
+  }, [form.provinceCode])
+
+  const handleSubmit = async () => {
+    setIsSaving(true)
+    try {
+      if (address) {
+        await updateAddress(address.id, form)
+      } else {
+        await createAddress(form)
+      }
+      toast.success("Address saved")
+      onSaved()
+      onOpenChange(false)
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message ?? "Failed to save address")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{address ? "Edit address" : "Add address"}</DialogTitle>
+          <DialogDescription>Used for shipping your orders.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="addr-label">Label (optional)</Label>
+            <Input
+              id="addr-label"
+              value={form.label}
+              onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+              placeholder="Home, Office..."
+            />
+          </div>
+          <div>
+            <Label htmlFor="addr-name">Recipient name</Label>
+            <Input
+              id="addr-name"
+              value={form.recipientName}
+              onChange={(e) => setForm((f) => ({ ...f, recipientName: e.target.value }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="addr-phone">Phone</Label>
+            <Input
+              id="addr-phone"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="0901234567"
+            />
+          </div>
+          <div>
+            <Label>Province / City</Label>
+            <Select
+              value={form.provinceCode}
+              onValueChange={(value) =>
+                setForm((f) => ({ ...f, provinceCode: value, wardCode: "" }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select province" />
+              </SelectTrigger>
+              <SelectContent>
+                {provinces.map((p) => (
+                  <SelectItem key={p.code} value={p.code}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Ward</Label>
+            <Select
+              value={form.wardCode}
+              onValueChange={(value) => setForm((f) => ({ ...f, wardCode: value }))}
+              disabled={!form.provinceCode}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select ward" />
+              </SelectTrigger>
+              <SelectContent>
+                {wards.map((w) => (
+                  <SelectItem key={w.code} value={w.code}>
+                    {w.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="addr-detail">Address detail</Label>
+            <Input
+              id="addr-detail"
+              value={form.detail}
+              onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))}
+              placeholder="House number, street"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={form.isDefault}
+              onCheckedChange={(checked) => setForm((f) => ({ ...f, isDefault: checked === true }))}
+            />
+            Set as default address
+          </label>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+- [ ] **Step 3: Rewire `AccountAddresses.tsx`**
+
+Replace the full file content:
+
+```tsx
+// front-end/src/pages/account/AccountAddresses.tsx
+import { useEffect, useState } from "react"
+import { MapPin, Plus, Pencil, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card"
+import { Badge } from "~/components/ui/badge"
+import { Button } from "~/components/ui/button"
+import { AddressFormDialog } from "~/components/account/AddressFormDialog"
+import { deleteAddress, fetchAddresses, setDefaultAddress, type Address } from "~/apis/addressApi"
+
+/** Shipping addresses tab. */
+export function AccountAddresses() {
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Address | null>(null)
+
+  const load = () => {
+    fetchAddresses()
+      .then(setAddresses)
+      .finally(() => setIsLoading(false))
+  }
+
+  useEffect(load, [])
+
+  const handleDelete = async (id: string) => {
+    await deleteAddress(id)
+    toast.success("Address removed")
+    load()
+  }
+
+  const handleSetDefault = async (id: string) => {
+    await setDefaultAddress(id)
+    load()
+  }
+
+  if (isLoading) return null
+
+  return (
+    <div>
+      <Card className="py-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-semibold">My addresses</CardTitle>
+              <CardDescription>{addresses.length} addresses</CardDescription>
+            </div>
+            <Button
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
+              onClick={() => {
+                setEditing(null)
+                setDialogOpen(true)
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add address
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {addresses.map((addr) => (
+            <Card
+              key={addr.id}
+              className={`transition-all ${
+                addr.isDefault
+                  ? "ring-2 ring-cyan-500/30 shadow-md"
+                  : "hover:shadow-md"
+              }`}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex gap-4">
+                    <div
+                      className={`p-3 rounded-xl ${
+                        addr.isDefault
+                          ? "bg-gradient-to-br from-cyan-50 to-blue-50"
+                          : "bg-slate-50"
+                      }`}
+                    >
+                      <MapPin
+                        className={`w-5 h-5 ${
+                          addr.isDefault ? "text-cyan-600" : "text-slate-400"
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-slate-900">
+                          {addr.label || addr.recipientName}
+                        </h3>
+                        {addr.isDefault && (
+                          <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[10px]">
+                            Default
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600">
+                        {addr.recipientName} • {addr.phone}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        {addr.detail}, {addr.wardName}, {addr.provinceName}
+                      </p>
+                      {!addr.isDefault && (
+                        <button
+                          onClick={() => handleSetDefault(addr.id)}
+                          className="mt-1 text-xs text-cyan-600 hover:underline"
+                        >
+                          Set as default
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-400 hover:text-cyan-600 cursor-pointer"
+                      aria-label="Edit address"
+                      onClick={() => {
+                        setEditing(addr)
+                        setDialogOpen(true)
+                      }}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    {!addr.isDefault && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-slate-400 hover:text-red-500 cursor-pointer"
+                        aria-label="Delete address"
+                        onClick={() => handleDelete(addr.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+
+      <AddressFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        address={editing}
+        onSaved={load}
+      />
+    </div>
+  )
+}
+```
+
+- [ ] **Step 4: Manual verification**
+
+Run `npm run dev` in `front-end/`, log in, go to `/account/addresses`. Add an address (province → ward cascading select should populate from the sample seed data), confirm it appears and can be set default/edited/deleted.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd front-end
+git add src/components/account/AddressFormDialog.tsx src/pages/account/AccountAddresses.tsx
+git commit -m "feat: wire address book to real address/location API"
+```
+
+---
+
+### Task 28: Rewire `Checkout.tsx`
+
+**Files:**
+- Modify: `front-end/src/pages/Checkout.tsx`
+
+- [ ] **Step 1: Replace the full file content**
+
+```tsx
+// front-end/src/pages/Checkout.tsx
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router"
+import { ChevronRight, MapPin, Package, Pencil } from "lucide-react"
+import { toast } from "sonner"
+import { CheckoutOrderSummary } from "~/components/checkout/CheckoutOrderSummary"
+import {
+  CheckoutPaymentSection,
+  type PaymentType,
+} from "~/components/checkout/CheckoutPaymentSection"
+import {
+  PaymentGatewayModal,
+  type CardProvider,
+} from "~/components/checkout/PaymentGatewayModal"
+import { Button } from "~/components/ui/button"
+import { storeTokens } from "~/lib/categoryTheme"
+import { cn } from "~/lib/utils"
+import { fetchCart, type Cart } from "~/apis/cartApi"
+import { fetchAddresses, type Address } from "~/apis/addressApi"
+import { checkout as submitCheckout } from "~/apis/checkoutApi"
+
+const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
+
+// Rough preview only — mirrors the back-end SHIPPING_FLAT_FEE default. The authoritative
+// total (including the real fee) is always recomputed server-side in POST /checkout.
+const SHIPPING_FEE_PREVIEW = 30_000
+
+export function Checkout() {
+  const navigate = useNavigate()
+  const [cart, setCart] = useState<Cart>({ id: null, items: [], countProduct: 0 })
+  const [address, setAddress] = useState<Address | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [paymentType, setPaymentType] = useState<PaymentType>("cod")
+  const [cardProvider, setCardProvider] = useState<CardProvider>("stripe")
+  const [voucherCode, setVoucherCode] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [gatewayOpen, setGatewayOpen] = useState(false)
+  const [activeGateway, setActiveGateway] = useState<CardProvider | null>(null)
+
+  useEffect(() => {
+    Promise.all([fetchCart(), fetchAddresses()])
+      .then(([cartData, addresses]) => {
+        setCart(cartData)
+        setAddress(addresses.find((a) => a.isDefault) ?? addresses[0] ?? null)
+      })
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const orderItems = cart.items.filter((item) => item.selected)
+  const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const shipping = orderItems.length > 0 ? SHIPPING_FEE_PREVIEW : 0
+  const voucherDiscount = orderItems.length > 0 && voucherCode.trim().length > 0 ? 150_000 : 0
+  const total = Math.max(0, subtotal + shipping - voucherDiscount)
+
+  const handlePlaceOrder = async () => {
+    if (isSubmitting || orderItems.length === 0) return
+
+    if (!address) {
+      toast.error("Please add a shipping address first")
+      return
+    }
+
+    if (paymentType === "card") {
+      setActiveGateway(cardProvider)
+      setGatewayOpen(true)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const order = await submitCheckout({
+        addressId: address.id,
+        paymentMethod: "cod",
+        discountCode: voucherCode.trim() || undefined,
+      })
+      toast.success("Order placed successfully!", {
+        description: `Order ${order.orderNumber} has been recorded.`,
+      })
+      navigate("/account/orders")
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message ?? "Failed to place order")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) return null
+
+  return (
+    <div className={cn("min-h-screen py-6 sm:py-8", storeTokens.pageBg)}>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <header className="mb-5 sm:mb-6">
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-[#757575]"
+          >
+            <Link to="/" className="hover:text-[#2b2f32]">
+              Home
+            </Link>
+            <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+            <Link to="/cart" className="hover:text-[#2b2f32]">
+              Cart
+            </Link>
+            <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="font-medium text-[#2b2f32]">Checkout</span>
+          </nav>
+
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                "flex size-11 shrink-0 items-center justify-center rounded-lg",
+                storeTokens.iconBoxActive
+              )}
+            >
+              <Package className="size-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-[#2b2f32] sm:text-2xl">Checkout</h1>
+              <p className="mt-1 text-sm leading-relaxed text-[#757575]">
+                Review your address, products, and payment method before placing the order.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-4 sm:space-y-5">
+            {/* Shipping address */}
+            <section
+              className={cn(
+                "rounded-lg border p-4 sm:p-5",
+                storeTokens.border,
+                storeTokens.surface
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span
+                    className={cn(
+                      "flex size-10 shrink-0 items-center justify-center rounded-lg",
+                      storeTokens.iconBoxActive
+                    )}
+                  >
+                    <MapPin className="size-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-semibold text-[#2b2f32] sm:text-lg">
+                      Shipping address
+                    </h2>
+                    <p className="mt-1 text-sm text-[#757575]">Delivery in 2-4 business days</p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-[#00647e] hover:bg-[#e8f9fd] hover:text-[#00576e]"
+                  asChild
+                >
+                  <Link to="/account/addresses">
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                    {address ? "Edit" : "Add"}
+                  </Link>
+                </Button>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-gray-100 bg-[#fafafa] p-4">
+                {address ? (
+                  <>
+                    <p className="font-medium text-[#2b2f32]">{address.recipientName}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-[#757575]">
+                      {address.detail}, {address.wardName}
+                      <br />
+                      {address.provinceName}
+                    </p>
+                    <p className="mt-2 text-sm text-[#2b2f32]">{address.phone}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-[#757575]">
+                    You don't have a saved address yet. Add one to continue checkout.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            {/* Products */}
+            <section
+              className={cn(
+                "rounded-lg border p-4 sm:p-5",
+                storeTokens.border,
+                storeTokens.surface
+              )}
+            >
+              <h2 className="text-base font-semibold text-[#2b2f32] sm:text-lg">
+                Products ({orderItems.length})
+              </h2>
+
+              <ul className="mt-4 space-y-4">
+                {orderItems.map((item) => (
+                  <li key={item.id} className="flex gap-3 sm:gap-4">
+                    <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-[#f0f0f0] sm:size-24">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.productName}
+                        className="size-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 py-0.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="text-sm font-medium leading-snug text-[#2b2f32]">
+                          {item.productName}
+                        </h3>
+                        <span className={cn("shrink-0 text-sm font-semibold", storeTokens.price)}>
+                          {formatPrice(item.price)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#757575]">{item.variantLabel}</p>
+                      <p className="mt-2 inline-block rounded bg-[#f0f0f0] px-2 py-0.5 text-xs text-[#757575]">
+                        Qty: {item.quantity}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <CheckoutPaymentSection
+              paymentType={paymentType}
+              cardProvider={cardProvider}
+              onPaymentTypeChange={setPaymentType}
+              onCardProviderChange={setCardProvider}
+            />
+          </div>
+
+          <CheckoutOrderSummary
+            itemCount={orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+            subtotal={subtotal}
+            shipping={shipping}
+            discount={voucherDiscount}
+            total={total}
+            voucherCode={voucherCode}
+            onVoucherChange={setVoucherCode}
+            formatPrice={formatPrice}
+            onPlaceOrder={handlePlaceOrder}
+            isSubmitting={isSubmitting}
+          />
+        </div>
+      </div>
+
+      <PaymentGatewayModal
+        provider={activeGateway}
+        open={gatewayOpen}
+        onOpenChange={setGatewayOpen}
+      />
+    </div>
+  )
+}
+```
+
+Card/e-wallet payment intentionally keeps showing `PaymentGatewayModal`'s existing "Waiting for payment gateway integration" placeholder — that's already an honest "coming soon" state requiring no further change; only COD is wired to a real backend call.
+
+- [ ] **Step 2: Manual verification**
+
+With a real cart item selected (from Task 26) and a saved default address (from Task 27): go to `/checkout`, confirm the real item/address/total show, click "Place order" with COD selected. Expected: success toast with the real `orderNumber`, redirect to `/account/orders`, and the cart item is gone from `/cart` afterward (consumed by checkout).
+
+- [ ] **Step 3: Commit**
+
+```bash
+cd front-end
+git add src/pages/Checkout.tsx
+git commit -m "feat: wire Checkout page to real cart/address/checkout API"
+```
+
+---
+
+### Task 29: Rewire `AccountOrders.tsx`
+
+**Files:**
+- Modify: `front-end/src/pages/account/AccountOrders.tsx`
+
+- [ ] **Step 1: Replace the full file content**
+
+```tsx
+// front-end/src/pages/account/AccountOrders.tsx
+import { useEffect, useState } from "react"
+import { Link } from "react-router"
+import { Truck, CheckCircle2, Clock, XCircle, ShoppingBag } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Badge } from "~/components/ui/badge"
+import { Button } from "~/components/ui/button"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs"
+import { formatPrice } from "~/lib/account/formatters"
+import { fetchMyOrders, type Order } from "~/apis/orderApi"
+
+const STATUS_CONFIG: Record<
+  Order["orderStatus"],
+  { icon: typeof Truck; color: string; bg: string; label: string }
+> = {
+  PENDING: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Pending" },
+  CONFIRMED: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Confirmed" },
+  SHIPPED: { icon: Truck, color: "text-blue-600", bg: "bg-blue-50 border-blue-200", label: "Shipping" },
+  DELIVERED: {
+    icon: CheckCircle2,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50 border-emerald-200",
+    label: "Delivered",
+  },
+  CANCELLED: { icon: XCircle, color: "text-red-600", bg: "bg-red-50 border-red-200", label: "Cancelled" },
+}
+
+const TABS = [
+  { value: "all", label: "All" },
+  { value: "PENDING", label: "Pending" },
+  { value: "SHIPPED", label: "Shipping" },
+  { value: "DELIVERED", label: "Delivered" },
+  { value: "CANCELLED", label: "Cancelled" },
+] as const
+
+/** My orders tab. */
+export function AccountOrders() {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchMyOrders({ limit: 50 })
+      .then((res) => setOrders(res.items))
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  if (isLoading) return null
+
+  const renderList = (items: Order[]) => (
+    <div className="space-y-4 mt-4">
+      {items.length === 0 && <p className="text-center text-slate-400 py-12">No orders here yet.</p>}
+      {items.map((order) => {
+        const config = STATUS_CONFIG[order.orderStatus]
+        const StatusIcon = config.icon
+        return (
+          <Card key={order.id} className="hover:shadow-md transition-shadow group">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm font-mono text-slate-600">{order.orderNumber}</span>
+                </div>
+                <Badge variant="outline" className={`${config.bg} ${config.color} border font-medium`}>
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {config.label}
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {order.items[0]?.imageUrl && (
+                  <img
+                    src={order.items[0].imageUrl}
+                    alt="Product in order"
+                    className="w-16 h-16 rounded-xl object-cover ring-1 ring-slate-100"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-500">
+                    {order.items.length} items - {new Date(order.createdAt).toLocaleDateString("en-US")}
+                  </p>
+                  <p className="text-lg font-bold text-slate-900 mt-0.5">{formatPrice(order.total)}</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" size="sm" className="cursor-pointer" asChild>
+                    <Link to="/track-order">Track</Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">My orders</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="all">
+            <TabsList className="w-full">
+              {TABS.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className="cursor-pointer">
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {TABS.map((tab) => (
+              <TabsContent key={tab.value} value={tab.value}>
+                {renderList(
+                  tab.value === "all" ? orders : orders.filter((o) => o.orderStatus === tab.value)
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+```
+
+Note: the "Buy again" button from the old mock is dropped — re-adding a specific past item to cart isn't meaningfully actionable until the storefront (out of scope, see Part B intro) has real product pages to link to.
+
+- [ ] **Step 2: Manual verification**
+
+Place an order via Task 28's flow, then visit `/account/orders` — confirm it appears with the real order number, item count, and total, under the correct status tab.
+
+- [ ] **Step 3: Commit**
+
+```bash
+cd front-end
+git add src/pages/account/AccountOrders.tsx
+git commit -m "feat: wire AccountOrders page to real order API"
+```
+
+---
+
+### Task 30: Rewire `TrackOrder.tsx`
+
+The public tracking endpoint requires both order number and phone (spec's anti-enumeration requirement) — the mock UI only had an order-code field, so this adds a phone field too.
+
+**Files:**
+- Modify: `front-end/src/pages/TrackOrder.tsx`
+
+- [ ] **Step 1: Replace the full file content**
+
+```tsx
+// front-end/src/pages/TrackOrder.tsx
+import { Package, MapPin, CheckCircle, Truck, Clock, XCircle } from "lucide-react"
+import { useState } from "react"
+import { trackOrder, type OrderTrackingResult } from "~/apis/orderApi"
+
+const STEP_ORDER = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED"] as const
+
+export function TrackOrder() {
+  const [orderCode, setOrderCode] = useState("")
+  const [phone, setPhone] = useState("")
+  const [order, setOrder] = useState<OrderTrackingResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleTrack = async () => {
+    if (!orderCode.trim() || !phone.trim()) return
+    setError(null)
+    try {
+      setOrder(await trackOrder(orderCode.trim(), phone.trim()))
+    } catch {
+      setOrder(null)
+      setError("Order not found. Check the order code and phone number.")
+    }
+  }
+
+  const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
+
+  const currentStepIndex = order
+    ? order.orderStatus === "CANCELLED"
+      ? -1
+      : STEP_ORDER.indexOf(order.orderStatus as (typeof STEP_ORDER)[number])
+    : -1
+
+  return (
+    <div className="bg-gray-50 min-h-screen py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Track order</h1>
+
+        <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div>
+              <label className="block text-gray-700 font-semibold mb-3">Order code</label>
+              <input
+                type="text"
+                value={orderCode}
+                onChange={(e) => setOrderCode(e.target.value)}
+                placeholder="Example: ORD20260904123456"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0ACDFF] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-semibold mb-3">
+                Recipient phone number
+              </label>
+              <div className="flex space-x-4">
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0901234567"
+                  className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0ACDFF] focus:border-transparent"
+                  onKeyDown={(e) => e.key === "Enter" && handleTrack()}
+                />
+                <button
+                  onClick={handleTrack}
+                  className="bg-[#0ACDFF] hover:bg-[#09b8e8] text-white px-8 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  Track
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">
+              Both the order code and the recipient phone number are required.
+            </p>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </div>
+        </div>
+
+        {order && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">Order #{order.orderNumber}</h2>
+                  <p className="text-gray-600">
+                    Ordered at {new Date(order.createdAt).toLocaleString("en-US")}
+                  </p>
+                </div>
+                <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-semibold flex items-center">
+                  {order.orderStatus === "CANCELLED" ? (
+                    <XCircle className="w-5 h-5 mr-2" />
+                  ) : (
+                    <Truck className="w-5 h-5 mr-2" />
+                  )}
+                  {order.orderStatus}
+                </div>
+              </div>
+
+              <div className="relative">
+                {STEP_ORDER.map((step, index) => (
+                  <div key={step} className="flex mb-8 last:mb-0">
+                    <div className="flex flex-col items-center mr-4">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          currentStepIndex >= index
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-300 text-gray-500"
+                        }`}
+                      >
+                        {currentStepIndex >= index ? (
+                          <CheckCircle className="w-6 h-6" />
+                        ) : (
+                          <Clock className="w-6 h-6" />
+                        )}
+                      </div>
+                      {index < STEP_ORDER.length - 1 && (
+                        <div
+                          className={`w-1 h-16 ${
+                            currentStepIndex > index ? "bg-green-500" : "bg-gray-300"
+                          }`}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-8">
+                      <h3 className="font-semibold text-gray-900 mb-1">{step}</h3>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <MapPin className="w-5 h-5 mr-2 text-[#0ACDFF]" />
+                Shipping information
+              </h3>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Shipping address</span>
+                <span className="font-semibold text-right max-w-md">
+                  {order.addressDetail}, {order.wardName}, {order.provinceName}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <Package className="w-5 h-5 mr-2 text-[#0ACDFF]" />
+                Products in order
+              </h3>
+              <div className="space-y-4">
+                {order.items.map((item) => (
+                  <div key={item.id} className="flex items-center space-x-4 pb-4 border-b last:border-0">
+                    {item.imageUrl && (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.productName}
+                        className="w-20 h-20 object-cover rounded-lg"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{item.productName}</h4>
+                      <p className="text-gray-600 text-sm">Quantity: {item.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-500">{formatPrice(item.total)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-gray-900">Total</span>
+                  <span className="text-2xl font-bold text-red-500">{formatPrice(order.total)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 2: Manual verification**
+
+Using the `orderNumber` and phone from an order placed in Task 28, submit both fields on `/track-order`. Expected: real order details render. Try a wrong phone number — expected: the "Order not found" error message.
+
+- [ ] **Step 3: Commit**
+
+```bash
+cd front-end
+git add src/pages/TrackOrder.tsx
+git commit -m "feat: wire TrackOrder page to public order tracking API"
+```
+
+---
+
+### Task 31: Admin order pages — status helpers + `OrdersList.tsx` + `OrderDetail.tsx`
+
+The existing `~/types/admin/index.ts` `Order` type and `~/stores/adminStore.ts` are shared with `Dashboard.tsx` (which still uses `mockOrders` and is out of scope here). To avoid breaking Dashboard, this task does **not** touch that shared type/store — it uses the real `Order` type from `~/apis/orderApi` instead, with small dedicated status-label helpers, and fetches directly instead of going through `useAdminStore`.
+
+**Files:**
+- Create: `front-end/src/lib/admin/realOrderStatus.ts`
+- Modify: `front-end/src/pages/admin/OrdersList.tsx`
+- Modify: `front-end/src/pages/admin/OrderDetail.tsx`
+
+- [ ] **Step 1: Status label/badge helpers for the real order type**
 
 ```ts
+// front-end/src/lib/admin/realOrderStatus.ts
+import type { Order } from "~/apis/orderApi"
+
 export const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
   PENDING: "Pending",
   CONFIRMED: "Confirmed",
@@ -3518,448 +5096,42 @@ export const ORDER_STATUS_BADGE_CLASS: Record<Order["orderStatus"], string> = {
   DELIVERED: "bg-emerald-500/12 text-emerald-800 dark:text-emerald-200",
   CANCELLED: "bg-red-500/12 text-red-800 dark:text-red-200",
 }
+
+export const PAYMENT_STATUS_LABELS: Record<Order["paymentStatus"], string> = {
+  UNPAID: "Unpaid",
+  PAID: "Paid",
+  FAILED: "Failed",
+  REFUNDED: "Refunded",
+}
+
+// Mirrors OrderService.ORDER_STATUS_TRANSITIONS on the back end.
+export const ORDER_STATUS_TRANSITIONS: Record<Order["orderStatus"], Order["orderStatus"][]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["DELIVERED"],
+  DELIVERED: [],
+  CANCELLED: [],
+}
 ```
 
-And update the two functions right below them to reference `Order["orderStatus"]` instead of `Order["status"]`:
+- [ ] **Step 2: Rewire `OrdersList.tsx`**
 
-```ts
-export const getOrderStatusLabel = (status: Order["orderStatus"]) =>
-  ORDER_STATUS_LABELS[status] ?? status
-
-export const getOrderStatusBadgeClass = (status: Order["orderStatus"]) =>
-  ORDER_STATUS_BADGE_CLASS[status] ?? ORDER_STATUS_BADGE_CLASS.PENDING
-```
-
-- [ ] **Step 3: Typecheck (this will surface every call site that still uses the old shape — expected, they get fixed in Tasks 21–22)**
-
-Run: `cd front-end && npx tsc --noEmit`
-Expected: type errors in `OrderStatusBadge.tsx`, `admin/OrdersList.tsx`, `admin/OrderDetail.tsx`, `stores/adminStore.ts`, `mock/adminData.ts` — this is expected and intentional; don't fix them yet, they're all addressed together in Task 21. Just confirm the errors are exactly in those files and nowhere unexpected.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add front-end/src/types/admin/index.ts front-end/src/lib/admin/ui.ts
-git commit -m "refactor: align admin Order type and status UI with the real backend enums"
-```
-
-(This intentionally leaves the codebase in a temporarily-broken typecheck state between this commit and Task 22 — that's fine for an in-progress feature branch worked through task-by-task, but don't merge/deploy between these commits.)
-
----
-
-# Part F — Frontend Page Wiring
-
-**Scope note found while planning this part:** `ProductDetail.tsx` is currently **100% hardcoded mock data** — the `:id` route param is captured but never used to fetch a real product; `product`, `colors`, `storageOptions` are all fixed local objects, so there is no real `variantId` anywhere on this page today. Wiring the full product detail page to real catalog data (color/storage swatches mapped to real `ProductVariant` option combinations, real images, real stock) is a pre-existing gap belonging to product-catalog-page work, not to this checkout spec, and is **out of scope for this plan**. Task 16 below does the minimum needed to make "Add to cart" / "Buy now" call the real Cart/Checkout APIs with a real `variantId`: it fetches the real product via the catalog API that already exists (`front-end/src/apis/catalogApi.ts` — confirmed present, not something this plan adds) and resolves *a* real variant id to act on, without rebuilding the swatch-selection UI to be fully option-aware. Flag this scope boundary in the plan review if a fuller PDP integration should happen here instead.
-
-### Task 16: Wire `Cart.tsx` and `ProductDetail.tsx` to real APIs
-
-**Files:**
-- Modify: `front-end/src/pages/Cart.tsx`
-- Modify: `front-end/src/pages/ProductDetail.tsx`
-
-- [ ] **Step 1: Rewrite `Cart.tsx` to source state from `cartApi`**
-
-Replace the `INITIAL_ITEMS` constant and the `useState<CartItemData[]>(INITIAL_ITEMS)` line, and every handler that mutated local state, with API-backed versions. The overall component structure (JSX, `CartLineItem`/`CartOrderSummary`/`CartEmptyState` usage) stays the same — only the data source and handlers change:
+Replace the full file content:
 
 ```tsx
-// front-end/src/pages/Cart.tsx (relevant changes — keep imports/JSX for CartEmptyState, CartLineItem, CartOrderSummary, CartPageHeader, storeTokens as-is; add:)
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
-import {
-  fetchCart,
-  addCartItem,
-  updateCartItem,
-  removeCartItem,
-  setSelectAll as setSelectAllApi,
-  getCartApiError,
-  type Cart as CartDto,
-} from "~/apis/cartApi"
-import type { CartItemData } from "~/components/cart/CartLineItem"
-
-function toCartItemData(dto: CartDto["items"][number]): CartItemData {
-  return {
-    id: dto.id,
-    productId: dto.variantId,
-    name: dto.productName,
-    variant: dto.variantLabel,
-    image: dto.imageUrl ?? "",
-    price: dto.price,
-    quantity: dto.quantity,
-    selected: dto.selected,
-  }
-}
-
-export function Cart() {
-  const [cartItems, setCartItems] = useState<CartItemData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [voucherCode, setVoucherCode] = useState("")
-
-  const loadCart = async () => {
-    try {
-      const cart = await fetchCart()
-      setCartItems(cart.items.map(toCartItemData))
-    } catch (error) {
-      toast.error(getCartApiError(error))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadCart()
-  }, [])
-
-  const selectedItems = cartItems.filter((item) => item.selected)
-  const allSelected = cartItems.length > 0 && cartItems.every((item) => item.selected)
-
-  const handleToggleSelect = async (id: string) => {
-    const item = cartItems.find((i) => i.id === id)
-    if (!item) return
-    try {
-      const cart = await updateCartItem(id, { selected: !item.selected })
-      setCartItems(cart.items.map(toCartItemData))
-    } catch (error) {
-      toast.error(getCartApiError(error))
-    }
-  }
-
-  const handleSelectAll = async (checked: boolean) => {
-    try {
-      const cart = await setSelectAllApi(checked)
-      setCartItems(cart.items.map(toCartItemData))
-    } catch (error) {
-      toast.error(getCartApiError(error))
-    }
-  }
-
-  const handleUpdateQuantity = async (id: string, delta: number) => {
-    const item = cartItems.find((i) => i.id === id)
-    if (!item) return
-    const nextQuantity = item.quantity + delta
-    if (nextQuantity < 1) return
-    try {
-      const cart = await updateCartItem(id, { quantity: nextQuantity })
-      setCartItems(cart.items.map(toCartItemData))
-    } catch (error) {
-      toast.error(getCartApiError(error))
-    }
-  }
-
-  const handleRemove = async (id: string) => {
-    try {
-      const cart = await removeCartItem(id)
-      setCartItems(cart.items.map(toCartItemData))
-      toast.success("Item removed from cart")
-    } catch (error) {
-      toast.error(getCartApiError(error))
-    }
-  }
-
-  const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
-
-  const subtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = selectedItems.length > 0 ? 30_000 : 0
-  const discount = voucherCode.trim().length > 0 ? 150_000 : 0
-  const total = Math.max(0, subtotal + shipping - discount)
-
-  if (isLoading) return null // or a loading skeleton, matching existing project conventions if one exists
-
-  if (cartItems.length === 0) return <CartEmptyState />
-
-  // ...rest of JSX unchanged, but wired to allSelected/handleSelectAll/handleToggleSelect/
-  // handleUpdateQuantity/handleRemove/subtotal/shipping/discount/total/formatPrice above
-  // instead of the old local-state equivalents.
-}
-```
-
-(The full JSX body below the state/handlers — the header, select-all checkbox row, `cartItems.map(...)` rendering `CartLineItem`, and the `CartOrderSummary` — is unchanged from the current file; only wire its props to the values above instead of the old local-state versions. `export { addCartItem }` from `cartApi` is unused in `Cart.tsx` itself — it's used by `ProductDetail.tsx` in the next step, imported from the same file.)
-
-- [ ] **Step 2: Wire `ProductDetail.tsx` to a real variant for Add to cart / Buy now**
-
-Add real product fetching alongside the existing mock display data (per the scope note above, this does not replace the swatch UI — it adds a best-effort real variant resolution just for the two action buttons):
-
-```tsx
-// front-end/src/pages/ProductDetail.tsx — add near the top of the component:
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router"
-import { toast } from "sonner"
-import { fetchCatalogProduct, type CatalogProductDetail } from "~/apis/catalogApi"
-import { addCartItem, getCartApiError } from "~/apis/cartApi"
-
-// inside the component:
-const navigate = useNavigate()
-const [catalogProduct, setCatalogProduct] = useState<CatalogProductDetail | null>(null)
-const [isAdding, setIsAdding] = useState(false)
-
-useEffect(() => {
-  if (!id) return
-  fetchCatalogProduct(id)
-    .then(setCatalogProduct)
-    .catch(() => {
-      // Real product fetch failing is non-fatal here — the page still renders its
-      // existing mock display data; only the action buttons are affected (guarded below).
-    })
-}, [id])
-
-// Best-effort: the first in-stock variant, since this page doesn't yet map its
-// color/storage swatches to real option combinations (see Part F scope note).
-const resolvedVariant = catalogProduct?.variants.find((v) => v.inStock) ?? catalogProduct?.variants[0]
-
-const handleAddToCart = async () => {
-  if (!resolvedVariant) {
-    toast.error("This product isn't available for purchase yet")
-    return
-  }
-  setIsAdding(true)
-  try {
-    await addCartItem(resolvedVariant.id, quantity)
-    toast.success(`Added ${quantity} item(s) to cart!`)
-  } catch (error) {
-    toast.error(getCartApiError(error))
-  } finally {
-    setIsAdding(false)
-  }
-}
-
-const handleBuyNow = () => {
-  if (!resolvedVariant || !catalogProduct) {
-    toast.error("This product isn't available for purchase yet")
-    return
-  }
-  // Pass enough display data along so Checkout.tsx can render a real line item
-  // without a dedicated "get variant by id" endpoint (out of scope to add one).
-  navigate("/checkout", {
-    state: {
-      buyNowItem: {
-        variantId: resolvedVariant.id,
-        quantity,
-        productName: catalogProduct.name,
-        variantLabel: resolvedVariant.options.map((o) => o.value).join(" / "),
-        imageUrl: catalogProduct.thumbnail ?? null,
-        price: resolvedVariant.price,
-      },
-    },
-  })
-}
-```
-
-Replace the existing `handleAddToCart`/`handleBuyNow` function bodies (currently just `alert(...)`) with these, and add `disabled={isAdding}` to the "Add to cart" button.
-
-Note: this display data only survives while `location.state` persists (i.e. the in-app navigation from this page to `/checkout`) — a hard refresh of the checkout page loses it, same as `location.state` always does in React Router. That's an accepted Phase 1 edge case: a refreshed buy-now checkout falls back to showing the cart (if any) rather than erroring, which is a minor UX rough edge, not a correctness bug (the checkout submission itself is unaffected either way since it's a fresh page load with no `buyNowItem` in state).
-
-- [ ] **Step 3: Manual verification in the browser**
-
-Run: `cd front-end && npm run dev`, log in as a seeded user, open a product detail page, click "Add to cart", then navigate to `/cart` and confirm the item appears with the real product name/price from the backend (not the hardcoded "iPhone 15 Pro Max" — the *cart line item* comes from the real `CartItem`/`ProductVariant`/`Product` data even though the PDP display above it is still mock). Toggle selection, change quantity, remove an item — confirm each persists across a page refresh (i.e., is actually server-side, not just local state).
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add front-end/src/pages/Cart.tsx front-end/src/pages/ProductDetail.tsx
-git commit -m "feat: wire Cart page and product-detail actions to real Cart API"
-```
-
----
-
-### Task 17: Wire `Checkout.tsx` to the real Checkout/Address APIs
-
-**Files:**
-- Modify: `front-end/src/pages/Checkout.tsx`
-- Modify: `front-end/src/components/checkout/CheckoutPaymentSection.tsx`
-
-- [ ] **Step 1: Gate the "Pay by card" option as coming soon**
-
-Per the spec, Phase 1 is COD-only; card/e-wallet stays visible but disabled rather than removed (minimizes rework for Phase 3). In `CheckoutPaymentSection.tsx`, change the card `<button>`:
-
-```tsx
-        <button
-          type="button"
-          disabled
-          onClick={() => {}}
-          className={cn(
-            "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors opacity-60 cursor-not-allowed",
-            "border-gray-200 bg-white"
-          )}
-          title="Card payment is coming soon"
-        >
-```
-
-(Replace the existing `onClick={() => onPaymentTypeChange("card")}` and its conditional classes with the disabled version above — keep everything else, including the icon/label markup inside, unchanged. Also add a small "Coming soon" badge next to the "Pay by card" label text so it's visually obvious, not just non-clickable.)
-
-- [ ] **Step 2: Rewrite `Checkout.tsx`'s data sourcing and submit handler**
-
-Replace the hardcoded `ORDER_ITEMS` and the `handlePlaceOrder` body:
-
-```tsx
-// front-end/src/pages/Checkout.tsx — relevant changes
-import { useEffect, useState } from "react"
-import { useLocation, useNavigate } from "react-router"
-import { toast } from "sonner"
-import { fetchCart, type CartItem } from "~/apis/cartApi"
-import { fetchAddresses, type Address } from "~/apis/addressApi"
-import { checkout, getCheckoutApiError } from "~/apis/checkoutApi"
-
-// The richer shape ProductDetail.tsx's handleBuyNow passes via router state — a
-// superset of checkoutApi's `BuyNowItem` (which only wants {variantId, quantity}),
-// with display fields added so this page can render a line item without a
-// dedicated "get variant by id" endpoint.
-type BuyNowLocationItem = {
-  variantId: string
-  quantity: number
-  productName: string
-  variantLabel: string
-  imageUrl: string | null
-  price: number
-}
-
-type LocationState = { buyNowItem?: BuyNowLocationItem } | null
-
-export function Checkout() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const buyNowItem = (location.state as LocationState)?.buyNowItem
-
-  const [items, setItems] = useState<CartItem[]>([])
-  const [address, setAddress] = useState<Address | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  // Generated once per checkout *attempt* (this mount), reused across retries of that
-  // same submit so a network retry doesn't create a duplicate order; a fresh mount of
-  // this page (new visit to /checkout) gets a fresh key.
-  const [idempotencyKey] = useState(() => crypto.randomUUID())
-
-  const [paymentType, setPaymentType] = useState<PaymentType>("cod")
-  const [cardProvider, setCardProvider] = useState<CardProvider>("stripe")
-  const [voucherCode, setVoucherCode] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [addresses] = await Promise.all([fetchAddresses()])
-        setAddress(addresses.find((a) => a.isDefault) ?? addresses[0] ?? null)
-
-        if (!buyNowItem) {
-          const cart = await fetchCart()
-          setItems(cart.items.filter((item) => item.selected))
-        }
-      } catch {
-        toast.error("Could not load checkout details")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [])
-
-  // Normalize both flows to the same display shape so the JSX below doesn't branch.
-  const displayItems: Array<{ id: string; productName: string; variantLabel: string; imageUrl: string | null; price: number; quantity: number }> =
-    buyNowItem
-      ? [{ id: buyNowItem.variantId, ...buyNowItem }]
-      : items.map((item) => ({
-          id: item.id,
-          productName: item.productName,
-          variantLabel: item.variantLabel,
-          imageUrl: item.imageUrl,
-          price: item.price,
-          quantity: item.quantity,
-        }))
-
-  const itemCount = displayItems.reduce((sum, item) => sum + item.quantity, 0)
-  // For buy-now this is the real price from the just-fetched catalog variant (Task 16), so
-  // it's an accurate display subtotal, not a guess — only the discount/shipping below remain
-  // server-authoritative estimates either way.
-  const subtotal = displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = 30_000 // display estimate only — the server computes the authoritative shippingFee
-  const voucherDiscount = 0 // real discount amount comes back from the server response after placing the order
-  const total = Math.max(0, subtotal + shipping - voucherDiscount)
-
-  const handlePlaceOrder = async () => {
-    if (isSubmitting) return
-    if (!address) {
-      toast.error("Please add a shipping address before checking out")
-      return
-    }
-    if (paymentType !== "cod") {
-      toast.error("Online payment is coming soon — please select Cash on delivery")
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      const order = await checkout(
-        {
-          addressId: address.id,
-          paymentMethod: "cod",
-          discountCode: voucherCode.trim() || undefined,
-          // Strip the display-only fields — the API only wants {variantId, quantity}.
-          buyNowItem: buyNowItem
-            ? { variantId: buyNowItem.variantId, quantity: buyNowItem.quantity }
-            : undefined,
-        },
-        idempotencyKey,
-      )
-      toast.success("Order placed successfully!", {
-        description: `Order ${order.orderNumber} has been recorded. The courier will contact you soon.`,
-      })
-      navigate(`/account/orders`)
-    } catch (error) {
-      const { message } = getCheckoutApiError(error)
-      toast.error(message)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // ...
-}
-```
-
-**Note on buy-now pricing:** the on-screen subtotal for a buy-now checkout is computed from the price returned by `catalogApi.fetchCatalogProduct` in Task 16 (a real, current price), but the **server still re-reads the live `ProductVariant.price` independently** when the order is actually created (per the Checkout API's step 4) and that server-computed total is what's charged/recorded — the client-side number here is a display convenience, never trusted as an input to the transaction. If the price changed in the moment between page load and submit, the two could briefly disagree; the order confirmation always reflects the authoritative server total.
-
-Wire the rest of the existing JSX (`ORDER_ITEMS.map(...)` → `displayItems.map(...)`, the address block → render `address.recipientName`/`address.phone`/`address.wardName`/`address.provinceName`/`address.detail` instead of the hardcoded "Minh Tuan Nguyen" block, with an empty/"Add address" state when `address` is `null`) and pass props to `CheckoutOrderSummary` matching its actual interface (`front-end/src/components/checkout/CheckoutOrderSummary.tsx`): `itemCount={itemCount}`, `subtotal={subtotal}`, `shipping={shipping}`, `discount={voucherDiscount}`, `total={total}`, `voucherCode={voucherCode}`, `onVoucherChange={setVoucherCode}`, `formatPrice={formatPrice}` (keep the existing local `formatPrice` helper already in this file), `onPlaceOrder={handlePlaceOrder}`, `isSubmitting={isSubmitting}`.
-
-- [ ] **Step 3: Typecheck**
-
-Run: `cd front-end && npx tsc --noEmit`
-Expected: no new errors from this file (existing unrelated admin-type errors from Task 15 are still expected until Task 21).
-
-- [ ] **Step 4: Manual verification in the browser**
-
-1. With items in the cart (from Task 16) and at least one address (create one manually via `curl`/Postman against `/api/addresses` if Task 18's UI isn't done yet), load `/checkout`. Confirm the real cart items and real default address appear.
-2. Click "Place order" with COD selected. Confirm success toast with a real `orderNumber`, redirect to `/account/orders`.
-3. Click "Pay by card" — confirm it's disabled/inert.
-4. From a product page, click "Buy now" — confirm it navigates to `/checkout` and a COD order can be placed for just that one item (verify via `GET /api/orders` that the resulting order has exactly one line item, and that the cart's other items are untouched).
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add front-end/src/pages/Checkout.tsx front-end/src/components/checkout/CheckoutPaymentSection.tsx
-git commit -m "feat: wire Checkout page to real address/cart/checkout APIs, COD-only"
-```
-
----
-
-### Task 18: Wire `AccountAddresses.tsx` with a province/ward picker
-
-**Files:**
-- Modify: `front-end/src/pages/account/AccountAddresses.tsx`
-- Create: `front-end/src/components/account/AddressFormDialog.tsx`
-
-- [ ] **Step 1: Create the address form dialog (create + edit)**
-
-This is new UI (the current page has no form at all, only a static list) — build it using the existing `~/components/ui/dialog`, `select`, `input` primitives already used elsewhere in the codebase (see `admin/OrderDetail.tsx`'s `Select` usage for the exact import paths).
-
-```tsx
-// front-end/src/components/account/AddressFormDialog.tsx
-import { useEffect, useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "~/components/ui/dialog"
+// front-end/src/pages/admin/OrdersList.tsx
+import { useEffect, useMemo, useState } from "react"
+import { Link } from "react-router"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import { Label } from "~/components/ui/label"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/components/ui/table"
 import {
   Select,
   SelectContent,
@@ -3967,559 +5139,597 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select"
-import { Checkbox } from "~/components/ui/checkbox"
-import { fetchProvinces, fetchWards, type Province, type Ward } from "~/apis/locationApi"
-import type { Address, UpsertAddressPayload } from "~/apis/addressApi"
-
-type AddressFormDialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  initial?: Address | null
-  onSubmit: (payload: UpsertAddressPayload) => Promise<void>
-}
-
-export function AddressFormDialog({ open, onOpenChange, initial, onSubmit }: AddressFormDialogProps) {
-  const [provinces, setProvinces] = useState<Province[]>([])
-  const [wards, setWards] = useState<Ward[]>([])
-  const [label, setLabel] = useState(initial?.label ?? "")
-  const [recipientName, setRecipientName] = useState(initial?.recipientName ?? "")
-  const [phone, setPhone] = useState(initial?.phone ?? "")
-  const [provinceCode, setProvinceCode] = useState(initial?.provinceCode ?? "")
-  const [wardCode, setWardCode] = useState(initial?.wardCode ?? "")
-  const [detail, setDetail] = useState(initial?.detail ?? "")
-  const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false)
-  const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    if (open) fetchProvinces().then(setProvinces)
-  }, [open])
-
-  useEffect(() => {
-    if (provinceCode) fetchWards(provinceCode).then(setWards)
-    else setWards([])
-  }, [provinceCode])
-
-  const handleSubmit = async () => {
-    setIsSaving(true)
-    try {
-      await onSubmit({ label, recipientName, phone, provinceCode, wardCode, detail, isDefault })
-      onOpenChange(false)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{initial ? "Edit address" : "Add address"}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="addr-label">Label (optional)</Label>
-            <Input id="addr-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Home, Office..." />
-          </div>
-          <div>
-            <Label htmlFor="addr-name">Recipient name</Label>
-            <Input id="addr-name" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="addr-phone">Phone</Label>
-            <Input id="addr-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912345678" />
-          </div>
-          <div>
-            <Label>Province / City</Label>
-            <Select value={provinceCode} onValueChange={(v) => { setProvinceCode(v); setWardCode("") }}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Select province" /></SelectTrigger>
-              <SelectContent>
-                {provinces.map((p) => (
-                  <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Ward</Label>
-            <Select value={wardCode} onValueChange={setWardCode} disabled={!provinceCode}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Select ward" /></SelectTrigger>
-              <SelectContent>
-                {wards.map((w) => (
-                  <SelectItem key={w.code} value={w.code}>{w.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="addr-detail">Address detail</Label>
-            <Input id="addr-detail" value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="House number, street" />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={isDefault} onCheckedChange={(v) => setIsDefault(Boolean(v))} />
-            Set as default address
-          </label>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSaving || !recipientName || !phone || !provinceCode || !wardCode || !detail}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-```
-
-- [ ] **Step 2: Wire `AccountAddresses.tsx` to the real API + this dialog**
-
-Replace the hardcoded `addresses` array and wire up create/edit/delete/set-default:
-
-```tsx
-// front-end/src/pages/account/AccountAddresses.tsx — relevant changes
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
+import { Search, ArrowUpRight, ShoppingCart } from "lucide-react"
+import { format } from "date-fns"
+import { enUS } from "date-fns/locale"
 import {
-  fetchAddresses,
-  createAddress,
-  updateAddress,
-  setDefaultAddress,
-  deleteAddress,
-  getAddressApiError,
-  type Address,
-  type UpsertAddressPayload,
-} from "~/apis/addressApi"
-import { AddressFormDialog } from "~/components/account/AddressFormDialog"
-
-export function AccountAddresses() {
-  const [addresses, setAddresses] = useState<Address[]>([])
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<Address | null>(null)
-
-  const load = async () => {
-    try {
-      setAddresses(await fetchAddresses())
-    } catch (error) {
-      toast.error(getAddressApiError(error))
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
-
-  const handleSubmit = async (payload: UpsertAddressPayload) => {
-    try {
-      if (editing) await updateAddress(editing.id, payload)
-      else await createAddress(payload)
-      toast.success(editing ? "Address updated" : "Address added")
-      await load()
-    } catch (error) {
-      toast.error(getAddressApiError(error))
-      throw error // keep the dialog open on failure
-    }
-  }
-
-  const handleSetDefault = async (id: string) => {
-    try {
-      await setDefaultAddress(id)
-      await load()
-    } catch (error) {
-      toast.error(getAddressApiError(error))
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteAddress(id)
-      toast.success("Address removed")
-      await load()
-    } catch (error) {
-      toast.error(getAddressApiError(error))
-    }
-  }
-
-  // ...JSX: same Card/list structure as before, but:
-  // - "Add address" button opens the dialog with editing=null
-  // - "Edit" (Pencil) button opens the dialog with editing=that address
-  // - "Delete" (Trash2) button calls handleDelete(addr.id)
-  // - non-default addresses get a "Set as default" action calling handleSetDefault(addr.id)
-  // - addr.address (old mock field) becomes `${addr.detail}, ${addr.wardName}, ${addr.provinceName}`
-}
-```
-
-- [ ] **Step 3: Typecheck**
-
-Run: `cd front-end && npx tsc --noEmit`
-Expected: no new errors from these two files.
-
-- [ ] **Step 4: Manual verification**
-
-Add a new address through the UI (pick a real province, confirm wards load for it), confirm it appears as default (first address). Add a second address, mark it default, confirm the first is no longer shown as default. Delete the default one, confirm the other becomes default automatically. Edit an address's detail field, confirm it persists.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add front-end/src/pages/account/AccountAddresses.tsx front-end/src/components/account/AddressFormDialog.tsx
-git commit -m "feat: wire AccountAddresses page to real Address/Location APIs"
-```
-
----
-
-### Task 19: Wire `AccountOrders.tsx` to `orderApi`
-
-**Files:**
-- Modify: `front-end/src/pages/account/AccountOrders.tsx`
-
-- [ ] **Step 1: Replace the hardcoded `orders` array and `statusConfig` with real data**
-
-The existing tabs (`all`/`shipping`/`delivered`/`completed`) map awkwardly onto the real `orderStatus` enum (`PENDING/CONFIRMED/SHIPPED/DELIVERED/CANCELLED` — there's no "completed" distinct from "delivered"). Simplify to tabs that map 1:1 onto real statuses: `all` / `SHIPPED` / `DELIVERED` / `CANCELLED`.
-
-```tsx
-// front-end/src/pages/account/AccountOrders.tsx — relevant changes
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
-import { fetchOrders, cancelOrder, getOrderApiError, type Order } from "~/apis/orderApi"
-import { formatPrice } from "~/lib/account/formatters"
-
-const statusConfig: Record<Order["orderStatus"], { icon: typeof Truck; color: string; bg: string; label: string }> = {
-  PENDING: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Pending" },
-  CONFIRMED: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Confirmed" },
-  SHIPPED: { icon: Truck, color: "text-blue-600", bg: "bg-blue-50 border-blue-200", label: "Shipping" },
-  DELIVERED: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200", label: "Delivered" },
-  CANCELLED: { icon: Clock, color: "text-red-600", bg: "bg-red-50 border-red-200", label: "Cancelled" },
-}
-
-export function AccountOrders() {
-  const [orders, setOrders] = useState<Order[]>([])
-
-  const load = async () => {
-    try {
-      const result = await fetchOrders()
-      setOrders(result.items)
-    } catch (error) {
-      toast.error(getOrderApiError(error))
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
-
-  const handleCancel = async (id: string) => {
-    try {
-      await cancelOrder(id)
-      toast.success("Order cancelled")
-      await load()
-    } catch (error) {
-      toast.error(getOrderApiError(error))
-    }
-  }
-
-  // ...JSX: render `orders` (optionally filtered by tab against order.orderStatus) using
-  // statusConfig[order.orderStatus], order.orderNumber, order.createdAt, order.total,
-  // order.items.length, order.items[0]?.imageUrl. Replace the "Buy again" button
-  // (no backend equivalent in Phase 1 — re-adding all items to cart is a reasonable
-  // future enhancement, not in scope) with a "Cancel order" button that calls
-  // handleCancel(order.id), shown only when order.orderStatus is PENDING or CONFIRMED.
-  // "Track" button keeps linking to /track-order (Task 20).
-}
-```
-
-- [ ] **Step 2: Typecheck + manual verification**
-
-Run: `cd front-end && npx tsc --noEmit` → no new errors from this file.
-
-In the browser: place a COD order (from Task 17), confirm it shows up here with the right status/total; cancel it; confirm it disappears from the cancellable state and its status updates.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add front-end/src/pages/account/AccountOrders.tsx
-git commit -m "feat: wire AccountOrders page to real Order API"
-```
-
----
-
-### Task 20: Wire `TrackOrder.tsx` to the public tracking endpoint
-
-**Files:**
-- Modify: `front-end/src/pages/TrackOrder.tsx`
-
-- [ ] **Step 1: Add a phone input and call the real tracking endpoint**
-
-The backend's public tracking endpoint requires `orderNumber` **and** `phone` (prevents order-number enumeration — see spec). The current UI only has an order-code field; add a phone field.
-
-```tsx
-// front-end/src/pages/TrackOrder.tsx — relevant changes
-import { useState } from "react"
-import { toast } from "sonner"
-import { trackOrder, type Order } from "~/apis/orderApi"
-
-export function TrackOrder() {
-  const [orderCode, setOrderCode] = useState("")
-  const [phone, setPhone] = useState("")
-  const [order, setOrder] = useState<Order | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleTrack = async () => {
-    if (!orderCode.trim() || !phone.trim()) {
-      toast.error("Please enter both the order code and the phone number used at checkout")
-      return
-    }
-    setIsLoading(true)
-    try {
-      const result = await trackOrder(orderCode.trim(), phone.trim())
-      setOrder(result)
-    } catch {
-      toast.error("Order not found — check the order code and phone number")
-      setOrder(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // ...
-}
-```
-
-- [ ] **Step 2: Add the phone input to the search box JSX, next to the existing order-code input**
-
-- [ ] **Step 3: Replace the hardcoded `orderDetails` timeline/shipping/items rendering with `order`'s real fields**
-
-The mock timeline (`ordered → confirmed → packed → shipping → delivered`) doesn't exist in the backend — derive a simplified 4-step timeline directly from `order.orderStatus` (`PENDING → CONFIRMED → SHIPPED → DELIVERED`, with `CANCELLED` shown as a distinct terminal banner instead of a timeline step). Drop the `carrier`/`trackingNumber` fields from the "Shipping information" card (Phase 1 has no real carrier — Phase 2 adds this); keep `provinceName`/`wardName`/`addressDetail` for the shipping address display, and `items`/`total` from `order` for the products/total sections (same rendering shape as before, different field names).
-
-- [ ] **Step 4: Typecheck + manual verification**
-
-Run: `cd front-end && npx tsc --noEmit` → no new errors.
-
-In the browser: place an order, note its `orderNumber` and the phone used on the address, go to `/track-order` (as a logged-out or logged-in user — this route is currently behind `UserRoute` per `routes.tsx`; leave that as-is unless the product intent is for guests to track orders too, which would be a routing change outside this plan's scope), enter both, confirm the real order renders. Enter a wrong phone for a real order code — confirm "not found", not the order.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add front-end/src/pages/TrackOrder.tsx
-git commit -m "feat: wire TrackOrder page to public order tracking API"
-```
-
----
-
-### Task 21: Wire `admin/OrdersList.tsx` and `admin/OrderDetail.tsx` to the real admin API
-
-This is also where the typecheck breakage introduced in Task 15 (old `Order["status"]`/mock data no longer matching the new type) gets resolved.
-
-**Files:**
-- Modify: `front-end/src/pages/admin/OrdersList.tsx`
-- Modify: `front-end/src/pages/admin/OrderDetail.tsx`
-- Modify: `front-end/src/components/admin/OrderStatusBadge.tsx`
-- Modify: `front-end/src/stores/adminStore.ts`
-- Modify: `front-end/src/mock/adminData.ts` (remove `mockOrders`, or leave other mock exports in that file untouched if it holds unrelated data too — check its contents first)
-
-- [ ] **Step 1: Check what else lives in `mock/adminData.ts` before touching it**
-
-Run: `grep -n "^export" front-end/src/mock/adminData.ts`
-If `mockOrders` is the only order-related export and other exports (e.g. dashboard stats, discounts) are unrelated and still used elsewhere, remove only `mockOrders` and its `Order`/`OrderItem` import usage — leave the rest of the file alone.
-
-- [ ] **Step 2: Update `OrderStatusBadge.tsx`**
-
-Change the prop type from `Order["status"]` to `Order["orderStatus"]` (the component body is otherwise unchanged — it already just calls `getOrderStatusBadgeClass`/`getOrderStatusLabel`, which Task 15 already updated to accept `Order["orderStatus"]`):
-
-```tsx
-type OrderStatusBadgeProps = {
-  status: Order["orderStatus"]
-  className?: string
-}
-```
-
-- [ ] **Step 3: Update `adminStore.ts`'s order slice**
-
-```ts
-// changes to the Orders section of AdminState and its implementation:
-  updateOrderStatus: (id: string, orderStatus: Order['orderStatus']) => void
-// ...
-  updateOrderStatus: (id, orderStatus) => set((state) => ({
-    orders: state.orders.map((o) => (o.id === id ? { ...o, orderStatus } : o))
-  })),
-```
-
-- [ ] **Step 4: Rewrite `OrdersList.tsx` to fetch from the real admin API**
-
-Replace `mockOrders` seeding with a real fetch, and adjust the filter/table logic for the new field names:
-
-```tsx
-// front-end/src/pages/admin/OrdersList.tsx — relevant changes
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
-import { fetchAdminOrders, getOrderApiError } from "~/apis/orderApi"
-
-const paymentLabels: Record<string, string> = { COD: "COD", ONLINE: "Online" }
-const paymentStatusLabels: Record<string, string> = {
-  UNPAID: "Unpaid", PAID: "Paid", FAILED: "Failed", REFUNDED: "Refunded",
-}
+  AdminWorkspace,
+  AdminWorkspaceHeader,
+  AdminMetricStrip,
+  AdminFilterRow,
+  AdminFilterSearch,
+  AdminFilterField,
+  AdminWorkspaceBody,
+  AdminWorkspaceFooter,
+} from "~/components/admin/AdminWorkspace"
+import { AdminTableSkeleton } from "~/components/admin/AdminTableSkeleton"
+import { AdminPagination } from "~/components/admin/AdminPagination"
+import { AdminEmptyState } from "~/components/admin/AdminEmptyState"
+import {
+  adminBrandTextClass,
+  adminGhostButtonClass,
+  adminMonoClass,
+  adminThClass,
+  adminTdClass,
+  adminDividerClass,
+  adminFilterInputClass,
+  adminRowActionClass,
+  formatVnd,
+} from "~/lib/admin/ui"
+import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "~/lib/admin/realOrderStatus"
+import { ADMIN_PAGE_SIZE, paginate } from "~/lib/admin/pagination"
+import { cn } from "~/lib/utils"
+import { fetchAdminOrders, type Order } from "~/apis/orderApi"
 
 export function OrdersList() {
-  const { orders, setOrders } = useAdminStore()
+  const [orders, setOrders] = useState<Order[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [paymentFilter, setPaymentFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      setIsLoading(true)
-      try {
-        const result = await fetchAdminOrders({
-          page: currentPage,
-          orderStatus: statusFilter !== "all" ? statusFilter : undefined,
-          paymentMethod: paymentFilter !== "all" ? paymentFilter.toUpperCase() : undefined,
-          search: searchQuery || undefined,
-        })
-        setOrders(result.items)
-      } catch (error) {
-        toast.error(getOrderApiError(error))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [currentPage, statusFilter, paymentFilter, searchQuery])
+    fetchAdminOrders({ limit: 200 })
+      .then((res) => setOrders(res.items))
+      .finally(() => setIsLoading(false))
+  }, [])
 
-  // Filtering/pagination now happens server-side via the API params above, so the
-  // client-side `filteredOrders`/`paginate()` logic from the mock version is no longer
-  // needed — render `orders` directly. Update every `order.status` reference to
-  // `order.orderStatus`, `order.customerName`/`order.customerEmail` search-match UI to
-  // use `order.recipientName`/`order.phone` instead (no denormalized customer name/email
-  // on the backend Order in Phase 1), and `order.items[i].productImage` to
-  // `order.items[i].imageUrl`. The status filter's `<SelectItem>` list drops "processing"
-  // and "refunded" (see Task 15) and uses the real enum values as-is (uppercase).
+  const filteredOrders = orders.filter((order) => {
+    const q = searchQuery.toLowerCase()
+    const matchesSearch =
+      order.orderNumber.toLowerCase().includes(q) || order.recipientName.toLowerCase().includes(q)
+    const matchesStatus = statusFilter === "all" || order.orderStatus === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  const { items: paginatedOrders, totalPages } = useMemo(
+    () => paginate(filteredOrders, currentPage, ADMIN_PAGE_SIZE),
+    [filteredOrders, currentPage]
+  )
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(Math.max(1, totalPages))
+  }, [currentPage, totalPages])
+
+  const hasActiveFilters = searchQuery !== "" || statusFilter !== "all"
+
+  const handleClearFilters = () => {
+    setSearchQuery("")
+    setStatusFilter("all")
+    setCurrentPage(1)
+  }
+
+  if (isLoading) return <AdminTableSkeleton />
+
+  return (
+    <AdminWorkspace>
+      <AdminWorkspaceHeader
+        title="Orders"
+        description="Track status and payment for each order."
+      />
+
+      <AdminMetricStrip
+        metrics={[
+          { label: "Total orders", value: orders.length },
+          {
+            label: "Pending",
+            value: orders.filter((o) => o.orderStatus === "PENDING").length,
+            tone: "warning",
+          },
+          {
+            label: "In progress",
+            value: orders.filter((o) => ["CONFIRMED", "SHIPPED"].includes(o.orderStatus)).length,
+            tone: "brand",
+          },
+          {
+            label: "Completed",
+            value: orders.filter((o) => o.orderStatus === "DELIVERED").length,
+            tone: "success",
+          },
+        ]}
+      />
+
+      <AdminFilterRow>
+        <AdminFilterSearch label="Keyword">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-brand)]"
+              strokeWidth={2}
+            />
+            <Input
+              placeholder="Order code, recipient name..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setCurrentPage(1)
+              }}
+              className={cn("pl-9", adminFilterInputClass)}
+            />
+          </div>
+        </AdminFilterSearch>
+        <AdminFilterField label="Order status">
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v)
+              setCurrentPage(1)
+            }}
+          >
+            <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </AdminFilterField>
+      </AdminFilterRow>
+
+      <AdminWorkspaceBody>
+        <Table>
+          <TableHeader>
+            <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
+              <TableHead className={adminThClass}>Order code</TableHead>
+              <TableHead className={adminThClass}>Recipient</TableHead>
+              <TableHead className={adminThClass}>Order date</TableHead>
+              <TableHead className={adminThClass}>Products</TableHead>
+              <TableHead className={adminThClass}>Total</TableHead>
+              <TableHead className={adminThClass}>Payment</TableHead>
+              <TableHead className={adminThClass}>Status</TableHead>
+              <TableHead className={cn(adminThClass, "text-right")}>Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedOrders.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="p-0">
+                  <AdminEmptyState
+                    icon={ShoppingCart}
+                    title="No orders"
+                    description={
+                      hasActiveFilters
+                        ? "Try changing filters or keywords."
+                        : "There are no orders in the system yet."
+                    }
+                    action={
+                      hasActiveFilters ? (
+                        <Button variant="outline" size="sm" className="h-8 text-[13px]" onClick={handleClearFilters}>
+                          Clear filters
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedOrders.map((order) => (
+                <TableRow key={order.id} className={cn("group", adminDividerClass)}>
+                  <TableCell className={adminTdClass}>
+                    <p className="font-medium">{order.orderNumber}</p>
+                  </TableCell>
+                  <TableCell className={adminTdClass}>
+                    <p className="font-medium">{order.recipientName}</p>
+                    <p className="truncate text-[12px] text-muted-foreground">{order.phone}</p>
+                  </TableCell>
+                  <TableCell className={adminTdClass}>
+                    <p>{format(new Date(order.createdAt), "dd/MM/yyyy", { locale: enUS })}</p>
+                    <p className={cn(adminMonoClass, "text-[12px]")}>
+                      {format(new Date(order.createdAt), "HH:mm")}
+                    </p>
+                  </TableCell>
+                  <TableCell className={adminTdClass}>
+                    <span className={cn(adminMonoClass, "text-[12px]")}>{order.items.length}</span>
+                  </TableCell>
+                  <TableCell className={adminTdClass}>
+                    <span className={cn("font-mono font-medium", adminBrandTextClass)}>
+                      {formatVnd(order.total)}
+                    </span>
+                  </TableCell>
+                  <TableCell className={adminTdClass}>
+                    <p>{order.paymentMethod}</p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+                    </p>
+                  </TableCell>
+                  <TableCell className={adminTdClass}>
+                    <span
+                      className={cn(
+                        "inline-flex rounded-md px-2 py-0.5 text-[12px] font-medium",
+                        "bg-muted"
+                      )}
+                    >
+                      {ORDER_STATUS_LABELS[order.orderStatus]}
+                    </span>
+                  </TableCell>
+                  <TableCell className={cn(adminTdClass, "text-right")}>
+                    <div className={adminRowActionClass}>
+                      <Link to={`/admin/orders/${order.id}`}>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className={cn("size-8 bg-background", adminGhostButtonClass)}
+                          aria-label="View details"
+                        >
+                          <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
+                        </Button>
+                      </Link>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </AdminWorkspaceBody>
+
+      <AdminWorkspaceFooter>
+        <AdminPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredOrders.length}
+          pageSize={ADMIN_PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="orders"
+        />
+      </AdminWorkspaceFooter>
+    </AdminWorkspace>
+  )
 }
 ```
 
-- [ ] **Step 5: Rewrite `OrderDetail.tsx` to fetch by id from the real admin API**
+(Dropped the `paymentMethod` filter dropdown from the original mock — Phase 1 only has `COD`, making a filter pointless; `ORDER_STATUS_BADGE_CLASS` styling can be reintroduced via `realOrderStatus.ts` if desired, simplified here to a plain badge to keep the diff focused.)
+
+- [ ] **Step 3: Rewire `OrderDetail.tsx`**
+
+Replace the full file content:
 
 ```tsx
-// front-end/src/pages/admin/OrderDetail.tsx — relevant changes
+// front-end/src/pages/admin/OrderDetail.tsx
 import { useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card"
+import { Button } from "~/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select"
+import { Separator } from "~/components/ui/separator"
+import { Badge } from "~/components/ui/badge"
+import { ArrowLeft, Package, MapPin, CreditCard } from "lucide-react"
+import { format } from "date-fns"
+import { enUS } from "date-fns/locale"
 import { toast } from "sonner"
-import { fetchAdminOrderById, updateAdminOrderStatus, getOrderApiError, type Order } from "~/apis/orderApi"
+import { AdminPage } from "~/components/admin/AdminPage"
+import { AdminPageHeader } from "~/components/admin/AdminPageHeader"
+import { adminBrandTextClass, formatVnd } from "~/lib/admin/ui"
+import { ORDER_STATUS_LABELS, ORDER_STATUS_TRANSITIONS, PAYMENT_STATUS_LABELS } from "~/lib/admin/realOrderStatus"
+import { cn } from "~/lib/utils"
+import { fetchAdminOrder, updateAdminOrderStatus, type Order } from "~/apis/orderApi"
 
 export function OrderDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
   const [order, setOrder] = useState<Order | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const load = async () => {
+  const load = () => {
     if (!id) return
-    try {
-      setOrder(await fetchAdminOrderById(id))
-    } catch (error) {
-      toast.error(getOrderApiError(error))
-    }
+    fetchAdminOrder(id)
+      .then(setOrder)
+      .catch(() => setOrder(null))
+      .finally(() => setIsLoading(false))
   }
 
-  useEffect(() => {
-    load()
-  }, [id])
+  useEffect(load, [id])
+
+  if (isLoading) return null
+
+  if (!order) {
+    return (
+      <AdminPage>
+        <div className="flex flex-col items-center gap-4 py-20 text-center">
+          <p className="text-sm text-muted-foreground">Order does not exist</p>
+          <Button variant="outline" onClick={() => navigate("/admin/orders")}>
+            Back to list
+          </Button>
+        </div>
+      </AdminPage>
+    )
+  }
 
   const handleStatusChange = async (newStatus: Order["orderStatus"]) => {
-    if (!order) return
     try {
       const updated = await updateAdminOrderStatus(order.id, { orderStatus: newStatus })
       setOrder(updated)
       toast.success("Status updated")
     } catch (error) {
-      toast.error(getOrderApiError(error))
+      const err = error as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message ?? "Failed to update status")
     }
   }
 
-  // ...same structure as before, but:
-  // - statusOptions drops "processing"/"refunded" → ["PENDING","CONFIRMED","SHIPPED","DELIVERED","CANCELLED"]
-  // - the timeline array keys change to orderStatus values (PENDING/CONFIRMED/SHIPPED/DELIVERED)
-  // - order.items[i].{productImage,productName,variants,skuId,total} → {imageUrl,productName,variantLabel,variantId}
-  //   (no per-item `total` from the backend — compute it inline as item.price * item.quantity;
-  //   no `variants[]` breakdown, just the single `variantLabel` string)
-  // - order.discount → order.discountAmount
-  // - Customer panel: order.customerName/customerEmail don't exist on the backend Order —
-  //   replace with order.recipientName/order.phone (the backend doesn't denormalize the
-  //   underlying User's name/email onto Order in Phase 1; if admins need to see the
-  //   account holder's email too, that's a `GET /api/admin/orders/:id` response
-  //   enhancement to make later, not something to fetch ad hoc here)
-  // - order.shippingAddress.{ward,district,city} → order.provinceName/order.wardName/order.addressDetail
-  //   (no district — 2-tier address)
-  // - order.paymentMethod comparisons: "cod"/"card"/"ewallet" → "COD"/"ONLINE"
-  // - order.paymentStatus "paid"/"pending"/"failed"/"refunded" → "PAID"/"UNPAID"/"FAILED"/"REFUNDED"
-  // - order.trackingNumber card: remove entirely (no carrier/tracking in Phase 1)
+  const allowedNextStatuses = ORDER_STATUS_TRANSITIONS[order.orderStatus]
+  const timeline = [
+    { status: "PENDING", label: "Placed", completed: true },
+    {
+      status: "CONFIRMED",
+      label: "Confirmed",
+      completed: ["CONFIRMED", "SHIPPED", "DELIVERED"].includes(order.orderStatus),
+    },
+    {
+      status: "SHIPPED",
+      label: "Shipping",
+      completed: ["SHIPPED", "DELIVERED"].includes(order.orderStatus),
+    },
+    { status: "DELIVERED", label: "Completed", completed: order.orderStatus === "DELIVERED" },
+  ]
+
+  return (
+    <AdminPage>
+      <AdminPageHeader
+        title={order.orderNumber}
+        description={`Ordered at ${format(new Date(order.createdAt), "MM/dd/yyyy HH:mm", { locale: enUS })}`}
+        leading={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => navigate("/admin/orders")}
+            aria-label="Back"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+        }
+        actions={
+          <span className="inline-flex rounded-md bg-muted px-3 py-1 text-sm font-medium">
+            {ORDER_STATUS_LABELS[order.orderStatus]}
+          </span>
+        }
+      />
+
+      {order.orderStatus !== "CANCELLED" && (
+        <Card className="shadow-none">
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between gap-2">
+              {timeline.map((item, index) => (
+                <div key={item.status} className="flex flex-1 items-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-full text-xs font-semibold",
+                        item.completed
+                          ? "bg-[var(--admin-brand)] text-[var(--admin-brand-foreground)]"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {item.completed ? "OK" : index + 1}
+                    </div>
+                    <p
+                      className={cn(
+                        "max-w-[4.5rem] text-center text-[0.65rem] leading-tight sm:max-w-none sm:text-xs",
+                        item.completed ? "font-medium text-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      {item.label}
+                    </p>
+                  </div>
+                  {index < timeline.length - 1 && (
+                    <div
+                      className={cn(
+                        "mx-1 h-0.5 flex-1 sm:mx-2",
+                        item.completed ? "bg-[var(--admin-brand)]" : "bg-border"
+                      )}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="shadow-none">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="size-4 text-muted-foreground" aria-hidden />
+                Products ({order.items.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {order.items.map((item) => (
+                <div key={item.id} className="flex gap-4 rounded-lg border border-border/80 p-4">
+                  {item.imageUrl && (
+                    <img src={item.imageUrl} alt="" className="size-20 shrink-0 rounded-lg object-cover" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-medium">{item.productName}</h4>
+                    <p className="text-xs text-muted-foreground">{item.variantLabel}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={cn("font-semibold tabular-nums", adminBrandTextClass)}>
+                      {formatVnd(item.price)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">x{item.quantity}</p>
+                    <p className="mt-2 font-semibold tabular-nums">{formatVnd(item.total)}</p>
+                  </div>
+                </div>
+              ))}
+
+              <Separator />
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="tabular-nums">{formatVnd(order.subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shipping fee</span>
+                  <span className="tabular-nums">{formatVnd(order.shippingFee)}</span>
+                </div>
+                {order.discountAmount > 0 && (
+                  <div className="flex justify-between text-destructive">
+                    <span>Discount</span>
+                    <span className="tabular-nums">-{formatVnd(order.discountAmount)}</span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex justify-between text-base font-semibold">
+                  <span>Total</span>
+                  <span className={cn("tabular-nums", adminBrandTextClass)}>{formatVnd(order.total)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="shadow-none">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">Update status</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Select
+                value={order.orderStatus}
+                onValueChange={(v) => handleStatusChange(v as Order["orderStatus"])}
+                disabled={allowedNextStatuses.length === 0}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={order.orderStatus}>
+                    {ORDER_STATUS_LABELS[order.orderStatus]} (current)
+                  </SelectItem>
+                  {allowedNextStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {ORDER_STATUS_LABELS[status]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MapPin className="size-4 text-muted-foreground" aria-hidden />
+                Customer
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6 text-sm">
+              <div>
+                <p className="text-muted-foreground">Recipient</p>
+                <p className="font-medium">{order.recipientName}</p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-muted-foreground">Phone</p>
+                <p className="font-medium">{order.phone}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Address</p>
+                <p className="font-medium">{order.addressDetail}</p>
+                <p className="text-muted-foreground">{order.wardName}</p>
+                <p className="text-muted-foreground">{order.provinceName}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CreditCard className="size-4 text-muted-foreground" aria-hidden />
+                Payment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6 text-sm">
+              <div>
+                <p className="text-muted-foreground">Method</p>
+                <p className="font-medium">{order.paymentMethod}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"}>
+                  {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </AdminPage>
+  )
 }
 ```
 
-- [ ] **Step 6: Full frontend typecheck**
+Dropped: the `customerEmail`/`note`/`trackingNumber` display blocks — the real `Order` DTO doesn't carry a customer email (only shipping contact info) or a tracking number (Phase 2 concern), and `note` isn't populated by checkout yet.
 
-Run: `cd front-end && npx tsc --noEmit`
-Expected: **zero errors** — this is the point where all the type breakage introduced back in Task 15 is fully resolved.
+- [ ] **Step 4: Manual verification**
 
-- [ ] **Step 7: Manual verification**
+Log in as an admin, go to `/admin/orders` — confirm the real order(s) from earlier tasks appear, with correct totals/status. Open one, change its status through an allowed transition (e.g. PENDING → CONFIRMED), confirm it persists on reload. Try cancelling the underlying order as the customer first (via `/account/orders` if a cancel action is wired, or via the `POST /orders/:id/cancel` curl from backend Task 23) and confirm the admin page then shows it as CANCELLED with no further transitions offered.
 
-As an admin: `/admin/orders` lists real orders with working search/status/payment filters; open one, change its status through the dropdown (confirm the same transition restrictions from the backend apply — e.g. trying to jump straight to Delivered from Pending should show an error toast, not silently succeed); confirm the address/payment panels show real data with no leftover "district" or "tracking number" UI.
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add front-end/src/pages/admin/OrdersList.tsx front-end/src/pages/admin/OrderDetail.tsx front-end/src/components/admin/OrderStatusBadge.tsx front-end/src/stores/adminStore.ts front-end/src/mock/adminData.ts
-git commit -m "feat: wire admin Orders pages to real admin order API"
+cd front-end
+git add src/lib/admin/realOrderStatus.ts src/pages/admin/OrdersList.tsx src/pages/admin/OrderDetail.tsx
+git commit -m "feat: wire admin order pages to real order API"
 ```
 
 ---
 
-### Task 22: Full end-to-end manual verification (final task)
+### Task 32: Full manual end-to-end verification
 
-**Files:** none — verification only. This is the "actually run it in a browser" step required before claiming this feature works; do not skip it or claim success without doing it.
+**Files:** none (verification only)
 
-- [ ] **Step 1: Fresh backend + frontend boot**
-
-```bash
-cd back-end && npm run dev &
-cd front-end && npm run dev &
-```
-
-Confirm both start cleanly with no errors.
-
-- [ ] **Step 2: Full golden-path click-through as a regular user**
-
-1. Register/log in.
-2. Go to a product page, add two different products to the cart (real add-to-cart, from Task 16).
-3. Go to `/cart`, confirm both appear with real prices; deselect one.
-4. Go to `/account/addresses`, add a real address with a real province/ward picked from the dropdowns.
-5. Go to `/checkout` — confirm only the one selected cart item shows, the real address shows, COD is the only usable payment option.
-6. Place the order. Confirm success and a real order number.
-7. Go to `/account/orders` — the new order appears with the right total and status.
-8. Go to `/track-order`, enter the order number and the address phone — confirm it tracks correctly; try a wrong phone — confirm it's rejected.
-9. Cancel the order from `/account/orders`. Confirm it moves to Cancelled and the earlier-deselected cart item is still sitting untouched in `/cart` (never consumed since it wasn't selected).
-
-- [ ] **Step 3: Buy-now path**
-
-From a product page, click "Buy now" for a variant not currently in the cart, complete checkout. Confirm the resulting order has exactly that one item, and the cart's existing contents are unaffected.
-
-- [ ] **Step 4: Duplicate-submission / idempotency check**
-
-On the checkout page, open browser dev tools, throttle the network to "slow 3G", click "Place order" twice in quick succession before the first request resolves (or manually replay the same `POST /api/checkout` request with the same `Idempotency-Key` via dev tools' network panel). Confirm only one order is created (check `/account/orders` for duplicates) and stock was only decremented once (check via admin product edit page or Prisma Studio).
-
-- [ ] **Step 5: Admin path**
-
-Log in as the seeded admin user, go to `/admin/orders`, find one of the orders just created, open its detail, walk it through `PENDING → CONFIRMED → SHIPPED → DELIVERED` one step at a time (confirm each transition succeeds and the customer-facing `/track-order` page reflects each change), then confirm an invalid skip (e.g. `PENDING → DELIVERED` on a fresh order) is rejected with a clear error.
-
-- [ ] **Step 6: Report results**
-
-Note any bugs found during this pass and fix them (with their own small commits) before considering this plan complete. Do not report the feature as "done" if any step above didn't actually work — this task exists specifically to catch that before it reaches the user.
-
-- [ ] **Step 7: Final commit (only if fixes were needed in Step 6)**
+- [ ] **Step 1: Start both servers**
 
 ```bash
-git add -A
-git commit -m "fix: address issues found during full end-to-end verification"
+cd back-end && npm run dev
 ```
+
+```bash
+cd front-end && npm run dev
+```
+
+- [ ] **Step 2: Walk the full flow in a browser**
+
+1. Log in as a seeded regular user.
+2. Since the storefront isn't wired to real products yet (Part B intro), seed a cart item via curl (backend Task 15's example) using a real seeded `ProductVariant` id.
+3. Go to `/cart` — confirm the real item shows with live price; toggle its selection, change quantity.
+4. Go to `/account/addresses` — add a new address using the province/ward pickers (sample data from Task 7).
+5. Go to `/checkout` — confirm the selected item, the address just added, and the computed total show. Click "Place order" with COD selected.
+6. Confirm the success toast shows a real order number and you land on `/account/orders`, where the new order appears.
+7. Copy the order number and the address's phone number, go to `/track-order`, and confirm the public tracking view renders correctly.
+8. Log out, log in as an admin user, go to `/admin/orders` — confirm the order appears; open it and advance its status (e.g. PENDING → CONFIRMED → SHIPPED → DELIVERED), confirming each transition persists.
+9. As the regular user again, attempt `POST /orders/:id/cancel` via curl on a still-cancellable order and confirm stock is restored (check the variant's `stockQuantity` via the admin products API).
+
+- [ ] **Step 3: Record the result**
+
+If every step above works, Phase 1 is functionally complete. Note any deviations found during this walkthrough as follow-up items rather than silently patching around them.
