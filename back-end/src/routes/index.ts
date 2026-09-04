@@ -11,6 +11,8 @@ import userRoutes from '~/modules/users/user.routes'
 import locationRoutes from '~/modules/locations/location.routes'
 import addressRoutes from '~/modules/addresses/address.routes'
 import cartRoutes from '~/modules/cart/cart.routes'
+import orderRoutes from '~/modules/orders/order.routes'
+import orderAdminRoutes from '~/modules/orders/order.admin.routes'
 
 const router = Router()
 
@@ -25,5 +27,7 @@ router.use('/options', optionRoutes)
 router.use('/locations', locationRoutes)
 router.use('/addresses', addressRoutes)
 router.use('/cart', cartRoutes)
+router.use('/orders', orderRoutes)
+router.use('/admin/orders', orderAdminRoutes)
 
 export default router
