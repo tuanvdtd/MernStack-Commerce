@@ -3893,3 +3893,375 @@ Expected: no new errors from this file (existing unrelated admin-type errors fro
 git add front-end/src/pages/Checkout.tsx front-end/src/components/checkout/CheckoutPaymentSection.tsx
 git commit -m "feat: wire Checkout page to real address/cart/checkout APIs, COD-only"
 ```
+
+---
+
+### Task 18: Wire `AccountAddresses.tsx` with a province/ward picker
+
+**Files:**
+- Modify: `front-end/src/pages/account/AccountAddresses.tsx`
+- Create: `front-end/src/components/account/AddressFormDialog.tsx`
+
+- [ ] **Step 1: Create the address form dialog (create + edit)**
+
+This is new UI (the current page has no form at all, only a static list) — build it using the existing `~/components/ui/dialog`, `select`, `input` primitives already used elsewhere in the codebase (see `admin/OrderDetail.tsx`'s `Select` usage for the exact import paths).
+
+```tsx
+// front-end/src/components/account/AddressFormDialog.tsx
+import { useEffect, useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "~/components/ui/dialog"
+import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select"
+import { Checkbox } from "~/components/ui/checkbox"
+import { fetchProvinces, fetchWards, type Province, type Ward } from "~/apis/locationApi"
+import type { Address, UpsertAddressPayload } from "~/apis/addressApi"
+
+type AddressFormDialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  initial?: Address | null
+  onSubmit: (payload: UpsertAddressPayload) => Promise<void>
+}
+
+export function AddressFormDialog({ open, onOpenChange, initial, onSubmit }: AddressFormDialogProps) {
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [wards, setWards] = useState<Ward[]>([])
+  const [label, setLabel] = useState(initial?.label ?? "")
+  const [recipientName, setRecipientName] = useState(initial?.recipientName ?? "")
+  const [phone, setPhone] = useState(initial?.phone ?? "")
+  const [provinceCode, setProvinceCode] = useState(initial?.provinceCode ?? "")
+  const [wardCode, setWardCode] = useState(initial?.wardCode ?? "")
+  const [detail, setDetail] = useState(initial?.detail ?? "")
+  const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) fetchProvinces().then(setProvinces)
+  }, [open])
+
+  useEffect(() => {
+    if (provinceCode) fetchWards(provinceCode).then(setWards)
+    else setWards([])
+  }, [provinceCode])
+
+  const handleSubmit = async () => {
+    setIsSaving(true)
+    try {
+      await onSubmit({ label, recipientName, phone, provinceCode, wardCode, detail, isDefault })
+      onOpenChange(false)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{initial ? "Edit address" : "Add address"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="addr-label">Label (optional)</Label>
+            <Input id="addr-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Home, Office..." />
+          </div>
+          <div>
+            <Label htmlFor="addr-name">Recipient name</Label>
+            <Input id="addr-name" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="addr-phone">Phone</Label>
+            <Input id="addr-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912345678" />
+          </div>
+          <div>
+            <Label>Province / City</Label>
+            <Select value={provinceCode} onValueChange={(v) => { setProvinceCode(v); setWardCode("") }}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select province" /></SelectTrigger>
+              <SelectContent>
+                {provinces.map((p) => (
+                  <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Ward</Label>
+            <Select value={wardCode} onValueChange={setWardCode} disabled={!provinceCode}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select ward" /></SelectTrigger>
+              <SelectContent>
+                {wards.map((w) => (
+                  <SelectItem key={w.code} value={w.code}>{w.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="addr-detail">Address detail</Label>
+            <Input id="addr-detail" value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="House number, street" />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={isDefault} onCheckedChange={(v) => setIsDefault(Boolean(v))} />
+            Set as default address
+          </label>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSaving || !recipientName || !phone || !provinceCode || !wardCode || !detail}
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+- [ ] **Step 2: Wire `AccountAddresses.tsx` to the real API + this dialog**
+
+Replace the hardcoded `addresses` array and wire up create/edit/delete/set-default:
+
+```tsx
+// front-end/src/pages/account/AccountAddresses.tsx — relevant changes
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import {
+  fetchAddresses,
+  createAddress,
+  updateAddress,
+  setDefaultAddress,
+  deleteAddress,
+  getAddressApiError,
+  type Address,
+  type UpsertAddressPayload,
+} from "~/apis/addressApi"
+import { AddressFormDialog } from "~/components/account/AddressFormDialog"
+
+export function AccountAddresses() {
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Address | null>(null)
+
+  const load = async () => {
+    try {
+      setAddresses(await fetchAddresses())
+    } catch (error) {
+      toast.error(getAddressApiError(error))
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const handleSubmit = async (payload: UpsertAddressPayload) => {
+    try {
+      if (editing) await updateAddress(editing.id, payload)
+      else await createAddress(payload)
+      toast.success(editing ? "Address updated" : "Address added")
+      await load()
+    } catch (error) {
+      toast.error(getAddressApiError(error))
+      throw error // keep the dialog open on failure
+    }
+  }
+
+  const handleSetDefault = async (id: string) => {
+    try {
+      await setDefaultAddress(id)
+      await load()
+    } catch (error) {
+      toast.error(getAddressApiError(error))
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAddress(id)
+      toast.success("Address removed")
+      await load()
+    } catch (error) {
+      toast.error(getAddressApiError(error))
+    }
+  }
+
+  // ...JSX: same Card/list structure as before, but:
+  // - "Add address" button opens the dialog with editing=null
+  // - "Edit" (Pencil) button opens the dialog with editing=that address
+  // - "Delete" (Trash2) button calls handleDelete(addr.id)
+  // - non-default addresses get a "Set as default" action calling handleSetDefault(addr.id)
+  // - addr.address (old mock field) becomes `${addr.detail}, ${addr.wardName}, ${addr.provinceName}`
+}
+```
+
+- [ ] **Step 3: Typecheck**
+
+Run: `cd front-end && npx tsc --noEmit`
+Expected: no new errors from these two files.
+
+- [ ] **Step 4: Manual verification**
+
+Add a new address through the UI (pick a real province, confirm wards load for it), confirm it appears as default (first address). Add a second address, mark it default, confirm the first is no longer shown as default. Delete the default one, confirm the other becomes default automatically. Edit an address's detail field, confirm it persists.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add front-end/src/pages/account/AccountAddresses.tsx front-end/src/components/account/AddressFormDialog.tsx
+git commit -m "feat: wire AccountAddresses page to real Address/Location APIs"
+```
+
+---
+
+### Task 19: Wire `AccountOrders.tsx` to `orderApi`
+
+**Files:**
+- Modify: `front-end/src/pages/account/AccountOrders.tsx`
+
+- [ ] **Step 1: Replace the hardcoded `orders` array and `statusConfig` with real data**
+
+The existing tabs (`all`/`shipping`/`delivered`/`completed`) map awkwardly onto the real `orderStatus` enum (`PENDING/CONFIRMED/SHIPPED/DELIVERED/CANCELLED` — there's no "completed" distinct from "delivered"). Simplify to tabs that map 1:1 onto real statuses: `all` / `SHIPPED` / `DELIVERED` / `CANCELLED`.
+
+```tsx
+// front-end/src/pages/account/AccountOrders.tsx — relevant changes
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import { fetchOrders, cancelOrder, getOrderApiError, type Order } from "~/apis/orderApi"
+import { formatPrice } from "~/lib/account/formatters"
+
+const statusConfig: Record<Order["orderStatus"], { icon: typeof Truck; color: string; bg: string; label: string }> = {
+  PENDING: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Pending" },
+  CONFIRMED: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Confirmed" },
+  SHIPPED: { icon: Truck, color: "text-blue-600", bg: "bg-blue-50 border-blue-200", label: "Shipping" },
+  DELIVERED: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200", label: "Delivered" },
+  CANCELLED: { icon: Clock, color: "text-red-600", bg: "bg-red-50 border-red-200", label: "Cancelled" },
+}
+
+export function AccountOrders() {
+  const [orders, setOrders] = useState<Order[]>([])
+
+  const load = async () => {
+    try {
+      const result = await fetchOrders()
+      setOrders(result.items)
+    } catch (error) {
+      toast.error(getOrderApiError(error))
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const handleCancel = async (id: string) => {
+    try {
+      await cancelOrder(id)
+      toast.success("Order cancelled")
+      await load()
+    } catch (error) {
+      toast.error(getOrderApiError(error))
+    }
+  }
+
+  // ...JSX: render `orders` (optionally filtered by tab against order.orderStatus) using
+  // statusConfig[order.orderStatus], order.orderNumber, order.createdAt, order.total,
+  // order.items.length, order.items[0]?.imageUrl. Replace the "Buy again" button
+  // (no backend equivalent in Phase 1 — re-adding all items to cart is a reasonable
+  // future enhancement, not in scope) with a "Cancel order" button that calls
+  // handleCancel(order.id), shown only when order.orderStatus is PENDING or CONFIRMED.
+  // "Track" button keeps linking to /track-order (Task 20).
+}
+```
+
+- [ ] **Step 2: Typecheck + manual verification**
+
+Run: `cd front-end && npx tsc --noEmit` → no new errors from this file.
+
+In the browser: place a COD order (from Task 17), confirm it shows up here with the right status/total; cancel it; confirm it disappears from the cancellable state and its status updates.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add front-end/src/pages/account/AccountOrders.tsx
+git commit -m "feat: wire AccountOrders page to real Order API"
+```
+
+---
+
+### Task 20: Wire `TrackOrder.tsx` to the public tracking endpoint
+
+**Files:**
+- Modify: `front-end/src/pages/TrackOrder.tsx`
+
+- [ ] **Step 1: Add a phone input and call the real tracking endpoint**
+
+The backend's public tracking endpoint requires `orderNumber` **and** `phone` (prevents order-number enumeration — see spec). The current UI only has an order-code field; add a phone field.
+
+```tsx
+// front-end/src/pages/TrackOrder.tsx — relevant changes
+import { useState } from "react"
+import { toast } from "sonner"
+import { trackOrder, type Order } from "~/apis/orderApi"
+
+export function TrackOrder() {
+  const [orderCode, setOrderCode] = useState("")
+  const [phone, setPhone] = useState("")
+  const [order, setOrder] = useState<Order | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleTrack = async () => {
+    if (!orderCode.trim() || !phone.trim()) {
+      toast.error("Please enter both the order code and the phone number used at checkout")
+      return
+    }
+    setIsLoading(true)
+    try {
+      const result = await trackOrder(orderCode.trim(), phone.trim())
+      setOrder(result)
+    } catch {
+      toast.error("Order not found — check the order code and phone number")
+      setOrder(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ...
+}
+```
+
+- [ ] **Step 2: Add the phone input to the search box JSX, next to the existing order-code input**
+
+- [ ] **Step 3: Replace the hardcoded `orderDetails` timeline/shipping/items rendering with `order`'s real fields**
+
+The mock timeline (`ordered → confirmed → packed → shipping → delivered`) doesn't exist in the backend — derive a simplified 4-step timeline directly from `order.orderStatus` (`PENDING → CONFIRMED → SHIPPED → DELIVERED`, with `CANCELLED` shown as a distinct terminal banner instead of a timeline step). Drop the `carrier`/`trackingNumber` fields from the "Shipping information" card (Phase 1 has no real carrier — Phase 2 adds this); keep `provinceName`/`wardName`/`addressDetail` for the shipping address display, and `items`/`total` from `order` for the products/total sections (same rendering shape as before, different field names).
+
+- [ ] **Step 4: Typecheck + manual verification**
+
+Run: `cd front-end && npx tsc --noEmit` → no new errors.
+
+In the browser: place an order, note its `orderNumber` and the phone used on the address, go to `/track-order` (as a logged-out or logged-in user — this route is currently behind `UserRoute` per `routes.tsx`; leave that as-is unless the product intent is for guests to track orders too, which would be a routing change outside this plan's scope), enter both, confirm the real order renders. Enter a wrong phone for a real order code — confirm "not found", not the order.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add front-end/src/pages/TrackOrder.tsx
+git commit -m "feat: wire TrackOrder page to public order tracking API"
+```
