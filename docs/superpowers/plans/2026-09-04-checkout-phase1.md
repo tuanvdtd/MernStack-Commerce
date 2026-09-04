@@ -3219,7 +3219,17 @@ describe('CheckoutService', () => {
 Run: `cd back-end && npx vitest run src/modules/checkout/checkout.service.test.ts`
 Expected: FAIL — `checkout.service` doesn't exist.
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 3: Add a `NotImplemented` (501) factory to `ApiError`**
+
+`ApiError` doesn't have this yet — add it before the service below uses it. In `back-end/src/core/http/ApiError.ts`, add after `static Internal`:
+
+```ts
+  static NotImplemented(msg = 'Not Implemented', details?: unknown, code?: string) {
+    return new ApiError(StatusCodes.NOT_IMPLEMENTED, msg, details, code)
+  }
+```
+
+- [ ] **Step 4: Implement the service**
 
 ```ts
 // back-end/src/modules/checkout/checkout.service.ts
@@ -3254,22 +3264,12 @@ export const CheckoutService = {
 }
 ```
 
-- [ ] **Step 3b: Add a `NotImplemented` (501) factory to `ApiError`**
-
-`ApiError` doesn't have this yet. In `back-end/src/core/http/ApiError.ts`, add after `static Internal`:
-
-```ts
-  static NotImplemented(msg = 'Not Implemented', details?: unknown, code?: string) {
-    return new ApiError(StatusCodes.NOT_IMPLEMENTED, msg, details, code)
-  }
-```
-
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `cd back-end && npx vitest run src/modules/checkout/checkout.service.test.ts`
 Expected: PASS, 3 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 cd back-end
