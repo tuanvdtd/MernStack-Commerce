@@ -3111,3 +3111,435 @@ Using `curl` or Postman with a fresh user: create an address → add 2 different
 git add -A back-end
 git commit -m "fix: address lint/typecheck issues found in full backend verification"
 ```
+
+---
+
+# Part E — Frontend API Clients & Shared Types
+
+### Task 14: Front-end API modules (location, address, cart, checkout, order)
+
+Follows the existing `front-end/src/apis/*.ts` pattern (`api` from `./axiosConfig`, typed request/response, a small `getXApiError` helper mirroring `productApi.ts`'s `getProductApiError`).
+
+**Files:**
+- Create: `front-end/src/apis/locationApi.ts`
+- Create: `front-end/src/apis/addressApi.ts`
+- Create: `front-end/src/apis/cartApi.ts`
+- Create: `front-end/src/apis/checkoutApi.ts`
+- Create: `front-end/src/apis/orderApi.ts`
+
+- [ ] **Step 1: `locationApi.ts`**
+
+```ts
+// front-end/src/apis/locationApi.ts
+import api from "./axiosConfig"
+
+export type Province = { code: string; name: string }
+export type Ward = { code: string; name: string }
+
+export async function fetchProvinces(): Promise<Province[]> {
+  const response = await api.get<Province[]>("/locations/provinces")
+  return response.data
+}
+
+export async function fetchWards(provinceCode: string): Promise<Ward[]> {
+  const response = await api.get<Ward[]>(`/locations/provinces/${provinceCode}/wards`)
+  return response.data
+}
+```
+
+- [ ] **Step 2: `addressApi.ts`**
+
+```ts
+// front-end/src/apis/addressApi.ts
+import api from "./axiosConfig"
+
+export type Address = {
+  id: string
+  label?: string
+  recipientName: string
+  phone: string
+  provinceCode: string
+  provinceName: string
+  wardCode: string
+  wardName: string
+  detail: string
+  isDefault: boolean
+}
+
+export type UpsertAddressPayload = {
+  label?: string
+  recipientName: string
+  phone: string
+  provinceCode: string
+  wardCode: string
+  detail: string
+  isDefault?: boolean
+}
+
+export async function fetchAddresses(): Promise<Address[]> {
+  const response = await api.get<Address[]>("/addresses")
+  return response.data
+}
+
+export async function createAddress(payload: UpsertAddressPayload): Promise<Address> {
+  const response = await api.post<Address>("/addresses", payload)
+  return response.data
+}
+
+export async function updateAddress(
+  id: string,
+  payload: Partial<UpsertAddressPayload>
+): Promise<Address> {
+  const response = await api.patch<Address>(`/addresses/${id}`, payload)
+  return response.data
+}
+
+export async function setDefaultAddress(id: string): Promise<Address> {
+  const response = await api.patch<Address>(`/addresses/${id}/default`, {})
+  return response.data
+}
+
+export async function deleteAddress(id: string): Promise<void> {
+  await api.delete(`/addresses/${id}`)
+}
+
+function getErrorMessage(error: unknown): string {
+  const err = error as { response?: { data?: { message?: string; code?: string } } }
+  return err.response?.data?.message || "Unable to process the request"
+}
+
+export { getErrorMessage as getAddressApiError }
+```
+
+- [ ] **Step 3: `cartApi.ts`**
+
+```ts
+// front-end/src/apis/cartApi.ts
+import api from "./axiosConfig"
+
+export type CartItem = {
+  id: string
+  variantId: string
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  price: number
+  quantity: number
+  selected: boolean
+  stockQuantity: number
+}
+
+export type Cart = {
+  id: string
+  countProduct: number
+  items: CartItem[]
+}
+
+export async function fetchCart(): Promise<Cart> {
+  const response = await api.get<Cart>("/cart")
+  return response.data
+}
+
+export async function addCartItem(variantId: string, quantity: number): Promise<Cart> {
+  const response = await api.post<Cart>("/cart/items", { variantId, quantity })
+  return response.data
+}
+
+export async function updateCartItem(
+  id: string,
+  payload: { quantity?: number; selected?: boolean }
+): Promise<Cart> {
+  const response = await api.patch<Cart>(`/cart/items/${id}`, payload)
+  return response.data
+}
+
+export async function removeCartItem(id: string): Promise<Cart> {
+  const response = await api.delete<Cart>(`/cart/items/${id}`)
+  return response.data
+}
+
+export async function setSelectAll(selected: boolean): Promise<Cart> {
+  const response = await api.patch<Cart>("/cart/select-all", { selected })
+  return response.data
+}
+
+function getErrorMessage(error: unknown): string {
+  const err = error as { response?: { data?: { message?: string; code?: string } } }
+  return err.response?.data?.message || "Unable to process the request"
+}
+
+export { getErrorMessage as getCartApiError }
+```
+
+- [ ] **Step 4: `checkoutApi.ts`**
+
+Generates a fresh `Idempotency-Key` (UUID) per checkout *attempt* — the caller must generate one before the first submit and re-send the same one on any client-side retry of that same attempt (e.g. a network-timeout retry), but generate a new one for a genuinely new checkout click. See Task 16 for exactly where this is created and held.
+
+```ts
+// front-end/src/apis/checkoutApi.ts
+import api from "./axiosConfig"
+import type { Cart } from "./cartApi"
+
+export type BuyNowItem = { variantId: string; quantity: number }
+
+export type CheckoutPayload = {
+  addressId: string
+  paymentMethod: "cod" | "online"
+  discountCode?: string
+  buyNowItem?: BuyNowItem
+}
+
+export type CheckoutOrder = {
+  id: string
+  orderNumber: string
+  subtotal: number
+  shippingFee: number
+  discountAmount: number
+  total: number
+  orderStatus: string
+  paymentMethod: string
+  paymentStatus: string
+}
+
+export async function checkout(
+  payload: CheckoutPayload,
+  idempotencyKey: string
+): Promise<CheckoutOrder> {
+  const response = await api.post<CheckoutOrder>("/checkout", payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+  })
+  return response.data
+}
+
+export type CheckoutErrorCode =
+  | "CART_EMPTY"
+  | "INSUFFICIENT_STOCK"
+  | "DISCOUNT_INVALID"
+  | "DISCOUNT_EXPIRED"
+  | "DISCOUNT_LIMIT_REACHED"
+  | "ADDRESS_NOT_FOUND"
+
+export function getCheckoutApiError(error: unknown): { message: string; code?: CheckoutErrorCode } {
+  const err = error as { response?: { data?: { message?: string; code?: CheckoutErrorCode } } }
+  return {
+    message: err.response?.data?.message || "Unable to place order",
+    code: err.response?.data?.code,
+  }
+}
+
+// Re-exported for convenience so pages can import cart types alongside checkout types from one place if useful.
+export type { Cart }
+```
+
+- [ ] **Step 5: `orderApi.ts`**
+
+```ts
+// front-end/src/apis/orderApi.ts
+import api from "./axiosConfig"
+
+export type OrderItem = {
+  id: string
+  variantId: string
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  price: number
+  quantity: number
+}
+
+export type Order = {
+  id: string
+  orderNumber: string
+  userId: string
+  recipientName: string
+  phone: string
+  provinceName: string
+  wardName: string
+  addressDetail: string
+  items: OrderItem[]
+  subtotal: number
+  shippingFee: number
+  discountAmount: number
+  discountCode: string | null
+  total: number
+  orderStatus: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED"
+  paymentMethod: "COD" | "ONLINE"
+  paymentStatus: "UNPAID" | "PAID" | "FAILED" | "REFUNDED"
+  shipmentStatus: "NOT_SHIPPED" | "SHIPPED" | "DELIVERED" | "RETURNED"
+  note: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type OrderListResponse = {
+  items: Order[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+export async function fetchOrders(params?: { page?: number; orderStatus?: string }): Promise<OrderListResponse> {
+  const response = await api.get<OrderListResponse>("/orders", { params })
+  return response.data
+}
+
+export async function fetchOrderById(id: string): Promise<Order> {
+  const response = await api.get<Order>(`/orders/${id}`)
+  return response.data
+}
+
+export async function cancelOrder(id: string): Promise<Order> {
+  const response = await api.post<Order>(`/orders/${id}/cancel`, {})
+  return response.data
+}
+
+/** Public — no auth header needed (axiosConfig adds one anyway if a token exists, which the backend ignores on this route). */
+export async function trackOrder(orderNumber: string, phone: string): Promise<Order> {
+  const response = await api.get<Order>("/orders/track", { params: { orderNumber, phone } })
+  return response.data
+}
+
+// --- Admin ---
+
+export async function fetchAdminOrders(params?: {
+  page?: number
+  orderStatus?: string
+  paymentMethod?: string
+  search?: string
+}): Promise<OrderListResponse> {
+  const response = await api.get<OrderListResponse>("/admin/orders", { params })
+  return response.data
+}
+
+export async function fetchAdminOrderById(id: string): Promise<Order> {
+  const response = await api.get<Order>(`/admin/orders/${id}`)
+  return response.data
+}
+
+export async function updateAdminOrderStatus(
+  id: string,
+  payload: { orderStatus?: Order["orderStatus"]; paymentStatus?: Order["paymentStatus"]; shipmentStatus?: Order["shipmentStatus"] }
+): Promise<Order> {
+  const response = await api.patch<Order>(`/admin/orders/${id}/status`, payload)
+  return response.data
+}
+
+function getErrorMessage(error: unknown): string {
+  const err = error as { response?: { data?: { message?: string } } }
+  return err.response?.data?.message || "Unable to process the request"
+}
+
+export { getErrorMessage as getOrderApiError }
+```
+
+- [ ] **Step 6: Typecheck the frontend**
+
+Run: `cd front-end && npm run build` (or `npx tsc --noEmit` if a faster typecheck-only script exists — check `front-end/package.json` `"scripts"`; use whichever this project already uses for type-checking without a full Vite build)
+Expected: no type errors (these files aren't imported anywhere yet, so this mainly checks they're internally well-typed).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add front-end/src/apis/locationApi.ts front-end/src/apis/addressApi.ts front-end/src/apis/cartApi.ts front-end/src/apis/checkoutApi.ts front-end/src/apis/orderApi.ts
+git commit -m "feat: add frontend API clients for location/address/cart/checkout/order"
+```
+
+---
+
+### Task 15: Update admin `Order` types and status UI for the new backend enums
+
+The existing `types/admin/index.ts` `Order` type predates the real backend and has status values that no longer match it: `"processing"` doesn't exist in the new `orderStatus` enum, and `"refunded"` moves from `orderStatus` to `paymentStatus`. `ShippingAddress` also has a `district` field that no longer exists (2-tier VN address). This task updates the type and the two files that branch on status values (`lib/admin/ui.ts`, `OrderStatusBadge.tsx` — no change needed to the badge component itself, only its lookup tables).
+
+**Files:**
+- Modify: `front-end/src/types/admin/index.ts`
+- Modify: `front-end/src/lib/admin/ui.ts`
+
+- [ ] **Step 1: Replace the `Order`-related types in `types/admin/index.ts`**
+
+Replace the existing `OrderItem`, `ShippingAddress`, and `Order` interfaces with:
+
+```ts
+export interface OrderItem {
+  id: string
+  variantId: string
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  price: number
+  quantity: number
+}
+
+export interface ShippingAddress {
+  recipientName: string
+  phone: string
+  provinceName: string
+  wardName: string
+  addressDetail: string
+}
+
+export interface Order {
+  id: string
+  orderNumber: string
+  userId: string
+  items: OrderItem[]
+  subtotal: number
+  shippingFee: number
+  discountAmount: number
+  discountCode: string | null
+  total: number
+  orderStatus: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED"
+  paymentMethod: "COD" | "ONLINE"
+  paymentStatus: "UNPAID" | "PAID" | "FAILED" | "REFUNDED"
+  shipmentStatus: "NOT_SHIPPED" | "SHIPPED" | "DELIVERED" | "RETURNED"
+  shippingAddress: ShippingAddress
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+```
+
+This drops `customerId`/`customerName`/`customerEmail`/`trackingNumber` (the backend `Order` doesn't carry a denormalized customer name/email or a tracking number in Phase 1 — `admin/OrderDetail.tsx`'s customer panel in Task 22 will need a small adjustment for this, noted there) and renames the status field from `status` to `orderStatus` to match the backend.
+
+- [ ] **Step 2: Update `lib/admin/ui.ts`'s status maps**
+
+Replace `ORDER_STATUS_LABELS` and `ORDER_STATUS_BADGE_CLASS`:
+
+```ts
+export const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
+  PENDING: "Pending",
+  CONFIRMED: "Confirmed",
+  SHIPPED: "Shipped",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+}
+
+export const ORDER_STATUS_BADGE_CLASS: Record<Order["orderStatus"], string> = {
+  PENDING: "bg-amber-500/12 text-amber-800 dark:text-amber-200",
+  CONFIRMED: "bg-sky-500/12 text-sky-800 dark:text-sky-200",
+  SHIPPED: "bg-indigo-500/12 text-indigo-800 dark:text-indigo-200",
+  DELIVERED: "bg-emerald-500/12 text-emerald-800 dark:text-emerald-200",
+  CANCELLED: "bg-red-500/12 text-red-800 dark:text-red-200",
+}
+```
+
+And update the two functions right below them to reference `Order["orderStatus"]` instead of `Order["status"]`:
+
+```ts
+export const getOrderStatusLabel = (status: Order["orderStatus"]) =>
+  ORDER_STATUS_LABELS[status] ?? status
+
+export const getOrderStatusBadgeClass = (status: Order["orderStatus"]) =>
+  ORDER_STATUS_BADGE_CLASS[status] ?? ORDER_STATUS_BADGE_CLASS.PENDING
+```
+
+- [ ] **Step 3: Typecheck (this will surface every call site that still uses the old shape — expected, they get fixed in Tasks 21–22)**
+
+Run: `cd front-end && npx tsc --noEmit`
+Expected: type errors in `OrderStatusBadge.tsx`, `admin/OrdersList.tsx`, `admin/OrderDetail.tsx`, `stores/adminStore.ts`, `mock/adminData.ts` — this is expected and intentional; don't fix them yet, they're all addressed together in Task 21. Just confirm the errors are exactly in those files and nowhere unexpected.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add front-end/src/types/admin/index.ts front-end/src/lib/admin/ui.ts
+git commit -m "refactor: align admin Order type and status UI with the real backend enums"
+```
+
+(This intentionally leaves the codebase in a temporarily-broken typecheck state between this commit and Task 22 — that's fine for an in-progress feature branch worked through task-by-task, but don't merge/deploy between these commits.)
