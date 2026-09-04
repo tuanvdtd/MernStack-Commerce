@@ -1,7 +1,7 @@
 // back-end/prisma/scripts/seedLocations.ts
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { prisma } from '~/lib/prisma'
 
