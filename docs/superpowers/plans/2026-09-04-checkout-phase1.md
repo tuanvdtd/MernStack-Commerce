@@ -2646,7 +2646,7 @@ export const OrderService = {
 - [ ] **Step 7: Run to verify it passes**
 
 Run: `cd back-end && npm test -- order.service`
-Expected: `7 passed` (2 statuses × cancel-allowed + 3 statuses × cancel-rejected + not-found + 2 track tests — check the actual count matches `it.each` expansion).
+Expected: `8 passed` (2 statuses × cancel-allowed + 3 statuses × cancel-rejected + 1 not-found + 2 track tests).
 
 - [ ] **Step 8: Controller + routes (user + public track)**
 
@@ -3721,15 +3721,30 @@ const handleAddToCart = async () => {
 }
 
 const handleBuyNow = () => {
-  if (!resolvedVariant) {
+  if (!resolvedVariant || !catalogProduct) {
     toast.error("This product isn't available for purchase yet")
     return
   }
-  navigate("/checkout", { state: { buyNowItem: { variantId: resolvedVariant.id, quantity } } })
+  // Pass enough display data along so Checkout.tsx can render a real line item
+  // without a dedicated "get variant by id" endpoint (out of scope to add one).
+  navigate("/checkout", {
+    state: {
+      buyNowItem: {
+        variantId: resolvedVariant.id,
+        quantity,
+        productName: catalogProduct.name,
+        variantLabel: resolvedVariant.options.map((o) => o.value).join(" / "),
+        imageUrl: catalogProduct.thumbnail ?? null,
+        price: resolvedVariant.price,
+      },
+    },
+  })
 }
 ```
 
 Replace the existing `handleAddToCart`/`handleBuyNow` function bodies (currently just `alert(...)`) with these, and add `disabled={isAdding}` to the "Add to cart" button.
+
+Note: this display data only survives while `location.state` persists (i.e. the in-app navigation from this page to `/checkout`) — a hard refresh of the checkout page loses it, same as `location.state` always does in React Router. That's an accepted Phase 1 edge case: a refreshed buy-now checkout falls back to showing the cart (if any) rather than erroring, which is a minor UX rough edge, not a correctness bug (the checkout submission itself is unaffected either way since it's a fresh page load with no `buyNowItem` in state).
 
 - [ ] **Step 3: Manual verification in the browser**
 
@@ -3780,9 +3795,22 @@ import { useLocation, useNavigate } from "react-router"
 import { toast } from "sonner"
 import { fetchCart, type CartItem } from "~/apis/cartApi"
 import { fetchAddresses, type Address } from "~/apis/addressApi"
-import { checkout, getCheckoutApiError, type BuyNowItem } from "~/apis/checkoutApi"
+import { checkout, getCheckoutApiError } from "~/apis/checkoutApi"
 
-type LocationState = { buyNowItem?: BuyNowItem } | null
+// The richer shape ProductDetail.tsx's handleBuyNow passes via router state — a
+// superset of checkoutApi's `BuyNowItem` (which only wants {variantId, quantity}),
+// with display fields added so this page can render a line item without a
+// dedicated "get variant by id" endpoint.
+type BuyNowLocationItem = {
+  variantId: string
+  quantity: number
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  price: number
+}
+
+type LocationState = { buyNowItem?: BuyNowLocationItem } | null
 
 export function Checkout() {
   const navigate = useNavigate()
@@ -3821,14 +3849,24 @@ export function Checkout() {
     load()
   }, [])
 
-  const displayItems = buyNowItem
-    ? [] // Buy-now items aren't in the cart response; render from `buyNowItem` alone if the
-         // UI needs a line item (variant name/price/image), fetch it via catalogApi by variantId.
-    : items
+  // Normalize both flows to the same display shape so the JSX below doesn't branch.
+  const displayItems: Array<{ id: string; productName: string; variantLabel: string; imageUrl: string | null; price: number; quantity: number }> =
+    buyNowItem
+      ? [{ id: buyNowItem.variantId, ...buyNowItem }]
+      : items.map((item) => ({
+          id: item.id,
+          productName: item.productName,
+          variantLabel: item.variantLabel,
+          imageUrl: item.imageUrl,
+          price: item.price,
+          quantity: item.quantity,
+        }))
 
-  const subtotal = buyNowItem
-    ? 0 // resolved server-side; buy-now flow shows a simplified summary until the order is created
-    : items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const itemCount = displayItems.reduce((sum, item) => sum + item.quantity, 0)
+  // For buy-now this is the real price from the just-fetched catalog variant (Task 16), so
+  // it's an accurate display subtotal, not a guess — only the discount/shipping below remain
+  // server-authoritative estimates either way.
+  const subtotal = displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const shipping = 30_000 // display estimate only — the server computes the authoritative shippingFee
   const voucherDiscount = 0 // real discount amount comes back from the server response after placing the order
   const total = Math.max(0, subtotal + shipping - voucherDiscount)
@@ -3851,7 +3889,10 @@ export function Checkout() {
           addressId: address.id,
           paymentMethod: "cod",
           discountCode: voucherCode.trim() || undefined,
-          buyNowItem,
+          // Strip the display-only fields — the API only wants {variantId, quantity}.
+          buyNowItem: buyNowItem
+            ? { variantId: buyNowItem.variantId, quantity: buyNowItem.quantity }
+            : undefined,
         },
         idempotencyKey,
       )
@@ -3871,9 +3912,9 @@ export function Checkout() {
 }
 ```
 
-**Note on the buy-now summary simplification above:** the spec's `buyNowItem` path intentionally skips the cart, so the client doesn't have the variant's live price/name to show a subtotal before submitting — only the backend (which re-reads the live `ProductVariant`) knows the true price. Showing a placeholder ("calculated at checkout") for the buy-now summary rather than a wrong or duplicated price lookup is the simplest correct behavior for Phase 1; if a precise pre-submit price display matters, that requires a public `GET /api/products/variants/:id` lookup, which is out of scope here (not requested by the spec) — flag this as a follow-up if product feedback asks for it.
+**Note on buy-now pricing:** the on-screen subtotal for a buy-now checkout is computed from the price returned by `catalogApi.fetchCatalogProduct` in Task 16 (a real, current price), but the **server still re-reads the live `ProductVariant.price` independently** when the order is actually created (per the Checkout API's step 4) and that server-computed total is what's charged/recorded — the client-side number here is a display convenience, never trusted as an input to the transaction. If the price changed in the moment between page load and submit, the two could briefly disagree; the order confirmation always reflects the authoritative server total.
 
-Wire the rest of the existing JSX (`ORDER_ITEMS.map(...)` → `displayItems.map(...)`, the address block → render `address.recipientName`/`address.phone`/`address.wardName`/`address.provinceName`/`address.detail` instead of the hardcoded "Minh Tuan Nguyen" block, with an empty/"Add address" state when `address` is `null`) and pass `subtotal`/`shipping`/`voucherDiscount`/`total`/`isSubmitting`/`handlePlaceOrder` to `CheckoutOrderSummary` as before.
+Wire the rest of the existing JSX (`ORDER_ITEMS.map(...)` → `displayItems.map(...)`, the address block → render `address.recipientName`/`address.phone`/`address.wardName`/`address.provinceName`/`address.detail` instead of the hardcoded "Minh Tuan Nguyen" block, with an empty/"Add address" state when `address` is `null`) and pass props to `CheckoutOrderSummary` matching its actual interface (`front-end/src/components/checkout/CheckoutOrderSummary.tsx`): `itemCount={itemCount}`, `subtotal={subtotal}`, `shipping={shipping}`, `discount={voucherDiscount}`, `total={total}`, `voucherCode={voucherCode}`, `onVoucherChange={setVoucherCode}`, `formatPrice={formatPrice}` (keep the existing local `formatPrice` helper already in this file), `onPlaceOrder={handlePlaceOrder}`, `isSubmitting={isSubmitting}`.
 
 - [ ] **Step 3: Typecheck**
 
