@@ -11,6 +11,8 @@ const schema = z.object({
   LOG_LEVEL: z.string().default('info'),
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   FRONTEND_BASE_URL: z.url().default('http://localhost:5173'),
+  // Phase 1 checkout: flat shipping fee in VND until Phase 2 shipping-provider integration.
+  SHIPPING_FLAT_FEE: z.coerce.number().int().min(0).default(30000),
   DATABASE_URL: z.string(),
   DATABASE_HOST: z.string(),
   DATABASE_USER: z.string(),
