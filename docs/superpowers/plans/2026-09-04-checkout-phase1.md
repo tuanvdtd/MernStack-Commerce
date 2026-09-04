@@ -2272,3 +2272,842 @@ This is worth doing now, before building the read/cancel/admin endpoints on top 
 git add back-end/src/modules/checkout back-end/src/routes/index.ts back-end/tests/modules/checkout
 git commit -m "feat: add idempotent COD checkout endpoint"
 ```
+
+---
+
+### Task 11: Order module (user list/detail/cancel + public tracking)
+
+**Files:**
+- Create: `back-end/src/modules/orders/order.types.ts`
+- Create: `back-end/src/modules/orders/order.validation.ts`
+- Create: `back-end/src/modules/orders/order.mapper.ts`
+- Create: `back-end/src/modules/orders/order.repo.ts`
+- Create: `back-end/src/modules/orders/order.service.ts`
+- Create: `back-end/src/modules/orders/order.controller.ts`
+- Create: `back-end/src/modules/orders/order.routes.ts`
+- Modify: `back-end/src/routes/index.ts`
+- Test: `back-end/tests/modules/orders/order.service.test.ts`
+
+- [ ] **Step 1: Types**
+
+```ts
+// back-end/src/modules/orders/order.types.ts
+export type OrderItemDto = {
+  id: string
+  variantId: string
+  productName: string
+  variantLabel: string
+  imageUrl: string | null
+  price: number
+  quantity: number
+}
+
+export type OrderDto = {
+  id: string
+  orderNumber: string
+  userId: string
+  recipientName: string
+  phone: string
+  provinceName: string
+  wardName: string
+  addressDetail: string
+  items: OrderItemDto[]
+  subtotal: number
+  shippingFee: number
+  discountAmount: number
+  discountCode: string | null
+  total: number
+  orderStatus: string
+  paymentMethod: string
+  paymentStatus: string
+  shipmentStatus: string
+  note: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type ListOrdersFilters = {
+  page: number
+  limit: number
+  orderStatus?: string
+}
+```
+
+- [ ] **Step 2: Validation**
+
+```ts
+// back-end/src/modules/orders/order.validation.ts
+import { z } from 'zod'
+
+import { ZodEmptyObject } from '~/core/validate/validateRequest'
+
+const orderIdParams = z.object({ id: z.string().trim().min(1) })
+
+export const ListOrdersSchema = z.object({
+  body: ZodEmptyObject,
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    orderStatus: z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
+  }),
+  params: ZodEmptyObject,
+})
+
+export const OrderIdSchema = z.object({
+  body: ZodEmptyObject,
+  query: ZodEmptyObject,
+  params: orderIdParams,
+})
+
+export const TrackOrderSchema = z.object({
+  body: ZodEmptyObject,
+  query: z.object({
+    orderNumber: z.string().trim().min(1),
+    phone: z.string().trim().min(1),
+  }),
+  params: ZodEmptyObject,
+})
+```
+
+- [ ] **Step 3: Mapper**
+
+```ts
+// back-end/src/modules/orders/order.mapper.ts
+import type { OrderDto, OrderItemDto } from '~/modules/orders/order.types'
+import type { OrderWithItems } from '~/modules/checkout/checkout.repo'
+
+export function toOrderDto(order: OrderWithItems): OrderDto {
+  const items: OrderItemDto[] = order.items.map((item) => ({
+    id: item.id,
+    variantId: item.variantId,
+    productName: item.productName,
+    variantLabel: item.variantLabel,
+    imageUrl: item.imageUrl,
+    price: Number(item.price),
+    quantity: item.quantity,
+  }))
+
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    userId: order.userId,
+    recipientName: order.recipientName,
+    phone: order.phone,
+    provinceName: order.provinceName,
+    wardName: order.wardName,
+    addressDetail: order.addressDetail,
+    items,
+    subtotal: Number(order.subtotal),
+    shippingFee: Number(order.shippingFee),
+    discountAmount: Number(order.discountAmount),
+    discountCode: order.discountCode,
+    total: Number(order.total),
+    orderStatus: order.orderStatus,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    shipmentStatus: order.shipmentStatus,
+    note: order.note,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+  }
+}
+```
+
+Note: `CheckoutController.checkout` and `OrderController` both need to return the same DTO shape. Update `checkout.controller.ts` (Task 10) to map through `toOrderDto` too — go back and change:
+```ts
+    const order = await CheckoutService.checkout(req.user!.id, idempotencyKey, req.body as CheckoutInput)
+    return res.status(201).json(order)
+```
+to:
+```ts
+    const order = await CheckoutService.checkout(req.user!.id, idempotencyKey, req.body as CheckoutInput)
+    return res.status(201).json(toOrderDto(order))
+```
+(with the corresponding `import { toOrderDto } from '~/modules/orders/order.mapper'` added). This does introduce a `checkout` → `orders` module dependency (one direction only — `orders` never imports from `checkout`), which is fine.
+
+- [ ] **Step 4: Repo**
+
+```ts
+// back-end/src/modules/orders/order.repo.ts
+import { prisma } from '~/lib/prisma'
+
+const orderInclude = { items: true } as const
+
+export const OrderRepo = {
+  async list(userId: string, filters: { page: number; limit: number; orderStatus?: string }) {
+    const where = { userId, ...(filters.orderStatus ? { orderStatus: filters.orderStatus as never } : {}) }
+    const skip = (filters.page - 1) * filters.limit
+
+    const [items, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: filters.limit,
+      }),
+      prisma.order.count({ where }),
+    ])
+
+    return { items, total }
+  },
+
+  async findByIdForUser(id: string, userId: string) {
+    return prisma.order.findFirst({ where: { id, userId }, include: orderInclude })
+  },
+
+  async findByOrderNumberAndPhone(orderNumber: string, phone: string) {
+    return prisma.order.findFirst({ where: { orderNumber, phone }, include: orderInclude })
+  },
+
+  async findById(id: string) {
+    return prisma.order.findUnique({ where: { id }, include: orderInclude })
+  },
+
+  /** Cancels the order and, in the same transaction, restores stock and any discount usage. */
+  async cancel(id: string) {
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUniqueOrThrow({ where: { id }, include: orderInclude })
+
+      for (const item of order.items) {
+        await tx.productVariant.update({
+          where: { id: item.variantId },
+          data: { stockQuantity: { increment: item.quantity } },
+        })
+      }
+
+      if (order.discountCode) {
+        const discount = await tx.discount.findUnique({ where: { code: order.discountCode } })
+        if (discount) {
+          await tx.discount.update({ where: { id: discount.id }, data: { usesCount: { decrement: 1 } } })
+          await tx.discountUserUse.updateMany({
+            where: { discountId: discount.id, userId: order.userId, usesCount: { gt: 0 } },
+            data: { usesCount: { decrement: 1 } },
+          })
+        }
+        // If the discount was deleted since this order was placed, there's nothing to restore — not an error.
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: { orderStatus: 'CANCELLED' },
+        include: orderInclude,
+      })
+    })
+  },
+}
+```
+
+- [ ] **Step 5: Write the failing service tests (cancellation state machine + stock/discount restore are the risky parts)**
+
+```ts
+// back-end/tests/modules/orders/order.service.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { OrderRepo } from '~/modules/orders/order.repo'
+import { OrderService } from '~/modules/orders/order.service'
+
+vi.mock('~/modules/orders/order.repo')
+
+const baseOrder = {
+  id: 'order-1',
+  orderNumber: 'ORD-20260101-ABCDEF12',
+  userId: 'user-1',
+  recipientName: 'A',
+  phone: '0912345678',
+  provinceName: 'Hà Nội',
+  wardName: 'Ba Đình',
+  addressDetail: '1 Đường A',
+  items: [],
+  subtotal: 100000,
+  shippingFee: 30000,
+  discountAmount: 0,
+  discountCode: null,
+  total: 130000,
+  paymentMethod: 'COD',
+  paymentStatus: 'UNPAID',
+  shipmentStatus: 'NOT_SHIPPED',
+  note: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
+describe('OrderService.cancel', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it.each(['PENDING', 'CONFIRMED'])('allows cancelling from %s', async (orderStatus) => {
+    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue({ ...baseOrder, orderStatus } as never)
+    vi.mocked(OrderRepo.cancel).mockResolvedValue({ ...baseOrder, orderStatus: 'CANCELLED' } as never)
+
+    const result = await OrderService.cancel('user-1', 'order-1')
+    expect(result.orderStatus).toBe('CANCELLED')
+    expect(OrderRepo.cancel).toHaveBeenCalledWith('order-1')
+  })
+
+  it.each(['SHIPPED', 'DELIVERED', 'CANCELLED'])('rejects cancelling from %s', async (orderStatus) => {
+    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue({ ...baseOrder, orderStatus } as never)
+
+    await expect(OrderService.cancel('user-1', 'order-1')).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'ORDER_NOT_CANCELLABLE',
+    })
+    expect(OrderRepo.cancel).not.toHaveBeenCalled()
+  })
+
+  it('throws ORDER_NOT_FOUND for an order owned by someone else', async () => {
+    vi.mocked(OrderRepo.findByIdForUser).mockResolvedValue(null)
+
+    await expect(OrderService.cancel('user-1', 'order-999')).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'ORDER_NOT_FOUND',
+    })
+  })
+})
+
+describe('OrderService.track', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('returns the order when orderNumber + phone match', async () => {
+    vi.mocked(OrderRepo.findByOrderNumberAndPhone).mockResolvedValue({ ...baseOrder, orderStatus: 'CONFIRMED' } as never)
+    const result = await OrderService.track('ORD-20260101-ABCDEF12', '0912345678')
+    expect(result.orderNumber).toBe('ORD-20260101-ABCDEF12')
+  })
+
+  it('throws ORDER_NOT_FOUND when they do not match (prevents order-number enumeration)', async () => {
+    vi.mocked(OrderRepo.findByOrderNumberAndPhone).mockResolvedValue(null)
+    await expect(OrderService.track('ORD-XXXX', '0000000000')).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'ORDER_NOT_FOUND',
+    })
+  })
+})
+```
+
+- [ ] **Step 6: Run to verify failure, then implement the service**
+
+Run: `cd back-end && npm test -- order.service` → FAIL.
+
+```ts
+// back-end/src/modules/orders/order.service.ts
+import { ApiError } from '~/core/http/ApiError'
+import { ErrorCode } from '~/core/http/errorCodes'
+import { toOrderDto } from '~/modules/orders/order.mapper'
+import { OrderRepo } from '~/modules/orders/order.repo'
+import type { ListOrdersFilters } from '~/modules/orders/order.types'
+
+const CANCELLABLE_STATUSES = new Set(['PENDING', 'CONFIRMED'])
+
+export const OrderService = {
+  async list(userId: string, filters: ListOrdersFilters) {
+    const { items, total } = await OrderRepo.list(userId, filters)
+    return {
+      items: items.map(toOrderDto),
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / filters.limit)),
+      },
+    }
+  },
+
+  async getById(userId: string, id: string) {
+    const order = await OrderRepo.findByIdForUser(id, userId)
+    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
+    return toOrderDto(order)
+  },
+
+  async cancel(userId: string, id: string) {
+    const order = await OrderRepo.findByIdForUser(id, userId)
+    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
+
+    if (!CANCELLABLE_STATUSES.has(order.orderStatus)) {
+      throw ApiError.Conflict(
+        `Order cannot be cancelled from status ${order.orderStatus}`,
+        { orderStatus: order.orderStatus },
+        ErrorCode.ORDER_NOT_CANCELLABLE,
+      )
+    }
+
+    const cancelled = await OrderRepo.cancel(id)
+    return toOrderDto(cancelled)
+  },
+
+  async track(orderNumber: string, phone: string) {
+    const order = await OrderRepo.findByOrderNumberAndPhone(orderNumber, phone)
+    if (!order) {
+      throw ApiError.NotFound('Order not found', undefined, ErrorCode.ORDER_NOT_FOUND)
+    }
+    return toOrderDto(order)
+  },
+}
+```
+
+- [ ] **Step 7: Run to verify it passes**
+
+Run: `cd back-end && npm test -- order.service`
+Expected: `7 passed` (2 statuses × cancel-allowed + 3 statuses × cancel-rejected + not-found + 2 track tests — check the actual count matches `it.each` expansion).
+
+- [ ] **Step 8: Controller + routes (user + public track)**
+
+```ts
+// back-end/src/modules/orders/order.controller.ts
+import { Response, Request } from 'express'
+
+import { AuthRequest } from '~/core/auth/auth.middleware'
+import { OrderService } from '~/modules/orders/order.service'
+
+export const OrderController = {
+  list: async (req: AuthRequest, res: Response) => {
+    const { page, limit, orderStatus } = req.query as unknown as {
+      page: number
+      limit: number
+      orderStatus?: string
+    }
+    return res.json(await OrderService.list(req.user!.id, { page, limit, orderStatus }))
+  },
+
+  getById: async (req: AuthRequest, res: Response) => {
+    return res.json(await OrderService.getById(req.user!.id, String(req.params.id)))
+  },
+
+  cancel: async (req: AuthRequest, res: Response) => {
+    return res.json(await OrderService.cancel(req.user!.id, String(req.params.id)))
+  },
+
+  track: async (req: Request, res: Response) => {
+    const { orderNumber, phone } = req.query as { orderNumber: string; phone: string }
+    return res.json(await OrderService.track(orderNumber, phone))
+  },
+}
+```
+
+```ts
+// back-end/src/modules/orders/order.routes.ts
+import { Router } from 'express'
+
+import { authenticate } from '~/core/auth/auth.middleware'
+import { asyncHandler } from '~/core/asyncHandler'
+import { validateRequest } from '~/core/validate/validateRequest'
+import { OrderController } from '~/modules/orders/order.controller'
+import { ListOrdersSchema, OrderIdSchema, TrackOrderSchema } from '~/modules/orders/order.validation'
+
+const r = Router()
+
+// Public — no auth. Must be registered before the authenticated `/:id` routes below
+// so it isn't shadowed, and to avoid ever needing to disambiguate "track" from an order id.
+r.get('/track', validateRequest(TrackOrderSchema), asyncHandler(OrderController.track))
+
+r.use(authenticate)
+r.get('/', validateRequest(ListOrdersSchema), asyncHandler(OrderController.list))
+r.get('/:id', validateRequest(OrderIdSchema), asyncHandler(OrderController.getById))
+r.post('/:id/cancel', validateRequest(OrderIdSchema), asyncHandler(OrderController.cancel))
+
+export default r
+```
+
+- [ ] **Step 9: Wire into `routes/index.ts`**
+
+```ts
+import orderRoutes from '~/modules/orders/order.routes'
+// ...
+router.use('/orders', orderRoutes)
+```
+
+- [ ] **Step 10: Also fix the Task 10 checkout controller per Step 3's note above**
+
+Apply the `toOrderDto` change to `checkout.controller.ts` now (it couldn't be done until this module existed).
+
+- [ ] **Step 11: Full test run + typecheck**
+
+Run: `cd back-end && npm test && npm run typecheck`
+Expected: all green.
+
+- [ ] **Step 12: Manual verification**
+
+Using the order created in Task 10 Step 13:
+- `GET /api/orders` (as the same user) → the order appears.
+- `GET /api/orders/track?orderNumber=<the order number>&phone=<the address phone>` (no auth header) → same order, trimmed.
+- `POST /api/orders/:id/cancel` → `200`, `orderStatus: "CANCELLED"`, and the variant's `stockQuantity` back to its pre-checkout value.
+
+- [ ] **Step 13: Commit**
+
+```bash
+git add back-end/src/modules/orders back-end/src/modules/checkout/checkout.controller.ts back-end/src/routes/index.ts back-end/tests/modules/orders
+git commit -m "feat: add user order list/detail/cancel and public order tracking"
+```
+
+---
+
+### Task 12: Admin order module (list/detail/manual status update)
+
+**Files:**
+- Create: `back-end/src/modules/orders/admin-order.types.ts`
+- Create: `back-end/src/modules/orders/admin-order.validation.ts`
+- Modify: `back-end/src/modules/orders/order.repo.ts` (add admin list/status-update queries)
+- Modify: `back-end/src/modules/orders/order.service.ts` (add admin methods + the transition table)
+- Create: `back-end/src/modules/orders/admin-order.controller.ts`
+- Create: `back-end/src/modules/orders/admin-order.routes.ts`
+- Modify: `back-end/src/routes/index.ts`
+- Test: `back-end/tests/modules/orders/admin-order.service.test.ts`
+
+- [ ] **Step 1: Types + validation**
+
+```ts
+// back-end/src/modules/orders/admin-order.types.ts
+export type AdminListOrdersFilters = {
+  page: number
+  limit: number
+  orderStatus?: string
+  paymentMethod?: string
+  search?: string
+}
+
+export type UpdateOrderStatusInput = {
+  orderStatus?: string
+  paymentStatus?: string
+  shipmentStatus?: string
+}
+```
+
+```ts
+// back-end/src/modules/orders/admin-order.validation.ts
+import { z } from 'zod'
+
+import { ZodEmptyObject } from '~/core/validate/validateRequest'
+
+export const AdminListOrdersSchema = z.object({
+  body: ZodEmptyObject,
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    orderStatus: z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
+    paymentMethod: z.enum(['COD', 'ONLINE']).optional(),
+    search: z.string().trim().min(1).optional(),
+  }),
+  params: ZodEmptyObject,
+})
+
+export const UpdateOrderStatusSchema = z.object({
+  body: z
+    .object({
+      orderStatus: z.enum(['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
+      paymentStatus: z.enum(['UNPAID', 'PAID', 'FAILED', 'REFUNDED']).optional(),
+      shipmentStatus: z.enum(['NOT_SHIPPED', 'SHIPPED', 'DELIVERED', 'RETURNED']).optional(),
+    })
+    .refine((b) => b.orderStatus || b.paymentStatus || b.shipmentStatus, {
+      message: 'At least one status field is required',
+    }),
+  query: ZodEmptyObject,
+  params: z.object({ id: z.string().trim().min(1) }),
+})
+```
+
+- [ ] **Step 2: Add admin queries to `order.repo.ts`**
+
+Append to the `OrderRepo` object (don't remove the existing methods):
+
+```ts
+  async adminList(filters: {
+    page: number
+    limit: number
+    orderStatus?: string
+    paymentMethod?: string
+    search?: string
+  }) {
+    const where = {
+      ...(filters.orderStatus ? { orderStatus: filters.orderStatus as never } : {}),
+      ...(filters.paymentMethod ? { paymentMethod: filters.paymentMethod as never } : {}),
+      ...(filters.search
+        ? {
+            OR: [
+              { orderNumber: { contains: filters.search } },
+              { recipientName: { contains: filters.search } },
+              { phone: { contains: filters.search } },
+            ],
+          }
+        : {}),
+    }
+    const skip = (filters.page - 1) * filters.limit
+
+    const [items, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: filters.limit,
+      }),
+      prisma.order.count({ where }),
+    ])
+
+    return { items, total }
+  },
+
+  async updateStatus(
+    id: string,
+    data: { orderStatus?: string; paymentStatus?: string; shipmentStatus?: string },
+  ) {
+    return prisma.order.update({
+      where: { id },
+      data: data as never,
+      include: orderInclude,
+    })
+  },
+```
+
+(`prisma` is already imported at the top of this file from Step 4 of Task 11.)
+
+- [ ] **Step 3: Write the failing service test for the status-transition table**
+
+```ts
+// back-end/tests/modules/orders/admin-order.service.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { OrderRepo } from '~/modules/orders/order.repo'
+import { OrderService } from '~/modules/orders/order.service'
+
+vi.mock('~/modules/orders/order.repo')
+
+const baseOrder = {
+  id: 'order-1',
+  orderNumber: 'ORD-1',
+  userId: 'user-1',
+  recipientName: 'A',
+  phone: '0912345678',
+  provinceName: 'Hà Nội',
+  wardName: 'Ba Đình',
+  addressDetail: 'x',
+  items: [],
+  subtotal: 100000,
+  shippingFee: 30000,
+  discountAmount: 0,
+  discountCode: null,
+  total: 130000,
+  paymentMethod: 'COD',
+  paymentStatus: 'UNPAID',
+  shipmentStatus: 'NOT_SHIPPED',
+  note: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
+describe('OrderService.adminUpdateStatus', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('allows PENDING -> CONFIRMED', async () => {
+    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'PENDING' } as never)
+    vi.mocked(OrderRepo.updateStatus).mockResolvedValue({ ...baseOrder, orderStatus: 'CONFIRMED' } as never)
+
+    const result = await OrderService.adminUpdateStatus('order-1', { orderStatus: 'CONFIRMED' })
+    expect(result.orderStatus).toBe('CONFIRMED')
+  })
+
+  it('rejects CANCELLED -> CONFIRMED (terminal state)', async () => {
+    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'CANCELLED' } as never)
+
+    await expect(
+      OrderService.adminUpdateStatus('order-1', { orderStatus: 'CONFIRMED' }),
+    ).rejects.toMatchObject({ statusCode: 409, code: 'INVALID_STATUS_TRANSITION' })
+    expect(OrderRepo.updateStatus).not.toHaveBeenCalled()
+  })
+
+  it('rejects skipping straight from PENDING to DELIVERED', async () => {
+    vi.mocked(OrderRepo.findById).mockResolvedValue({ ...baseOrder, orderStatus: 'PENDING' } as never)
+
+    await expect(
+      OrderService.adminUpdateStatus('order-1', { orderStatus: 'DELIVERED' }),
+    ).rejects.toMatchObject({ code: 'INVALID_STATUS_TRANSITION' })
+  })
+
+  it('throws ORDER_NOT_FOUND for an unknown order', async () => {
+    vi.mocked(OrderRepo.findById).mockResolvedValue(null)
+    await expect(
+      OrderService.adminUpdateStatus('order-999', { orderStatus: 'CONFIRMED' }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'ORDER_NOT_FOUND' })
+  })
+})
+```
+
+- [ ] **Step 4: Run to verify failure, then extend `order.service.ts`**
+
+Run: `cd back-end && npm test -- admin-order.service` → FAIL (`adminUpdateStatus`/`adminList` don't exist).
+
+Append to `order.service.ts` (keep the existing exports from Task 11):
+
+```ts
+const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+}
+
+// ...inside the OrderService object, add:
+  async adminList(filters: import('~/modules/orders/admin-order.types').AdminListOrdersFilters) {
+    const { items, total } = await OrderRepo.adminList(filters)
+    return {
+      items: items.map(toOrderDto),
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / filters.limit)),
+      },
+    }
+  },
+
+  async adminGetById(id: string) {
+    const order = await OrderRepo.findById(id)
+    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
+    return toOrderDto(order)
+  },
+
+  async adminUpdateStatus(
+    id: string,
+    input: import('~/modules/orders/admin-order.types').UpdateOrderStatusInput,
+  ) {
+    const order = await OrderRepo.findById(id)
+    if (!order) throw ApiError.NotFound('Order not found', { id }, ErrorCode.ORDER_NOT_FOUND)
+
+    if (input.orderStatus && input.orderStatus !== order.orderStatus) {
+      const allowed = ORDER_STATUS_TRANSITIONS[order.orderStatus] ?? []
+      if (!allowed.includes(input.orderStatus)) {
+        throw ApiError.Conflict(
+          `Cannot transition order from ${order.orderStatus} to ${input.orderStatus}`,
+          { from: order.orderStatus, to: input.orderStatus },
+          ErrorCode.INVALID_STATUS_TRANSITION,
+        )
+      }
+    }
+
+    const updated = await OrderRepo.updateStatus(id, input)
+    return toOrderDto(updated)
+  },
+```
+
+(Using an inline `import('...').Type` avoids a circular top-level import between `order.service.ts` and `admin-order.types.ts`; feel free to hoist it to a normal top-of-file `import type` instead if you prefer — both work, the inline form here is just to make the diff against Task 11's version minimal.)
+
+- [ ] **Step 5: Run to verify it passes**
+
+Run: `cd back-end && npm test -- admin-order.service`
+Expected: `4 passed`
+
+- [ ] **Step 6: Controller + routes**
+
+```ts
+// back-end/src/modules/orders/admin-order.controller.ts
+import { Response } from 'express'
+
+import { AuthRequest } from '~/core/auth/auth.middleware'
+import { OrderService } from '~/modules/orders/order.service'
+import type { UpdateOrderStatusInput } from '~/modules/orders/admin-order.types'
+
+export const AdminOrderController = {
+  list: async (req: AuthRequest, res: Response) => {
+    const { page, limit, orderStatus, paymentMethod, search } = req.query as unknown as {
+      page: number
+      limit: number
+      orderStatus?: string
+      paymentMethod?: string
+      search?: string
+    }
+    return res.json(await OrderService.adminList({ page, limit, orderStatus, paymentMethod, search }))
+  },
+
+  getById: async (req: AuthRequest, res: Response) => {
+    return res.json(await OrderService.adminGetById(String(req.params.id)))
+  },
+
+  updateStatus: async (req: AuthRequest, res: Response) => {
+    return res.json(
+      await OrderService.adminUpdateStatus(String(req.params.id), req.body as UpdateOrderStatusInput),
+    )
+  },
+}
+```
+
+```ts
+// back-end/src/modules/orders/admin-order.routes.ts
+import { Router } from 'express'
+
+import { permissions } from '~/config/rbacConfig'
+import { authenticate } from '~/core/auth/auth.middleware'
+import { requirePermission } from '~/core/auth/requirePermission'
+import { asyncHandler } from '~/core/asyncHandler'
+import { validateRequest } from '~/core/validate/validateRequest'
+import { AdminOrderController } from '~/modules/orders/admin-order.controller'
+import { AdminListOrdersSchema, UpdateOrderStatusSchema } from '~/modules/orders/admin-order.validation'
+import { OrderIdSchema } from '~/modules/orders/order.validation'
+
+const r = Router()
+
+r.use(authenticate, requirePermission(permissions.VIEW_ADMIN))
+
+r.get('/', validateRequest(AdminListOrdersSchema), asyncHandler(AdminOrderController.list))
+r.get('/:id', validateRequest(OrderIdSchema), asyncHandler(AdminOrderController.getById))
+r.patch(
+  '/:id/status',
+  validateRequest(UpdateOrderStatusSchema),
+  asyncHandler(AdminOrderController.updateStatus),
+)
+
+export default r
+```
+
+- [ ] **Step 7: Wire into `routes/index.ts`**
+
+```ts
+import adminOrderRoutes from '~/modules/orders/admin-order.routes'
+// ...
+router.use('/admin/orders', adminOrderRoutes)
+```
+
+- [ ] **Step 8: Full test run + typecheck**
+
+Run: `cd back-end && npm test && npm run typecheck`
+Expected: all green.
+
+- [ ] **Step 9: Manual verification**
+
+As an admin user: `GET /api/admin/orders` lists all orders across users; `PATCH /api/admin/orders/:id/status` with `{"orderStatus":"CONFIRMED"}` succeeds on a `PENDING` order; retrying with `{"orderStatus":"DELIVERED"}` on that same now-`CONFIRMED` order returns `409 INVALID_STATUS_TRANSITION` (since `CONFIRMED → DELIVERED` isn't in the allowed table — it must go through `SHIPPED` first).
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add back-end/src/modules/orders back-end/src/routes/index.ts back-end/tests/modules/orders/admin-order.service.test.ts
+git commit -m "feat: add admin order list/detail/status-update with transition validation"
+```
+
+---
+
+### Task 13: Full backend verification pass
+
+**Files:** none (verification only).
+
+- [ ] **Step 1: Run the full test suite**
+
+Run: `cd back-end && npm test`
+Expected: every test across all 8 modules from Tasks 1–12 passes.
+
+- [ ] **Step 2: Typecheck and lint**
+
+Run: `cd back-end && npm run typecheck && npm run lint`
+Expected: no errors. Fix any lint issues with `npm run lint:fix` and re-verify.
+
+- [ ] **Step 3: Confirm every new route is registered**
+
+Run: `grep -n "router.use" back-end/src/routes/index.ts`
+Expected: lines for `/locations`, `/addresses`, `/cart`, `/checkout`, `/orders`, `/admin/orders` alongside the pre-existing ones.
+
+- [ ] **Step 4: Re-run the full manual smoke flow end-to-end once, back to back**
+
+Using `curl` or Postman with a fresh user: create an address → add 2 different variants to the cart → deselect one via `PATCH /api/cart/items/:id` `{"selected":false}` → checkout (only the selected item should appear on the order, confirmed via `GET /api/cart` still showing the deselected item still in the cart afterward) → `GET /api/orders` → cancel it → confirm stock restored → track it via the public endpoint.
+
+- [ ] **Step 5: Commit** (only if Step 2 required fixes; otherwise nothing to commit)
+
+```bash
+git add -A back-end
+git commit -m "fix: address lint/typecheck issues found in full backend verification"
+```
