@@ -9,6 +9,7 @@ import searchRoutes from '~/modules/search/search.routes'
 import uploadRoutes from '~/modules/upload/upload.routes'
 import userRoutes from '~/modules/users/user.routes'
 import locationRoutes from '~/modules/locations/location.routes'
+import addressRoutes from '~/modules/addresses/address.routes'
 
 const router = Router()
 
@@ -21,5 +22,6 @@ router.use('/upload', uploadRoutes)
 router.use('/categories', categoryRoutes)
 router.use('/options', optionRoutes)
 router.use('/locations', locationRoutes)
+router.use('/addresses', addressRoutes)
 
 export default router
