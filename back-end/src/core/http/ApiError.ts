@@ -48,6 +48,10 @@ export class ApiError extends Error {
     return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details, code)
   }
 
+  static NotImplemented(msg = 'Not Implemented', details?: unknown, code?: string) {
+    return new ApiError(StatusCodes.NOT_IMPLEMENTED, msg, details, code)
+  }
+
   static RedisError(msg = 'Redis Error', details?: unknown, code?: string) {
     return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, msg, details, code)
   }
