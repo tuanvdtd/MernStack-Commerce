@@ -13,6 +13,7 @@ import addressRoutes from '~/modules/addresses/address.routes'
 import cartRoutes from '~/modules/cart/cart.routes'
 import orderRoutes from '~/modules/orders/order.routes'
 import orderAdminRoutes from '~/modules/orders/order.admin.routes'
+import checkoutRoutes from '~/modules/checkout/checkout.routes'
 
 const router = Router()
 
@@ -29,5 +30,6 @@ router.use('/addresses', addressRoutes)
 router.use('/cart', cartRoutes)
 router.use('/orders', orderRoutes)
 router.use('/admin/orders', orderAdminRoutes)
+router.use('/checkout', checkoutRoutes)
 
 export default router
