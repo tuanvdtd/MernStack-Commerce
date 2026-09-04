@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
-import { useAdminStore } from "~/stores/adminStore"
-import { mockOrders } from "~/mock/adminData"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import {
@@ -35,7 +33,6 @@ import {
 import { AdminTableSkeleton } from "~/components/admin/AdminTableSkeleton"
 import { AdminPagination } from "~/components/admin/AdminPagination"
 import { AdminEmptyState } from "~/components/admin/AdminEmptyState"
-import { OrderStatusBadge } from "~/components/admin/OrderStatusBadge"
 import {
   adminBrandTextClass,
   adminGhostButtonClass,
@@ -47,45 +44,30 @@ import {
   adminRowActionClass,
   formatVnd,
 } from "~/lib/admin/ui"
+import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "~/lib/admin/realOrderStatus"
 import { ADMIN_PAGE_SIZE, paginate } from "~/lib/admin/pagination"
 import { cn } from "~/lib/utils"
-
-const paymentLabels: Record<string, string> = {
-  cod: "COD",
-  card: "Card",
-  ewallet: "E-wallet",
-}
-
-const paymentStatusLabels: Record<string, string> = {
-  paid: "Paid",
-  pending: "Unpaid",
-}
+import { fetchAdminOrders, type Order } from "~/apis/orderApi"
 
 export function OrdersList() {
-  const { orders, setOrders } = useAdminStore()
+  const [orders, setOrders] = useState<Order[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [paymentFilter, setPaymentFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (orders.length === 0) setOrders(mockOrders)
-    const timer = window.setTimeout(() => setIsLoading(false), 280)
-    return () => window.clearTimeout(timer)
-  }, [orders, setOrders])
+    fetchAdminOrders({ limit: 200 })
+      .then((res) => setOrders(res.items))
+      .finally(() => setIsLoading(false))
+  }, [])
 
   const filteredOrders = orders.filter((order) => {
     const q = searchQuery.toLowerCase()
     const matchesSearch =
-      order.orderNumber.toLowerCase().includes(q) ||
-      order.customerName.toLowerCase().includes(q) ||
-      order.customerEmail.toLowerCase().includes(q)
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter
-    const matchesPayment =
-      paymentFilter === "all" || order.paymentMethod === paymentFilter
-    return matchesSearch && matchesStatus && matchesPayment
+      order.orderNumber.toLowerCase().includes(q) || order.recipientName.toLowerCase().includes(q)
+    const matchesStatus = statusFilter === "all" || order.orderStatus === statusFilter
+    return matchesSearch && matchesStatus
   })
 
   const { items: paginatedOrders, totalPages } = useMemo(
@@ -94,16 +76,14 @@ export function OrdersList() {
   )
 
   useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages)
+    if (currentPage > totalPages) setCurrentPage(Math.max(1, totalPages))
   }, [currentPage, totalPages])
 
-  const hasActiveFilters =
-    searchQuery !== "" || statusFilter !== "all" || paymentFilter !== "all"
+  const hasActiveFilters = searchQuery !== "" || statusFilter !== "all"
 
   const handleClearFilters = () => {
     setSearchQuery("")
     setStatusFilter("all")
-    setPaymentFilter("all")
     setCurrentPage(1)
   }
 
@@ -121,19 +101,17 @@ export function OrdersList() {
           { label: "Total orders", value: orders.length },
           {
             label: "Pending",
-            value: orders.filter((o) => o.status === "pending").length,
+            value: orders.filter((o) => o.orderStatus === "PENDING").length,
             tone: "warning",
           },
           {
             label: "In progress",
-            value: orders.filter(
-              (o) => o.status === "processing" || o.status === "confirmed"
-            ).length,
+            value: orders.filter((o) => ["CONFIRMED", "SHIPPED"].includes(o.orderStatus)).length,
             tone: "brand",
           },
           {
             label: "Completed",
-            value: orders.filter((o) => o.status === "delivered").length,
+            value: orders.filter((o) => o.orderStatus === "DELIVERED").length,
             tone: "success",
           },
         ]}
@@ -147,7 +125,7 @@ export function OrdersList() {
               strokeWidth={2}
             />
             <Input
-              placeholder="Order code, name, email..."
+              placeholder="Order code, recipient name..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
@@ -170,32 +148,11 @@ export function OrdersList() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="shipped">Shipped</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
-        </AdminFilterField>
-        <AdminFilterField label="Payment">
-          <Select
-            value={paymentFilter}
-            onValueChange={(v) => {
-              setPaymentFilter(v)
-              setCurrentPage(1)
-            }}
-          >
-            <SelectTrigger className={cn("w-full", adminFilterInputClass)}>
-              <SelectValue placeholder="Payment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All methods</SelectItem>
-              <SelectItem value="cod">COD</SelectItem>
-              <SelectItem value="card">Card</SelectItem>
-              <SelectItem value="ewallet">E-wallet</SelectItem>
+              {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </AdminFilterField>
@@ -206,7 +163,7 @@ export function OrdersList() {
           <TableHeader>
             <TableRow className={cn("hover:bg-transparent", adminDividerClass)}>
               <TableHead className={adminThClass}>Order code</TableHead>
-              <TableHead className={adminThClass}>Customer</TableHead>
+              <TableHead className={adminThClass}>Recipient</TableHead>
               <TableHead className={adminThClass}>Order date</TableHead>
               <TableHead className={adminThClass}>Products</TableHead>
               <TableHead className={adminThClass}>Total</TableHead>
@@ -229,12 +186,7 @@ export function OrdersList() {
                     }
                     action={
                       hasActiveFilters ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-[13px]"
-                          onClick={handleClearFilters}
-                        >
+                        <Button variant="outline" size="sm" className="h-8 text-[13px]" onClick={handleClearFilters}>
                           Clear filters
                         </Button>
                       ) : undefined
@@ -244,50 +196,22 @@ export function OrdersList() {
               </TableRow>
             ) : (
               paginatedOrders.map((order) => (
-                <TableRow
-                  key={order.id}
-                  className={cn("group", adminDividerClass)}
-                >
+                <TableRow key={order.id} className={cn("group", adminDividerClass)}>
                   <TableCell className={adminTdClass}>
                     <p className="font-medium">{order.orderNumber}</p>
-                    {order.trackingNumber && (
-                      <p className={cn(adminMonoClass, "text-[12px]")}>
-                        Tracking: {order.trackingNumber}
-                      </p>
-                    )}
                   </TableCell>
                   <TableCell className={adminTdClass}>
-                    <p className="font-medium">{order.customerName}</p>
-                    <p className="truncate text-[12px] text-muted-foreground">
-                      {order.customerEmail}
-                    </p>
+                    <p className="font-medium">{order.recipientName}</p>
+                    <p className="truncate text-[12px] text-muted-foreground">{order.phone}</p>
                   </TableCell>
                   <TableCell className={adminTdClass}>
-                    <p>
-                      {format(new Date(order.createdAt), "dd/MM/yyyy", {
-                        locale: enUS,
-                      })}
-                    </p>
+                    <p>{format(new Date(order.createdAt), "dd/MM/yyyy", { locale: enUS })}</p>
                     <p className={cn(adminMonoClass, "text-[12px]")}>
                       {format(new Date(order.createdAt), "HH:mm")}
                     </p>
                   </TableCell>
                   <TableCell className={adminTdClass}>
-                    <div className="flex items-center gap-2">
-                      <div className="flex -space-x-1.5">
-                        {order.items.slice(0, 3).map((item, idx) => (
-                          <img
-                            key={idx}
-                            src={item.productImage}
-                            alt=""
-                            className="size-7 rounded-full border-2 border-background object-cover"
-                          />
-                        ))}
-                      </div>
-                      <span className={cn(adminMonoClass, "text-[12px]")}>
-                        {order.items.length}
-                      </span>
-                    </div>
+                    <span className={cn(adminMonoClass, "text-[12px]")}>{order.items.length}</span>
                   </TableCell>
                   <TableCell className={adminTdClass}>
                     <span className={cn("font-mono font-medium", adminBrandTextClass)}>
@@ -295,13 +219,20 @@ export function OrdersList() {
                     </span>
                   </TableCell>
                   <TableCell className={adminTdClass}>
-                    <p>{paymentLabels[order.paymentMethod] ?? order.paymentMethod}</p>
+                    <p>{order.paymentMethod}</p>
                     <p className="text-[12px] text-muted-foreground">
-                      {paymentStatusLabels[order.paymentStatus] ?? order.paymentStatus}
+                      {PAYMENT_STATUS_LABELS[order.paymentStatus]}
                     </p>
                   </TableCell>
                   <TableCell className={adminTdClass}>
-                    <OrderStatusBadge status={order.status} />
+                    <span
+                      className={cn(
+                        "inline-flex rounded-md px-2 py-0.5 text-[12px] font-medium",
+                        "bg-muted"
+                      )}
+                    >
+                      {ORDER_STATUS_LABELS[order.orderStatus]}
+                    </span>
                   </TableCell>
                   <TableCell className={cn(adminTdClass, "text-right")}>
                     <div className={adminRowActionClass}>
