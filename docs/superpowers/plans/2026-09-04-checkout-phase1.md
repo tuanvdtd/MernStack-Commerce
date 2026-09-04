@@ -3543,3 +3543,353 @@ git commit -m "refactor: align admin Order type and status UI with the real back
 ```
 
 (This intentionally leaves the codebase in a temporarily-broken typecheck state between this commit and Task 22 — that's fine for an in-progress feature branch worked through task-by-task, but don't merge/deploy between these commits.)
+
+---
+
+# Part F — Frontend Page Wiring
+
+**Scope note found while planning this part:** `ProductDetail.tsx` is currently **100% hardcoded mock data** — the `:id` route param is captured but never used to fetch a real product; `product`, `colors`, `storageOptions` are all fixed local objects, so there is no real `variantId` anywhere on this page today. Wiring the full product detail page to real catalog data (color/storage swatches mapped to real `ProductVariant` option combinations, real images, real stock) is a pre-existing gap belonging to product-catalog-page work, not to this checkout spec, and is **out of scope for this plan**. Task 16 below does the minimum needed to make "Add to cart" / "Buy now" call the real Cart/Checkout APIs with a real `variantId`: it fetches the real product via the catalog API that already exists (`front-end/src/apis/catalogApi.ts` — confirmed present, not something this plan adds) and resolves *a* real variant id to act on, without rebuilding the swatch-selection UI to be fully option-aware. Flag this scope boundary in the plan review if a fuller PDP integration should happen here instead.
+
+### Task 16: Wire `Cart.tsx` and `ProductDetail.tsx` to real APIs
+
+**Files:**
+- Modify: `front-end/src/pages/Cart.tsx`
+- Modify: `front-end/src/pages/ProductDetail.tsx`
+
+- [ ] **Step 1: Rewrite `Cart.tsx` to source state from `cartApi`**
+
+Replace the `INITIAL_ITEMS` constant and the `useState<CartItemData[]>(INITIAL_ITEMS)` line, and every handler that mutated local state, with API-backed versions. The overall component structure (JSX, `CartLineItem`/`CartOrderSummary`/`CartEmptyState` usage) stays the same — only the data source and handlers change:
+
+```tsx
+// front-end/src/pages/Cart.tsx (relevant changes — keep imports/JSX for CartEmptyState, CartLineItem, CartOrderSummary, CartPageHeader, storeTokens as-is; add:)
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import {
+  fetchCart,
+  addCartItem,
+  updateCartItem,
+  removeCartItem,
+  setSelectAll as setSelectAllApi,
+  getCartApiError,
+  type Cart as CartDto,
+} from "~/apis/cartApi"
+import type { CartItemData } from "~/components/cart/CartLineItem"
+
+function toCartItemData(dto: CartDto["items"][number]): CartItemData {
+  return {
+    id: dto.id,
+    productId: dto.variantId,
+    name: dto.productName,
+    variant: dto.variantLabel,
+    image: dto.imageUrl ?? "",
+    price: dto.price,
+    quantity: dto.quantity,
+    selected: dto.selected,
+  }
+}
+
+export function Cart() {
+  const [cartItems, setCartItems] = useState<CartItemData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [voucherCode, setVoucherCode] = useState("")
+
+  const loadCart = async () => {
+    try {
+      const cart = await fetchCart()
+      setCartItems(cart.items.map(toCartItemData))
+    } catch (error) {
+      toast.error(getCartApiError(error))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadCart()
+  }, [])
+
+  const selectedItems = cartItems.filter((item) => item.selected)
+  const allSelected = cartItems.length > 0 && cartItems.every((item) => item.selected)
+
+  const handleToggleSelect = async (id: string) => {
+    const item = cartItems.find((i) => i.id === id)
+    if (!item) return
+    try {
+      const cart = await updateCartItem(id, { selected: !item.selected })
+      setCartItems(cart.items.map(toCartItemData))
+    } catch (error) {
+      toast.error(getCartApiError(error))
+    }
+  }
+
+  const handleSelectAll = async (checked: boolean) => {
+    try {
+      const cart = await setSelectAllApi(checked)
+      setCartItems(cart.items.map(toCartItemData))
+    } catch (error) {
+      toast.error(getCartApiError(error))
+    }
+  }
+
+  const handleUpdateQuantity = async (id: string, delta: number) => {
+    const item = cartItems.find((i) => i.id === id)
+    if (!item) return
+    const nextQuantity = item.quantity + delta
+    if (nextQuantity < 1) return
+    try {
+      const cart = await updateCartItem(id, { quantity: nextQuantity })
+      setCartItems(cart.items.map(toCartItemData))
+    } catch (error) {
+      toast.error(getCartApiError(error))
+    }
+  }
+
+  const handleRemove = async (id: string) => {
+    try {
+      const cart = await removeCartItem(id)
+      setCartItems(cart.items.map(toCartItemData))
+      toast.success("Item removed from cart")
+    } catch (error) {
+      toast.error(getCartApiError(error))
+    }
+  }
+
+  const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
+
+  const subtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const shipping = selectedItems.length > 0 ? 30_000 : 0
+  const discount = voucherCode.trim().length > 0 ? 150_000 : 0
+  const total = Math.max(0, subtotal + shipping - discount)
+
+  if (isLoading) return null // or a loading skeleton, matching existing project conventions if one exists
+
+  if (cartItems.length === 0) return <CartEmptyState />
+
+  // ...rest of JSX unchanged, but wired to allSelected/handleSelectAll/handleToggleSelect/
+  // handleUpdateQuantity/handleRemove/subtotal/shipping/discount/total/formatPrice above
+  // instead of the old local-state equivalents.
+}
+```
+
+(The full JSX body below the state/handlers — the header, select-all checkbox row, `cartItems.map(...)` rendering `CartLineItem`, and the `CartOrderSummary` — is unchanged from the current file; only wire its props to the values above instead of the old local-state versions. `export { addCartItem }` from `cartApi` is unused in `Cart.tsx` itself — it's used by `ProductDetail.tsx` in the next step, imported from the same file.)
+
+- [ ] **Step 2: Wire `ProductDetail.tsx` to a real variant for Add to cart / Buy now**
+
+Add real product fetching alongside the existing mock display data (per the scope note above, this does not replace the swatch UI — it adds a best-effort real variant resolution just for the two action buttons):
+
+```tsx
+// front-end/src/pages/ProductDetail.tsx — add near the top of the component:
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router"
+import { toast } from "sonner"
+import { fetchCatalogProduct, type CatalogProductDetail } from "~/apis/catalogApi"
+import { addCartItem, getCartApiError } from "~/apis/cartApi"
+
+// inside the component:
+const navigate = useNavigate()
+const [catalogProduct, setCatalogProduct] = useState<CatalogProductDetail | null>(null)
+const [isAdding, setIsAdding] = useState(false)
+
+useEffect(() => {
+  if (!id) return
+  fetchCatalogProduct(id)
+    .then(setCatalogProduct)
+    .catch(() => {
+      // Real product fetch failing is non-fatal here — the page still renders its
+      // existing mock display data; only the action buttons are affected (guarded below).
+    })
+}, [id])
+
+// Best-effort: the first in-stock variant, since this page doesn't yet map its
+// color/storage swatches to real option combinations (see Part F scope note).
+const resolvedVariant = catalogProduct?.variants.find((v) => v.inStock) ?? catalogProduct?.variants[0]
+
+const handleAddToCart = async () => {
+  if (!resolvedVariant) {
+    toast.error("This product isn't available for purchase yet")
+    return
+  }
+  setIsAdding(true)
+  try {
+    await addCartItem(resolvedVariant.id, quantity)
+    toast.success(`Added ${quantity} item(s) to cart!`)
+  } catch (error) {
+    toast.error(getCartApiError(error))
+  } finally {
+    setIsAdding(false)
+  }
+}
+
+const handleBuyNow = () => {
+  if (!resolvedVariant) {
+    toast.error("This product isn't available for purchase yet")
+    return
+  }
+  navigate("/checkout", { state: { buyNowItem: { variantId: resolvedVariant.id, quantity } } })
+}
+```
+
+Replace the existing `handleAddToCart`/`handleBuyNow` function bodies (currently just `alert(...)`) with these, and add `disabled={isAdding}` to the "Add to cart" button.
+
+- [ ] **Step 3: Manual verification in the browser**
+
+Run: `cd front-end && npm run dev`, log in as a seeded user, open a product detail page, click "Add to cart", then navigate to `/cart` and confirm the item appears with the real product name/price from the backend (not the hardcoded "iPhone 15 Pro Max" — the *cart line item* comes from the real `CartItem`/`ProductVariant`/`Product` data even though the PDP display above it is still mock). Toggle selection, change quantity, remove an item — confirm each persists across a page refresh (i.e., is actually server-side, not just local state).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add front-end/src/pages/Cart.tsx front-end/src/pages/ProductDetail.tsx
+git commit -m "feat: wire Cart page and product-detail actions to real Cart API"
+```
+
+---
+
+### Task 17: Wire `Checkout.tsx` to the real Checkout/Address APIs
+
+**Files:**
+- Modify: `front-end/src/pages/Checkout.tsx`
+- Modify: `front-end/src/components/checkout/CheckoutPaymentSection.tsx`
+
+- [ ] **Step 1: Gate the "Pay by card" option as coming soon**
+
+Per the spec, Phase 1 is COD-only; card/e-wallet stays visible but disabled rather than removed (minimizes rework for Phase 3). In `CheckoutPaymentSection.tsx`, change the card `<button>`:
+
+```tsx
+        <button
+          type="button"
+          disabled
+          onClick={() => {}}
+          className={cn(
+            "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors opacity-60 cursor-not-allowed",
+            "border-gray-200 bg-white"
+          )}
+          title="Card payment is coming soon"
+        >
+```
+
+(Replace the existing `onClick={() => onPaymentTypeChange("card")}` and its conditional classes with the disabled version above — keep everything else, including the icon/label markup inside, unchanged. Also add a small "Coming soon" badge next to the "Pay by card" label text so it's visually obvious, not just non-clickable.)
+
+- [ ] **Step 2: Rewrite `Checkout.tsx`'s data sourcing and submit handler**
+
+Replace the hardcoded `ORDER_ITEMS` and the `handlePlaceOrder` body:
+
+```tsx
+// front-end/src/pages/Checkout.tsx — relevant changes
+import { useEffect, useState } from "react"
+import { useLocation, useNavigate } from "react-router"
+import { toast } from "sonner"
+import { fetchCart, type CartItem } from "~/apis/cartApi"
+import { fetchAddresses, type Address } from "~/apis/addressApi"
+import { checkout, getCheckoutApiError, type BuyNowItem } from "~/apis/checkoutApi"
+
+type LocationState = { buyNowItem?: BuyNowItem } | null
+
+export function Checkout() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const buyNowItem = (location.state as LocationState)?.buyNowItem
+
+  const [items, setItems] = useState<CartItem[]>([])
+  const [address, setAddress] = useState<Address | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  // Generated once per checkout *attempt* (this mount), reused across retries of that
+  // same submit so a network retry doesn't create a duplicate order; a fresh mount of
+  // this page (new visit to /checkout) gets a fresh key.
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
+
+  const [paymentType, setPaymentType] = useState<PaymentType>("cod")
+  const [cardProvider, setCardProvider] = useState<CardProvider>("stripe")
+  const [voucherCode, setVoucherCode] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [addresses] = await Promise.all([fetchAddresses()])
+        setAddress(addresses.find((a) => a.isDefault) ?? addresses[0] ?? null)
+
+        if (!buyNowItem) {
+          const cart = await fetchCart()
+          setItems(cart.items.filter((item) => item.selected))
+        }
+      } catch {
+        toast.error("Could not load checkout details")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const displayItems = buyNowItem
+    ? [] // Buy-now items aren't in the cart response; render from `buyNowItem` alone if the
+         // UI needs a line item (variant name/price/image), fetch it via catalogApi by variantId.
+    : items
+
+  const subtotal = buyNowItem
+    ? 0 // resolved server-side; buy-now flow shows a simplified summary until the order is created
+    : items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const shipping = 30_000 // display estimate only — the server computes the authoritative shippingFee
+  const voucherDiscount = 0 // real discount amount comes back from the server response after placing the order
+  const total = Math.max(0, subtotal + shipping - voucherDiscount)
+
+  const handlePlaceOrder = async () => {
+    if (isSubmitting) return
+    if (!address) {
+      toast.error("Please add a shipping address before checking out")
+      return
+    }
+    if (paymentType !== "cod") {
+      toast.error("Online payment is coming soon — please select Cash on delivery")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const order = await checkout(
+        {
+          addressId: address.id,
+          paymentMethod: "cod",
+          discountCode: voucherCode.trim() || undefined,
+          buyNowItem,
+        },
+        idempotencyKey,
+      )
+      toast.success("Order placed successfully!", {
+        description: `Order ${order.orderNumber} has been recorded. The courier will contact you soon.`,
+      })
+      navigate(`/account/orders`)
+    } catch (error) {
+      const { message } = getCheckoutApiError(error)
+      toast.error(message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // ...
+}
+```
+
+**Note on the buy-now summary simplification above:** the spec's `buyNowItem` path intentionally skips the cart, so the client doesn't have the variant's live price/name to show a subtotal before submitting — only the backend (which re-reads the live `ProductVariant`) knows the true price. Showing a placeholder ("calculated at checkout") for the buy-now summary rather than a wrong or duplicated price lookup is the simplest correct behavior for Phase 1; if a precise pre-submit price display matters, that requires a public `GET /api/products/variants/:id` lookup, which is out of scope here (not requested by the spec) — flag this as a follow-up if product feedback asks for it.
+
+Wire the rest of the existing JSX (`ORDER_ITEMS.map(...)` → `displayItems.map(...)`, the address block → render `address.recipientName`/`address.phone`/`address.wardName`/`address.provinceName`/`address.detail` instead of the hardcoded "Minh Tuan Nguyen" block, with an empty/"Add address" state when `address` is `null`) and pass `subtotal`/`shipping`/`voucherDiscount`/`total`/`isSubmitting`/`handlePlaceOrder` to `CheckoutOrderSummary` as before.
+
+- [ ] **Step 3: Typecheck**
+
+Run: `cd front-end && npx tsc --noEmit`
+Expected: no new errors from this file (existing unrelated admin-type errors from Task 15 are still expected until Task 21).
+
+- [ ] **Step 4: Manual verification in the browser**
+
+1. With items in the cart (from Task 16) and at least one address (create one manually via `curl`/Postman against `/api/addresses` if Task 18's UI isn't done yet), load `/checkout`. Confirm the real cart items and real default address appear.
+2. Click "Place order" with COD selected. Confirm success toast with a real `orderNumber`, redirect to `/account/orders`.
+3. Click "Pay by card" — confirm it's disabled/inert.
+4. From a product page, click "Buy now" — confirm it navigates to `/checkout` and a COD order can be placed for just that one item (verify via `GET /api/orders` that the resulting order has exactly one line item, and that the cart's other items are untouched).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add front-end/src/pages/Checkout.tsx front-end/src/components/checkout/CheckoutPaymentSection.tsx
+git commit -m "feat: wire Checkout page to real address/cart/checkout APIs, COD-only"
+```
