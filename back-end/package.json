@@ -22,7 +22,9 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "tree": "npx tree -L 4 -I 'node_modules|.git|dist|build'",
     "seed": "node --import tsx prisma/seed.ts",
-    "db:clear-products": "node --import tsx prisma/scripts/clearProducts.ts"
+    "db:clear-products": "node --import tsx prisma/scripts/clearProducts.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.12.2",
@@ -79,6 +81,8 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.0"
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^5.0.0",
+    "vitest-mock-extended": "^5.1.1"
   }
 }
