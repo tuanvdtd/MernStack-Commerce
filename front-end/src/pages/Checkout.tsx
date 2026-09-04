@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router"
 import { ChevronRight, MapPin, Package, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import { CheckoutOrderSummary } from "~/components/checkout/CheckoutOrderSummary"
@@ -14,32 +14,21 @@ import {
 import { Button } from "~/components/ui/button"
 import { storeTokens } from "~/lib/categoryTheme"
 import { cn } from "~/lib/utils"
+import { fetchCart, type Cart } from "~/apis/cartApi"
+import { fetchAddresses, type Address } from "~/apis/addressApi"
+import { checkout as submitCheckout } from "~/apis/checkoutApi"
 
-const ORDER_ITEMS = [
-  {
-    id: "1",
-    name: "iPhone 16 Pro 256GB",
-    variant: "Natural Titanium - Official VN/A",
-    quantity: 1,
-    price: 28_990_000,
-    image:
-      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-  },
-  {
-    id: "2",
-    name: "AirPods Pro 2 (USB-C)",
-    variant: "White - Official Apple",
-    quantity: 1,
-    price: 5_990_000,
-    image:
-      "https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-  },
-]
+const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
 
-const formatPrice = (price: number) =>
-  `${price.toLocaleString("en-US")} VND`
+// Rough preview only — mirrors the back-end SHIPPING_FLAT_FEE default. The authoritative
+// total (including the real fee) is always recomputed server-side in POST /checkout.
+const SHIPPING_FEE_PREVIEW = 30_000
 
 export function Checkout() {
+  const navigate = useNavigate()
+  const [cart, setCart] = useState<Cart>({ id: null, items: [], countProduct: 0 })
+  const [address, setAddress] = useState<Address | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [paymentType, setPaymentType] = useState<PaymentType>("cod")
   const [cardProvider, setCardProvider] = useState<CardProvider>("stripe")
   const [voucherCode, setVoucherCode] = useState("")
@@ -47,33 +36,55 @@ export function Checkout() {
   const [gatewayOpen, setGatewayOpen] = useState(false)
   const [activeGateway, setActiveGateway] = useState<CardProvider | null>(null)
 
-  const subtotal = ORDER_ITEMS.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = 35_000
-  const voucherDiscount = voucherCode.trim().length > 0 ? 150_000 : 0
+  useEffect(() => {
+    Promise.all([fetchCart(), fetchAddresses()])
+      .then(([cartData, addresses]) => {
+        setCart(cartData)
+        setAddress(addresses.find((a) => a.isDefault) ?? addresses[0] ?? null)
+      })
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const orderItems = cart.items.filter((item) => item.selected)
+  const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const shipping = orderItems.length > 0 ? SHIPPING_FEE_PREVIEW : 0
+  const voucherDiscount = orderItems.length > 0 && voucherCode.trim().length > 0 ? 150_000 : 0
   const total = Math.max(0, subtotal + shipping - voucherDiscount)
 
-  /**
-   * Place the order: COD completes immediately; cards open the selected gateway modal.
-   */
   const handlePlaceOrder = async () => {
-    if (isSubmitting) return
-    setIsSubmitting(true)
+    if (isSubmitting || orderItems.length === 0) return
 
-    try {
-      if (paymentType === "cod") {
-        await new Promise((resolve) => window.setTimeout(resolve, 600))
-        toast.success("Order placed successfully!", {
-          description: "Your COD order has been recorded. The courier will contact you soon.",
-        })
-        return
-      }
+    if (!address) {
+      toast.error("Please add a shipping address first")
+      return
+    }
 
+    if (paymentType === "card") {
       setActiveGateway(cardProvider)
       setGatewayOpen(true)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const order = await submitCheckout({
+        addressId: address.id,
+        paymentMethod: "cod",
+        discountCode: voucherCode.trim() || undefined,
+      })
+      toast.success("Order placed successfully!", {
+        description: `Order ${order.orderNumber} has been recorded.`,
+      })
+      navigate("/account/orders")
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message ?? "Failed to place order")
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  if (isLoading) return null
 
   return (
     <div className={cn("min-h-screen py-6 sm:py-8", storeTokens.pageBg)}>
@@ -144,20 +155,31 @@ export function Checkout() {
                   variant="ghost"
                   size="sm"
                   className="shrink-0 text-[#00647e] hover:bg-[#e8f9fd] hover:text-[#00576e]"
+                  asChild
                 >
-                  <Pencil className="size-3.5" aria-hidden="true" />
-                  Edit
+                  <Link to="/account/addresses">
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                    {address ? "Edit" : "Add"}
+                  </Link>
                 </Button>
               </div>
 
               <div className="mt-4 rounded-lg border border-gray-100 bg-[#fafafa] p-4">
-                <p className="font-medium text-[#2b2f32]">Minh Tuan Nguyen</p>
-                <p className="mt-1 text-sm leading-relaxed text-[#757575]">
-                  42 Nguyen Hue, Ben Nghe Ward
-                  <br />
-                  District 1, Ho Chi Minh City
-                </p>
-                <p className="mt-2 text-sm text-[#2b2f32]">0903 847 192</p>
+                {address ? (
+                  <>
+                    <p className="font-medium text-[#2b2f32]">{address.recipientName}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-[#757575]">
+                      {address.detail}, {address.wardName}
+                      <br />
+                      {address.provinceName}
+                    </p>
+                    <p className="mt-2 text-sm text-[#2b2f32]">{address.phone}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-[#757575]">
+                    You don't have a saved address yet. Add one to continue checkout.
+                  </p>
+                )}
               </div>
             </section>
 
@@ -170,29 +192,29 @@ export function Checkout() {
               )}
             >
               <h2 className="text-base font-semibold text-[#2b2f32] sm:text-lg">
-                Products ({ORDER_ITEMS.length})
+                Products ({orderItems.length})
               </h2>
 
               <ul className="mt-4 space-y-4">
-                {ORDER_ITEMS.map((item) => (
+                {orderItems.map((item) => (
                   <li key={item.id} className="flex gap-3 sm:gap-4">
                     <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-[#f0f0f0] sm:size-24">
                       <img
-                        src={item.image}
-                        alt={item.name}
+                        src={item.imageUrl}
+                        alt={item.productName}
                         className="size-full object-cover"
                       />
                     </div>
                     <div className="min-w-0 flex-1 py-0.5">
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="text-sm font-medium leading-snug text-[#2b2f32]">
-                          {item.name}
+                          {item.productName}
                         </h3>
                         <span className={cn("shrink-0 text-sm font-semibold", storeTokens.price)}>
                           {formatPrice(item.price)}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-[#757575]">{item.variant}</p>
+                      <p className="mt-1 text-xs text-[#757575]">{item.variantLabel}</p>
                       <p className="mt-2 inline-block rounded bg-[#f0f0f0] px-2 py-0.5 text-xs text-[#757575]">
                         Qty: {item.quantity}
                       </p>
@@ -211,7 +233,7 @@ export function Checkout() {
           </div>
 
           <CheckoutOrderSummary
-            itemCount={ORDER_ITEMS.reduce((sum, item) => sum + item.quantity, 0)}
+            itemCount={orderItems.reduce((sum, item) => sum + item.quantity, 0)}
             subtotal={subtotal}
             shipping={shipping}
             discount={voucherDiscount}
