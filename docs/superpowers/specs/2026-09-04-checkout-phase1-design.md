@@ -61,7 +61,7 @@ model Address {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   label         String?  // "Home", "Office"
   recipientName String
-  phone         String   // VN phone format, validated
+  phone         String   // VN phone format, see Address & Location API section
   provinceCode  String   // GSO code, 34 provinces post-2025 merger
   provinceName  String
   wardCode      String   // GSO code, post-2025 merger (no district level)
@@ -215,6 +215,58 @@ storage.
 
 All routes: `authenticate` only, scoped to `req.user.id`.
 
+`Cart.countProduct` is maintained as a denormalized count of distinct line
+items, updated in the same transaction as any add/remove/quantity-change
+(it's currently unused by the frontend, but kept correct rather than left to
+drift since it already exists on the model).
+
+## Address & Location API
+
+New module: `back-end/src/modules/addresses/`. All routes: `authenticate`
+only, scoped to `req.user.id`.
+
+- `GET /api/addresses` — list the current user's saved addresses.
+- `POST /api/addresses` — create. Body: `{label?, recipientName, phone,
+  provinceCode, wardCode, detail, isDefault?}`. `provinceCode`/`wardCode`
+  are validated against the seeded `Province`/`Ward` tables (`404
+  LOCATION_NOT_FOUND` if unknown, and the ward must belong to the given
+  province). `phone` is validated against a VN mobile/landline pattern
+  (`/^(0|\+84)(3|5|7|8|9)[0-9]{8}$/`, covering current VN mobile prefixes).
+  If this is the user's first address, or `isDefault: true` is passed, it
+  becomes the default.
+- `PATCH /api/addresses/:id` — update any of the same fields; same
+  validation rules apply.
+- `DELETE /api/addresses/:id` — delete; `409 ADDRESS_IN_USE` is not needed
+  since `Order` stores an address *snapshot*, not a foreign key, so deleting
+  an `Address` never affects past orders. If the deleted address was the
+  default and other addresses remain, the most-recently-updated remaining
+  one is promoted to default.
+- `PATCH /api/addresses/:id/default` — sets this address as default.
+
+**Enforcing a single default address per user:** the schema has no DB-level
+uniqueness constraint on `isDefault` (Prisma/MySQL can't express "unique
+`true` per `userId`" directly), so this is enforced at the service layer:
+setting `isDefault: true` on one address (via create, update, or the
+`/default` endpoint) runs inside a transaction that first sets
+`isDefault = false` on all of the user's other addresses, then sets it on
+the target. All three write paths funnel through the same
+`addressService.setAsDefault()` helper so this invariant can't be bypassed.
+
+**Location API** (public, read-only, no auth — needed before a user has
+logged in isn't required here since it's only used inside the authenticated
+address form, but there's no reason to gate it):
+- `GET /api/locations/provinces` — list all 34 provinces (`code`, `name`).
+- `GET /api/locations/provinces/:code/wards` — list wards for a province.
+
+**Seed data source:** the `Province`/`Ward` tables are populated by a
+one-off seed script (`back-end/prisma/scripts/seedLocations.ts`, following
+the existing pattern in `prisma/scripts/`) from a static JSON file checked
+into the repo. That JSON is generated ahead of implementation from the
+official post-merger administrative dataset published by Vietnam's General
+Statistics Office / provincial resolutions (34 provinces, ward-level,
+effective July 2025) — sourcing and generating this file is a prerequisite
+task in the implementation plan, not something assumed to already exist.
+
 ## Checkout API
 
 `POST /api/checkout`
@@ -265,11 +317,13 @@ Server logic, executed as one Prisma `$transaction`:
    (that's Phase 2).
 7. Create `Order` + `OrderItem[]` (snapshot `productName`, `variantLabel`,
    `imageUrl`, `price`, and the address fields), decrement
-   `ProductVariant.stockQuantity` for each item, upsert-increment
-   `DiscountUserUse` if a discount was applied, delete the consumed
-   (`selected`) `CartItem`s (skipped entirely for the `buyNowItem` path,
-   since nothing was read from the cart), set `orderStatus = PENDING`,
-   `paymentMethod = COD`, `paymentStatus = UNPAID`,
+   `ProductVariant.stockQuantity` for each item, and — if a discount was
+   applied — upsert-increment `DiscountUserUse.usesCount` **and** increment
+   `Discount.usesCount` (the global counter that step 5's `maxUses` check
+   reads; both counters must move together or the global cap can never be
+   enforced). Delete the consumed (`selected`) `CartItem`s (skipped entirely
+   for the `buyNowItem` path, since nothing was read from the cart), set
+   `orderStatus = PENDING`, `paymentMethod = COD`, `paymentStatus = UNPAID`,
    `shipmentStatus = NOT_SHIPPED`.
 8. Store `Idempotency-Key → orderId` in Redis with a 24h TTL.
 9. Return the created order.
@@ -288,8 +342,10 @@ the last unit of stock cannot both succeed.
 - `GET /api/orders/:id` — detail; `404` if not owned by the caller.
 - `POST /api/orders/:id/cancel` — allowed only when `orderStatus` is
   `PENDING` or `CONFIRMED` (`409 ORDER_NOT_CANCELLABLE` otherwise). Restores
-  `stockQuantity` for each item, decrements `DiscountUserUse.usesCount` if a
-  discount was applied, sets `orderStatus = CANCELLED`.
+  `stockQuantity` for each item; if a discount was applied, decrements both
+  `DiscountUserUse.usesCount` and the `Discount.usesCount` global counter
+  (mirroring the increment in checkout step 7, so the global cap stays
+  accurate); sets `orderStatus = CANCELLED`.
 
 **Public tracking** (no auth):
 - `GET /api/orders/track?orderNumber=...&phone=...` — both parameters
@@ -321,12 +377,17 @@ the last unit of stock cannot both succeed.
 - Order creation dedup: `Idempotency-Key` header + Redis, as described
   above. This is the primitive Phase 2 (shipment creation) and Phase 3
   (payment webhooks) are expected to reuse.
-- Domain error codes (via the existing `ApiError`/`errorHandler`):
-  `CART_EMPTY`, `INSUFFICIENT_STOCK`, `DISCOUNT_INVALID`,
+- Domain error codes: `CART_EMPTY`, `INSUFFICIENT_STOCK`, `DISCOUNT_INVALID`,
   `DISCOUNT_EXPIRED`, `DISCOUNT_LIMIT_REACHED`, `ADDRESS_NOT_FOUND`,
-  `ORDER_NOT_CANCELLABLE`, `ORDER_NOT_FOUND`. All 4xx with a machine-readable
-  `code` field so the frontend can surface specific messaging (e.g.
-  highlight the exact out-of-stock line item).
+  `ORDER_NOT_CANCELLABLE`, `ORDER_NOT_FOUND`. All 4xx.
+  **Note:** the existing `ApiError` (`back-end/src/core/http/ApiError.ts`)
+  and `errorHandler` currently only carry/serialize `statusCode`, `message`,
+  and `details` — there is no `code` field today. This phase extends
+  `ApiError` with an optional `code` property and updates `errorHandler` to
+  include it in the JSON response (`{ message, code, details }`) so the
+  frontend can match on it programmatically. This is a small, backward-
+  compatible extension (existing callers that don't pass `code` are
+  unaffected), not a pre-existing capability being reused as-is.
 
 ## Frontend Integration
 
@@ -350,9 +411,9 @@ New API modules in `front-end/src/apis/`: `cartApi.ts`, `checkoutApi.ts`,
   `PaymentGatewayModal` show COD only in Phase 1; card/e-wallet options are
   shown as "coming soon" rather than removed outright, to minimize rework
   when Phase 3 lands.
-- **`AccountAddresses.tsx`**: wired to `addressApi` (list/create/update/
-  delete/set-default); its form gains a province → ward picker backed by
-  `GET /api/locations/provinces` and `GET /api/locations/provinces/:code/wards`.
+- **`AccountAddresses.tsx`**: wired to `addressApi`, calling the Address API
+  described above (list/create/update/delete/set-default); its form gains a
+  province → ward picker backed by the Location API.
 - **`AccountOrders.tsx`**: wired to `GET /api/orders`.
 - **`TrackOrder.tsx`**: wired to the public track endpoint; carrier/tracking-
   number fields are hidden unless `shipmentStatus` indicates a real
