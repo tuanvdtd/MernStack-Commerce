@@ -261,11 +261,17 @@ address form, but there's no reason to gate it):
 **Seed data source:** the `Province`/`Ward` tables are populated by a
 one-off seed script (`back-end/prisma/scripts/seedLocations.ts`, following
 the existing pattern in `prisma/scripts/`) from a static JSON file checked
-into the repo. That JSON is generated ahead of implementation from the
-official post-merger administrative dataset published by Vietnam's General
-Statistics Office / provincial resolutions (34 provinces, ward-level,
-effective July 2025) — sourcing and generating this file is a prerequisite
-task in the implementation plan, not something assumed to already exist.
+into the repo (`back-end/prisma/data/vn-locations.json`). That file is a
+one-time snapshot fetched from
+[provinces.open-api.vn](https://provinces.open-api.vn/) **v2** — the
+post-July-2025 endpoint (34 provinces, 2-tier province/ward, no district),
+built on the actively maintained open-source `VietnamProvinces` dataset. The
+snapshot is fetched and committed once during implementation rather than
+having the seed script call the live API on every run, so seeding stays
+reproducible offline and isn't affected if the third-party API later
+changes shape or goes down. Regenerating the snapshot (e.g. if VN
+administrative boundaries change again) is a manual, occasional task, not
+part of the normal deploy/seed flow.
 
 ## Checkout API
 
