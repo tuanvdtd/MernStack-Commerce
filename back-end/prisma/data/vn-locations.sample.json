@@ -1,0 +1,28 @@
+[
+  {
+    "code": "HN",
+    "name": "Thành phố Hà Nội",
+    "wards": [
+      { "code": "HN-BD", "name": "Phường Ba Đình" },
+      { "code": "HN-HK", "name": "Phường Hoàn Kiếm" },
+      { "code": "HN-CG", "name": "Phường Cầu Giấy" }
+    ]
+  },
+  {
+    "code": "HCM",
+    "name": "Thành phố Hồ Chí Minh",
+    "wards": [
+      { "code": "HCM-BN", "name": "Phường Bến Nghé" },
+      { "code": "HCM-BT", "name": "Phường Bến Thành" },
+      { "code": "HCM-TD", "name": "Phường Thủ Đức" }
+    ]
+  },
+  {
+    "code": "DN",
+    "name": "Thành phố Đà Nẵng",
+    "wards": [
+      { "code": "DN-HC", "name": "Phường Hải Châu" },
+      { "code": "DN-TK", "name": "Phường Thanh Khê" }
+    ]
+  }
+]

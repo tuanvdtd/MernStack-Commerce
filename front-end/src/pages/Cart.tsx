@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Trash2 } from "lucide-react"
 import { CartEmptyState } from "~/components/cart/CartEmptyState"
 import { CartLineItem, type CartItemData } from "~/components/cart/CartLineItem"
@@ -7,90 +7,82 @@ import { CartPageHeader } from "~/components/cart/CartPageHeader"
 import { Button } from "~/components/ui/button"
 import { Checkbox } from "~/components/ui/checkbox"
 import { storeTokens } from "~/lib/categoryTheme"
+import {
+  fetchCart,
+  removeCartItem,
+  selectAllCartItems,
+  updateCartItem,
+  type Cart as CartData,
+} from "~/apis/cartApi"
 
-const INITIAL_ITEMS: CartItemData[] = [
-  {
-    id: "1",
-    productId: "iphone-16-pro",
-    name: "iPhone 16 Pro 256GB",
-    variant: "Natural Titanium - Official VN/A",
-    image:
-      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    price: 28_990_000,
-    quantity: 1,
-    selected: true,
-  },
-  {
-    id: "2",
-    productId: "airpods-pro-2",
-    name: "AirPods Pro 2 (USB-C)",
-    variant: "White - Official Apple",
-    image:
-      "https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    price: 5_990_000,
-    quantity: 1,
-    selected: true,
-  },
-  {
-    id: "3",
-    productId: "galaxy-watch-7",
-    name: "Samsung Galaxy Watch 7 44mm LTE",
-    variant: "Blue - Silicone strap",
-    image:
-      "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    price: 8_490_000,
-    quantity: 2,
-    selected: false,
-  },
-]
+const formatPrice = (price: number) => `${price.toLocaleString("en-US")} VND`
 
-const formatPrice = (price: number) =>
-  `${price.toLocaleString("en-US")} VND`
+const EMPTY_CART: CartData = { id: null, items: [], countProduct: 0 }
+
+function toCartItemData(cart: CartData): CartItemData[] {
+  return cart.items.map((item) => ({
+    id: item.id,
+    productId: item.productId,
+    name: item.productName,
+    variant: item.variantLabel,
+    image: item.imageUrl ?? "",
+    price: item.price,
+    quantity: item.quantity,
+    selected: item.selected,
+  }))
+}
 
 export function Cart() {
-  const [cartItems, setCartItems] = useState<CartItemData[]>(INITIAL_ITEMS)
-  const [selectAll, setSelectAll] = useState(false)
+  const [cart, setCart] = useState<CartData>(EMPTY_CART)
   const [voucherCode, setVoucherCode] = useState("")
-
-  const selectedItems = useMemo(() => cartItems.filter((item) => item.selected), [cartItems])
-  const allSelected = cartItems.length > 0 && cartItems.every((item) => item.selected)
-  const someSelected = cartItems.some((item) => item.selected)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    setSelectAll(allSelected)
-  }, [allSelected])
+    fetchCart()
+      .then(setCart)
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const cartItems = toCartItemData(cart)
+  const selectedItems = cartItems.filter((item) => item.selected)
+  const selectAll = cartItems.length > 0 && cartItems.every((item) => item.selected)
+  const someSelected = cartItems.some((item) => item.selected)
 
   const subtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const shipping = selectedItems.length > 0 ? 35_000 : 0
   const voucherDiscount = selectedItems.length > 0 && voucherCode.trim().length > 0 ? 150_000 : 0
   const total = Math.max(0, subtotal + shipping - voucherDiscount)
 
-  const toggleSelectAll = (checked: boolean) => {
-    setSelectAll(checked)
-    setCartItems((items) => items.map((item) => ({ ...item, selected: checked })))
+  const toggleSelectAll = async (checked: boolean) => {
+    setCart(await selectAllCartItems(checked))
   }
 
-  const toggleItemSelection = (id: string) => {
-    setCartItems((items) =>
-      items.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item))
-    )
+  const toggleItemSelection = async (id: string) => {
+    const item = cart.items.find((i) => i.id === id)
+    if (!item) return
+    setCart(await updateCartItem(id, { selected: !item.selected }))
   }
 
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-      )
-    )
+  const updateQuantity = async (id: string, delta: number) => {
+    const item = cart.items.find((i) => i.id === id)
+    if (!item) return
+    setCart(await updateCartItem(id, { quantity: Math.max(1, item.quantity + delta) }))
   }
 
-  const removeItem = (id: string) => {
-    setCartItems((items) => items.filter((item) => item.id !== id))
+  const removeItem = async (id: string) => {
+    setCart(await removeCartItem(id))
   }
 
-  const removeSelected = () => {
-    setCartItems((items) => items.filter((item) => !item.selected))
+  const removeSelected = async () => {
+    const selectedIds = cart.items.filter((i) => i.selected).map((i) => i.id)
+    let updated = cart
+    for (const id of selectedIds) {
+      updated = await removeCartItem(id)
+    }
+    setCart(updated)
   }
+
+  if (isLoading) return null
 
   return (
     <div className={`min-h-[100dvh] ${storeTokens.pageBg} py-5 sm:py-6`}>

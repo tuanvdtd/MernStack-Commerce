@@ -24,7 +24,9 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
   if (err instanceof ApiError) {
     console.log(err.message);
-    return res.status(err.statusCode).json({ message: err.message, details: err.details })
+    return res
+      .status(err.statusCode)
+      .json({ message: err.message, code: err.code, details: err.details })
   }
   // Trả lỗi chung nếu chưa handle
   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' })
